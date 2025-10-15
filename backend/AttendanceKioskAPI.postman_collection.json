@@ -1,0 +1,286 @@
+{
+  "info": {
+    "name": "Attendance Kiosk API",
+    "description": "API collection for Attendance Kiosk System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Employees",
+      "item": [
+        {
+          "name": "Get All Employees",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/employees",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employees"]
+            }
+          }
+        },
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"policy_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employees",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employees"]
+            }
+          }
+        },
+        {
+          "name": "Get Employee",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/employees/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employees", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Employee",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane.doe@example.com\",\n  \"policy_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employees/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employees", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Employee",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/employees/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employees", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Policies",
+      "item": [
+        {
+          "name": "Get All Policies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/policies",
+              "host": ["{{base_url}}"],
+              "path": ["api", "policies"]
+            }
+          }
+        },
+        {
+          "name": "Create Policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Standard Policy\",\n  \"effective_from\": \"2024-01-01\",\n  \"effective_to\": \"2024-12-31\",\n  \"include_break\": true,\n  \"break_hours\": 1,\n  \"break_minutes\": 0,\n  \"full_day_hours\": 8,\n  \"full_day_minutes\": 30,\n  \"half_day_hours\": 4,\n  \"half_day_minutes\": 30,\n  \"enable_late_tracking\": true,\n  \"work_start_time\": \"09:00\",\n  \"late_grace_period\": 15,\n  \"enable_early_tracking\": true,\n  \"work_end_time\": \"18:00\",\n  \"early_grace_period\": 15\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/policies",
+              "host": ["{{base_url}}"],
+              "path": ["api", "policies"]
+            }
+          }
+        },
+        {
+          "name": "Get Policy",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/policies/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "policies", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Policy",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Policy\",\n  \"effective_from\": \"2024-01-01\",\n  \"effective_to\": \"2024-12-31\",\n  \"include_break\": true,\n  \"break_hours\": 1,\n  \"break_minutes\": 0,\n  \"full_day_hours\": 8,\n  \"full_day_minutes\": 30,\n  \"half_day_hours\": 4,\n  \"half_day_minutes\": 30,\n  \"enable_late_tracking\": true,\n  \"work_start_time\": \"09:00\",\n  \"late_grace_period\": 15,\n  \"enable_early_tracking\": true,\n  \"work_end_time\": \"18:00\",\n  \"early_grace_period\": 15\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/policies/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "policies", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Policy",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/policies/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "policies", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendances",
+      "item": [
+        {
+          "name": "Get All Attendances",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/attendances",
+              "host": ["{{base_url}}"],
+              "path": ["api", "attendances"]
+            }
+          }
+        },
+        {
+          "name": "Create Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": 1,\n  \"check_in\": \"2024-01-01 09:00:00\",\n  \"check_out\": \"2024-01-01 17:00:00\",\n  \"date\": \"2024-01-01\",\n  \"status\": \"present\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/attendances",
+              "host": ["{{base_url}}"],
+              "path": ["api", "attendances"]
+            }
+          }
+        },
+        {
+          "name": "Get Attendance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/attendances/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "attendances", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Attendance",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": 1,\n  \"check_in\": \"2024-01-01 09:00:00\",\n  \"check_out\": \"2024-01-01 17:00:00\",\n  \"date\": \"2024-01-01\",\n  \"status\": \"late\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/attendances/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "attendances", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Attendance",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/attendances/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "attendances", "1"]
+            }
+          }
+        },
+        {
+          "name": "Mark Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/attendances/mark",
+              "host": ["{{base_url}}"],
+              "path": ["api", "attendances", "mark"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ]
+}
