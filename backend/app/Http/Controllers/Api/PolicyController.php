@@ -70,6 +70,15 @@ class PolicyController extends Controller
 
     public function destroy(Policy $policy)
     {
+        // Check if policy has assigned employees
+        if ($policy->employees()->count() > 0) {
+            $assignedEmployees = $policy->employees()->select('employee_id', 'name')->get();
+            return response()->json([
+                'error' => 'Cannot delete policy with assigned employees',
+                'assigned_employees' => $assignedEmployees
+            ], 422);
+        }
+
         $policy->delete();
         return response()->json(['message' => 'Policy deleted successfully']);
     }
