@@ -31,6 +31,7 @@ const AttendancePage = () => {
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [countdown, setCountdown] = useState(15);
   const [recentActivities, setRecentActivities] = useState([]);
+  const [currentAction, setCurrentAction] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -69,6 +70,11 @@ const AttendancePage = () => {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      videoRef.current.pause();
+      videoRef.current.load();
+    }
   };
 
   const handleScan = async () => {
@@ -86,21 +92,35 @@ const AttendancePage = () => {
 
     await startVideo();
 
-    // Start countdown
-    const countdownInterval = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
     let recognitionAttempted = false;
     let scanCompleted = false;
     let attendanceMarked = false;
     let isMarkingAttendance = false;
+    let timeoutId = null;
+    let recognitionInterval = null;
+    let countdownInterval = null;
+
+    // Start countdown
+    countdownInterval = setInterval(() => {
+      setCountdown(prev => {
+        const newCountdown = Math.max(0, prev - 1);
+        if (newCountdown === 0) {
+          clearInterval(countdownInterval);
+          if (!scanCompleted) {
+            scanCompleted = true;
+            clearInterval(recognitionInterval);
+            setIsScanning(false);
+            setStatus("Face not recognized");
+            notify('Face not recognized after multiple attempts');
+            stopVideo();
+            setTimeout(() => {
+              setStatus("ready");
+            }, 2000);
+          }
+        }
+        return newCountdown;
+      });
+    }, 1000);
 
     const attemptRecognition = async () => {
       if (recognitionAttempted || scanCompleted) return;
@@ -140,6 +160,7 @@ const AttendancePage = () => {
             // Stop scanning immediately on recognition
             clearInterval(countdownInterval);
             clearInterval(recognitionInterval);
+            clearTimeout(timeoutId);
             setIsScanning(false);
             setCountdown(0);
             stopVideo();
@@ -167,6 +188,8 @@ const AttendancePage = () => {
               } else if (response.message && response.message.includes('Check-in')) {
                 action = "Check-In";
               }
+
+              setCurrentAction(action);
 
               // Add to recent activities
               const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -230,13 +253,13 @@ const AttendancePage = () => {
     };
 
     // Attempt recognition every 2 seconds during the scan period
-    const recognitionInterval = setInterval(attemptRecognition, 2000);
+    recognitionInterval = setInterval(attemptRecognition, 2000);
 
     // Initial attempt
     await attemptRecognition();
 
     // Timeout after 15 seconds if not recognized
-    const timeoutId = setTimeout(() => {
+    timeoutId = setTimeout(() => {
       if (!scanCompleted) {
         scanCompleted = true;
         clearInterval(countdownInterval);
@@ -245,6 +268,11 @@ const AttendancePage = () => {
         setStatus("Face not recognized");
         notify('Face not recognized after multiple attempts');
         stopVideo();
+
+        // Reset to ready state after 2 seconds
+        setTimeout(() => {
+          setStatus("ready");
+        }, 2000);
       }
     }, 15000); // Extended to 15 seconds for better recognition
   };
@@ -308,8 +336,25 @@ const AttendancePage = () => {
                   </div>
                   <p className="text-white font-medium">{recognizedEmployee.employee_name}</p>
                   <p className="text-gray-300 text-sm">Employee ID: {recognizedEmployee.employee_id}</p>
-                  <p className="text-gray-300 text-sm">Status: Checked In</p>
+                  <p className="text-gray-300 text-sm">Status: {currentAction || "Checked In"}</p>
                   <p className="text-gray-300 text-sm">Time: {markedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+                </div>
+              </>
+            ) : status === "Face not recognized" ? (
+              <>
+                <div className="relative mb-6">
+                  <div className="w-32 h-32 bg-red-500 rounded-full flex items-center justify-center">
+                    <XCircle className="w-16 h-16 text-white" />
+                  </div>
+                </div>
+                <div className="mb-4 p-4 bg-red-500/20 rounded-lg border border-red-500/30">
+                  <div className="flex items-center gap-2 text-red-400 mb-2">
+                    <XCircle className="w-5 h-5" />
+                    <span className="font-medium">Face Not Recognized</span>
+                  </div>
+                  <p className="text-gray-300 text-sm">
+                    Please try again or contact support
+                  </p>
                 </div>
               </>
             ) : !isScanning ? (
