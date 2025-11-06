@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Employee;
+use App\Models\BreakRecord;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ class AttendanceController extends Controller
             $query->whereMonth('date', $request->month)
                   ->whereYear('date', $request->year);
         }
-        
+
         // Filter by date if provided
         if ($request->has('date')) {
             $query->where('date', $request->date);
@@ -234,7 +235,7 @@ class AttendanceController extends Controller
     public function getDepartmentStats()
     {
         $today = Carbon::today()->toDateString();
-        
+
         $departmentStats = DB::table('employees')
             ->select(
                 'department',
@@ -254,7 +255,7 @@ class AttendanceController extends Controller
                 'department' => $dept->department,
                 'total' => $dept->total_employees,
                 'present' => $dept->present_employees,
-                'percentage' => $dept->total_employees > 0 
+                'percentage' => $dept->total_employees > 0
                     ? round(($dept->present_employees / $dept->total_employees) * 100)
                     : 0
             ];
@@ -307,7 +308,7 @@ class AttendanceController extends Controller
 
     public function getLiveActivity()
     {
-        $attendances = Attendance::with(['employee:id,name,department'])
+        $attendances = Attendance::with(['employee:id,name,department', 'breaks'])
             ->where(function ($query) {
                 $query->where('check_in', '>=', Carbon::now()->subDay())
                       ->orWhere('check_out', '>=', Carbon::now()->subDay());
@@ -335,10 +336,35 @@ class AttendanceController extends Controller
                 ];
             }
 
+            // Add break activities
+            foreach ($attendance->breaks as $break) {
+                // Break start activity
+                $activities[] = [
+                    'name' => $attendance->employee->name,
+                    'action' => 'Break Start',
+                    'time' => Carbon::parse($break->break_start)->format('H:i'),
+                    'date' => Carbon::parse($break->break_start)->format('M d'),
+                    'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
+                    'badgeColor' => 'bg-yellow-500'
+                ];
+
+                // Break end activity if exists
+                if ($break->break_end) {
+                    $activities[] = [
+                        'name' => $attendance->employee->name,
+                        'action' => 'Break End',
+                        'time' => Carbon::parse($break->break_end)->format('H:i'),
+                        'date' => Carbon::parse($break->break_end)->format('M d'),
+                        'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
+                        'badgeColor' => 'bg-green-500'
+                    ];
+                }
+            }
+
             // Add Check-Out activity if exists
             if ($attendance->check_out) {
                 $action = 'Check-Out';
-                if ($attendance->employee->policy 
+                if ($attendance->employee->policy
                     && $attendance->employee->policy->enable_early_tracking
                     && (!$attendance->employee->policy->effective_to || Carbon::parse($attendance->employee->policy->effective_to)->gte(Carbon::today()))
                     && (!$attendance->employee->policy->effective_from || Carbon::parse($attendance->employee->policy->effective_from)->lte(Carbon::today()))) {
@@ -358,11 +384,11 @@ class AttendanceController extends Controller
             }
         }
 
-        // Sort activities by time descending (most recent first)
+        // Sort activities by time ascending (chronological order)
         usort($activities, function ($a, $b) {
             $timeA = Carbon::createFromFormat('M d H:i', $a['date'] . ' ' . $a['time']);
             $timeB = Carbon::createFromFormat('M d H:i', $b['date'] . ' ' . $b['time']);
-            return $timeB->timestamp - $timeA->timestamp;
+            return $timeA->timestamp - $timeB->timestamp;
         });
 
         return response()->json($activities);
@@ -384,23 +410,46 @@ class AttendanceController extends Controller
             ->first();
 
         if ($existingAttendance) {
-            if ($existingAttendance->check_out === null) {
-                // Mark check-out
-                $existingAttendance->update([
-                    'check_out' => $now,
-                ]);
+            // Increment scan count
+            $scanCount = $existingAttendance->scan_count + 1;
+            $scanTimes = $existingAttendance->scan_times ?? [];
+            $scanTimes[] = $now->toDateTimeString();
+            $existingAttendance->update(['scan_count' => $scanCount, 'scan_times' => $scanTimes]);
 
+            if ($scanCount == 2) {
+                // 2nd scan: Check-out
+                $existingAttendance->update(['check_out' => $now]);
                 return response()->json([
                     'message' => 'Check-out marked successfully',
                     'attendance' => $existingAttendance->load('employee')
                 ]);
+            } elseif ($scanCount % 2 == 0) {
+                // Even scans >2: Check-out (initially)
+                $existingAttendance->update(['check_out' => $now]);
+                return response()->json([
+                    'message' => 'Check-out marked successfully',
+                    'attendance' => $existingAttendance->load('employee')
+                ]);
+            } else {
+                // Odd scans >2: Break end, retroactively change previous even to break start
+                $existingAttendance->update(['check_out' => null]);
+                $breakStartIndex = $scanCount - 2;
+                $breakStartTime = Carbon::parse($scanTimes[$breakStartIndex]);
+                BreakRecord::create([
+                    'attendance_id' => $existingAttendance->id,
+                    'break_start' => $breakStartTime,
+                    'break_end' => $now,
+                ]);
+                return response()->json([
+                    'message' => 'Break end marked successfully',
+                    'attendance' => $existingAttendance->load('employee')
+                ]);
             }
-            return response()->json(['message' => 'Attendance already completed for today'], 400);
         }
 
         // Determine status based on employee's policy
         $status = 'present';
-        if ($employee->policy 
+        if ($employee->policy
             && $employee->policy->enable_late_tracking
             && (!$employee->policy->effective_to || Carbon::parse($employee->policy->effective_to)->gte(Carbon::today()))
             && (!$employee->policy->effective_from || Carbon::parse($employee->policy->effective_from)->lte(Carbon::today()))) {
@@ -424,6 +473,8 @@ class AttendanceController extends Controller
             'check_in' => $now,
             'date' => $today,
             'status' => $status,
+            'scan_count' => 1,
+            'scan_times' => [$now->toDateTimeString()],
         ]);
 
         return response()->json([
