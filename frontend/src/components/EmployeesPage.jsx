@@ -18,7 +18,8 @@ const EmployeesPage = () => {
     department: '',
     designation: '',
     policyId: '',
-    joinDate: ''
+    joinDate: '',
+    status: 'active'
   });
   const [errors, setErrors] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -111,7 +112,8 @@ const EmployeesPage = () => {
       department: '',
       designation: '',
       policyId: '',
-      joinDate: ''
+      joinDate: '',
+      status: 'active'
     });
     setErrors({});
     setEditingEmployee(null);
@@ -132,7 +134,8 @@ const EmployeesPage = () => {
       department: employee.department,
       designation: employee.designation,
       policyId: employee.policy ? employee.policy.id.toString() : '',
-      joinDate: employee.join_date
+      joinDate: employee.join_date,
+      status: employee.status || 'active'
     });
     setEditingEmployee(employee);
     setShowForm(true);
@@ -172,6 +175,7 @@ const EmployeesPage = () => {
       department: formData.department.trim(),
       designation: formData.designation.trim(),
       join_date: formData.joinDate,
+      status: formData.status,
       face_enrolled: editingEmployee ? editingEmployee.face_enrolled : false,
       policy_id: parseInt(formData.policyId)
     };
@@ -783,6 +787,24 @@ const EmployeesPage = () => {
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                     />
                     {errors.joinDate && <p className="text-red-500 text-sm mt-1">{errors.joinDate}</p>}
+                  </div>
+
+                  <div>
+                    <label htmlFor="status" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Status <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="status"
+                      name="status"
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="on_leave">On Leave</option>
+                    </select>
+                    {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status}</p>}
                   </div>
 
                   <div className="flex gap-3 pt-4">

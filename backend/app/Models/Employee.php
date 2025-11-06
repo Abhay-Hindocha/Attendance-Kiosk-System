@@ -18,7 +18,8 @@ class Employee extends Model
         'designation',
         'join_date',
         'face_enrolled',
-        'policy_id'
+        'policy_id',
+        'status'
     ];
 
     public function policy()

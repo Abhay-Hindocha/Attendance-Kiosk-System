@@ -117,9 +117,7 @@ class AttendanceController extends Controller
                         });
                 })
                 ->count(),
-            'on_leave' => Attendance::where('date', $today)
-                ->where('status', 'half_day')
-                ->count(),
+            'on_leave' => Employee::where('status', 'on_leave')->count(),
             'late_arrivals' => DB::table('attendances')
                 ->join('employees', 'attendances.employee_id', '=', 'employees.id')
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
@@ -184,9 +182,7 @@ class AttendanceController extends Controller
                         });
                 })
                 ->count(),
-            'on_leave_yesterday' => Attendance::where('date', $yesterday)
-                ->where('status', 'half_day')
-                ->count(),
+            'on_leave_yesterday' => Employee::where('status', 'on_leave')->count(),
             'late_arrivals_yesterday' => DB::table('attendances')
                 ->join('employees', 'attendances.employee_id', '=', 'employees.id')
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')

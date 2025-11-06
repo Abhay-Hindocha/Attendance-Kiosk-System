@@ -25,6 +25,7 @@ class EmployeeController extends Controller
             'join_date' => 'nullable|date',
             'face_enrolled' => 'boolean',
             'policy_id' => 'required|exists:policies,id',
+            'status' => 'required|in:active,inactive,on_leave',
         ]);
 
         $employee = Employee::create($request->all());
@@ -48,6 +49,7 @@ class EmployeeController extends Controller
             'join_date' => 'nullable|date',
             'face_enrolled' => 'boolean',
             'policy_id' => 'required|exists:policies,id',
+            'status' => 'required|in:active,inactive,on_leave',
         ]);
 
         $employee->update($request->all());
