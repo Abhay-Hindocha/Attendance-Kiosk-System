@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit, Trash2, Plus, CheckCircle, Clock, Calendar, Coffee, Copy } from 'lucide-react';
+import { Edit, Trash2, Plus, CheckCircle, Clock, Calendar, Coffee, Copy, XCircle } from 'lucide-react';
 import apiService from '../services/api';
 
 const PoliciesPage = () => {
@@ -9,8 +9,7 @@ const PoliciesPage = () => {
   const [editingPolicy, setEditingPolicy] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [notification, setNotification] = useState({ show: false, type: 'success', message: '' });
   const [formData, setFormData] = useState({
     policyName: '',
     effectiveFrom: '',
@@ -115,18 +114,18 @@ const PoliciesPage = () => {
       if (editingPolicy) {
         const updatedPolicy = await apiService.updatePolicy(editingPolicy.id, policyData);
         setPolicies(policies.map(pol => pol.id === editingPolicy.id ? updatedPolicy : pol));
-        setSuccessMessage('Policy updated successfully!');
+        setNotification({ show: true, type: 'success', message: 'Policy updated successfully!' });
       } else {
         const newPolicy = await apiService.createPolicy(policyData);
         setPolicies([...policies, newPolicy]);
-        setSuccessMessage('Policy created successfully!');
+        setNotification({ show: true, type: 'success', message: 'Policy created successfully!' });
       }
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 3000);
       setShowForm(false);
     } catch (error) {
       console.error('Failed to save policy:', error);
-      alert('Failed to save policy. Please try again.');
+      setNotification({ show: true, type: 'error', message: 'Failed to save policy. Please try again.' });
+      setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
     }
   };
 
@@ -139,9 +138,8 @@ const PoliciesPage = () => {
       await apiService.deletePolicy(deleteConfirm.id);
       setPolicies(policies.filter(pol => pol.id !== deleteConfirm.id));
       setDeleteConfirm(null);
-      setSuccessMessage('Policy deleted successfully!');
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      setNotification({ show: true, type: 'success', message: 'Policy deleted successfully!' });
+      setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 3000);
     } catch (error) {
       console.error('Failed to delete policy:', error);
       if (error.response && error.response.status === 422 && error.response.data.error) {
@@ -149,7 +147,8 @@ const PoliciesPage = () => {
         setDeleteConfirm(null);
       } else {
         const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to delete policy. Please try again.';
-        alert(errorMessage);
+        setNotification({ show: true, type: 'error', message: errorMessage });
+        setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
       }
     }
   };
@@ -180,11 +179,19 @@ const PoliciesPage = () => {
           </div>
         </div>
 
-        {/* Success Notification */}
-        {showSuccess && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-lg flex items-center shadow-sm">
-            <CheckCircle className="w-5 h-5 mr-3 flex-shrink-0" />
-            <span className="font-medium">{successMessage}</span>
+        {/* Notification */}
+        {notification.show && (
+          <div className={`mb-6 p-4 border rounded-lg flex items-center shadow-sm ${
+            notification.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            {notification.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 mr-3 flex-shrink-0" />
+            ) : (
+              <XCircle className="w-5 h-5 mr-3 flex-shrink-0" />
+            )}
+            <span className="font-medium">{notification.message}</span>
           </div>
         )}
 
