@@ -109,6 +109,7 @@ class AttendanceController extends Controller
                     $query->where('policies.effective_from', '<=', $today)
                           ->orWhereNull('policies.effective_from');
                 })
+                ->where('policies.enable_absence_tracking', true)
                 ->where(function($query) {
                     $query->whereNull('attendances.id')
                         ->orWhere(function($q) {
@@ -388,6 +389,141 @@ class AttendanceController extends Controller
         });
 
         return response()->json($activities);
+    }
+
+    public function getPresentToday()
+    {
+        $today = Carbon::today()->toDateString();
+
+        $presentEmployees = DB::table('attendances')
+            ->join('employees', 'attendances.employee_id', '=', 'employees.id')
+            ->where('attendances.date', $today)
+            ->whereIn('attendances.status', ['present', 'late'])
+            ->whereNotNull('attendances.check_in')
+            ->select(
+                'employees.id',
+                'employees.name',
+                'employees.department',
+                'employees.employee_id',
+                DB::raw('TIME(attendances.check_in) as check_in_time'),
+                DB::raw('TIME(attendances.check_out) as check_out_time'),
+                'attendances.status'
+            )
+            ->get();
+
+        return response()->json($presentEmployees);
+    }
+
+    public function getAbsentToday()
+    {
+        $today = Carbon::today()->toDateString();
+
+        $absentEmployees = DB::table('employees')
+            ->join('policies', 'employees.policy_id', '=', 'policies.id')
+            ->leftJoin('attendances', function($join) use ($today) {
+                $join->on('employees.id', '=', 'attendances.employee_id')
+                     ->where('attendances.date', $today);
+            })
+            ->where(function($query) use ($today) {
+                $query->where('policies.effective_to', '>=', $today)
+                      ->orWhereNull('policies.effective_to');
+            })
+            ->where(function($query) use ($today) {
+                $query->where('policies.effective_from', '<=', $today)
+                      ->orWhereNull('policies.effective_from');
+            })
+            ->where('policies.enable_absence_tracking', true)
+            ->where(function($query) {
+                $query->whereNull('attendances.id')
+                    ->orWhere(function($q) {
+                        $q->whereNull('attendances.check_in')
+                          ->whereNull('attendances.check_out');
+                    });
+            })
+            ->select(
+                'employees.id',
+                'employees.name',
+                'employees.department',
+                'employees.employee_id'
+            )
+            ->get();
+
+        return response()->json($absentEmployees);
+    }
+
+    public function getOnLeaveToday()
+    {
+        $onLeaveEmployees = Employee::where('status', 'on_leave')
+            ->select('id', 'name', 'department', 'employee_id')
+            ->get();
+
+        return response()->json($onLeaveEmployees);
+    }
+
+    public function getLateArrivalsToday()
+    {
+        $today = Carbon::today()->toDateString();
+
+        $lateArrivals = DB::table('attendances')
+            ->join('employees', 'attendances.employee_id', '=', 'employees.id')
+            ->join('policies', 'employees.policy_id', '=', 'policies.id')
+            ->where('attendances.date', $today)
+            ->whereNotNull('attendances.check_in')
+            ->where(function($query) use ($today) {
+                $query->where('policies.effective_to', '>=', $today)
+                      ->orWhereNull('policies.effective_to');
+            })
+            ->where(function($query) use ($today) {
+                $query->where('policies.effective_from', '<=', $today)
+                      ->orWhereNull('policies.effective_from');
+            })
+            ->where('policies.enable_late_tracking', true)
+            ->whereRaw("TIME(attendances.check_in) > policies.work_start_time")
+            ->select(
+                'employees.id',
+                'employees.name',
+                'employees.department',
+                'employees.employee_id',
+                DB::raw('TIME(attendances.check_in) as check_in_time'),
+                DB::raw('TIME(attendances.check_out) as check_out_time'),
+                'attendances.status'
+            )
+            ->get();
+
+        return response()->json($lateArrivals);
+    }
+
+    public function getEarlyDeparturesToday()
+    {
+        $today = Carbon::today()->toDateString();
+
+        $earlyDepartures = DB::table('attendances')
+            ->join('employees', 'attendances.employee_id', '=', 'employees.id')
+            ->join('policies', 'employees.policy_id', '=', 'policies.id')
+            ->where('attendances.date', $today)
+            ->whereNotNull('attendances.check_out')
+            ->where(function($query) use ($today) {
+                $query->where('policies.effective_to', '>=', $today)
+                      ->orWhereNull('policies.effective_to');
+            })
+            ->where(function($query) use ($today) {
+                $query->where('policies.effective_from', '<=', $today)
+                      ->orWhereNull('policies.effective_from');
+            })
+            ->where('policies.enable_early_tracking', true)
+            ->whereRaw("TIME(attendances.check_out) < policies.work_end_time")
+            ->select(
+                'employees.id',
+                'employees.name',
+                'employees.department',
+                'employees.employee_id',
+                DB::raw('TIME(attendances.check_in) as check_in_time'),
+                DB::raw('TIME(attendances.check_out) as check_out_time'),
+                'attendances.status'
+            )
+            ->get();
+
+        return response()->json($earlyDepartures);
     }
 
     public function markAttendance(Request $request)

@@ -221,6 +221,26 @@ class ApiService {
   async getLiveActivity() {
     return this.request('/attendance/live');
   }
+
+  async getPresentToday() {
+    return this.request('/attendance/present-today');
+  }
+
+  async getAbsentToday() {
+    return this.request('/attendance/absent-today');
+  }
+
+  async getOnLeaveToday() {
+    return this.request('/attendance/on-leave-today');
+  }
+
+  async getLateArrivalsToday() {
+    return this.request('/attendance/late-arrivals-today');
+  }
+
+  async getEarlyDeparturesToday() {
+    return this.request('/attendance/early-departures-today');
+  }
 }
 
 export default new ApiService();

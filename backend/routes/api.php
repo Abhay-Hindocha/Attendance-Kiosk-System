@@ -31,6 +31,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('attendance/departments', [AttendanceController::class, 'getDepartmentStats']);
     Route::get('attendance/trends', [AttendanceController::class, 'getAttendanceTrends']);
     Route::get('attendance/live', [AttendanceController::class, 'getLiveActivity']);
+    Route::get('attendance/present-today', [AttendanceController::class, 'getPresentToday']);
+    Route::get('attendance/absent-today', [AttendanceController::class, 'getAbsentToday']);
+    Route::get('attendance/on-leave-today', [AttendanceController::class, 'getOnLeaveToday']);
+    Route::get('attendance/late-arrivals-today', [AttendanceController::class, 'getLateArrivalsToday']);
+    Route::get('attendance/early-departures-today', [AttendanceController::class, 'getEarlyDeparturesToday']);
     Route::get('attendance/employee/{employeeId}/{year}/{month}', [AttendanceController::class, 'getEmployeeMonthlyAttendance']);
     Route::get('attendance/export/employee/{employeeId}/{year}/{month}', [AttendanceController::class, 'exportEmployeeMonthlyAttendance']);
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Clock, CheckCircle, XCircle, TrendingUp, Calendar, AlertCircle, RefreshCcw } from 'lucide-react';
 import ApiService from '../services/api';
+import StatsModal from './StatsModal';
 
 const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -29,6 +30,7 @@ const DashboardPage = () => {
   const [liveActivity, setLiveActivity] = useState([]);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [modalState, setModalState] = useState({ isOpen: false, statType: null, statValue: 0 });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -100,6 +102,14 @@ const DashboardPage = () => {
     return 'bg-green-100 text-green-700';
   };
 
+  const handleStatClick = (statType, statValue) => {
+    setModalState({ isOpen: true, statType, statValue });
+  };
+
+  const closeModal = () => {
+    setModalState({ isOpen: false, statType: null, statValue: 0 });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-[1400px] mx-auto">
@@ -140,7 +150,7 @@ const DashboardPage = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-5">
+          <div className="bg-white rounded-lg shadow p-5 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleStatClick('total_employees', stats.total_employees)}>
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-xs text-gray-500 mb-1">Total Employees</p>
@@ -153,7 +163,7 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-5">
+          <div className="bg-white rounded-lg shadow p-5 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleStatClick('present_today', stats.present_today)}>
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-xs text-gray-500 mb-1">Present Today</p>
@@ -168,7 +178,7 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-5">
+          <div className="bg-white rounded-lg shadow p-5 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleStatClick('absent_today', stats.absent_today)}>
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-xs text-gray-500 mb-1">Absent</p>
@@ -183,7 +193,7 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-5">
+          <div className="bg-white rounded-lg shadow p-5 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleStatClick('on_leave', stats.on_leave)}>
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-xs text-gray-500 mb-1">On Leave</p>
@@ -198,7 +208,7 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-5">
+          <div className="bg-white rounded-lg shadow p-5 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleStatClick('late_arrivals', stats.late_arrivals)}>
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-xs text-gray-500 mb-1">Late Arrivals</p>
@@ -213,7 +223,7 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-5">
+          <div className="bg-white rounded-lg shadow p-5 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleStatClick('early_departures', stats.early_departures)}>
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-xs text-gray-500 mb-1">Early Departures</p>
@@ -360,7 +370,7 @@ const DashboardPage = () => {
 
               {/* View Alerts */}
               <button
-                onClick={() => window.location.href = '/alerts'}
+                onClick={() => handleStatClick('late_arrivals', stats.late_arrivals)}
                 className="flex flex-col items-center justify-center p-4 border-2 border rounded-lg hover:bg-orange-50 hover:border-orange-500 transition-all"
               >
                 <AlertCircle className="w-6 h-6 text-orange-600 mb-2" />
@@ -369,6 +379,16 @@ const DashboardPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Stats Modal */}
+        {modalState.isOpen && (
+          <StatsModal
+            isOpen={modalState.isOpen}
+            onClose={closeModal}
+            statType={modalState.statType}
+            statValue={modalState.statValue}
+          />
+        )}
       </div>
     </div>
   );

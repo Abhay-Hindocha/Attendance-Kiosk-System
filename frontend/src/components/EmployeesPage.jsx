@@ -35,6 +35,8 @@ const EmployeesPage = () => {
 
   const [showAddedModal, setShowAddedModal] = useState(false); // "Employee Added" modal
   const [newlyCreatedEmployee, setNewlyCreatedEmployee] = useState(null);
+  const [showUpdatedModal, setShowUpdatedModal] = useState(false); // "Employee Updated" modal
+  const [updatedEmployee, setUpdatedEmployee] = useState(null);
 
   const [showWizard, setShowWizard] = useState(false); // face wizard wrapper
   const [wizardStep, setWizardStep] = useState(0); // 0=intro, 1=capture, 2=processing, 3=success
@@ -159,8 +161,10 @@ const EmployeesPage = () => {
     };
     try {
       if (editingEmployee) {
-        await ApiService.updateEmployee(editingEmployee.id, employeeData);
+        const updatedEmployee = await ApiService.updateEmployee(editingEmployee.id, employeeData);
         setEmployees(employees.map(emp => emp.id === editingEmployee.id ? { id: editingEmployee.id, ...employeeData } : emp));
+        setUpdatedEmployee(updatedEmployee);
+        setShowUpdatedModal(true);
         closeForm();
       } else {
         const newEmployee = await ApiService.createEmployee(employeeData);
@@ -574,6 +578,22 @@ const EmployeesPage = () => {
                   </div>
                 )}
 
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Employee Updated modal */}
+        {showUpdatedModal && updatedEmployee && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center">
+              <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-7 h-7 text-green-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-1">Employee Updated Successfully</h3>
+              <p className="text-gray-700 mb-6"><span className="font-semibold">{updatedEmployee.name}</span> has been updated successfully.</p>
+              <div className="flex gap-3">
+                <button onClick={()=>{ setShowUpdatedModal(false); setUpdatedEmployee(null); }} className="flex-1 px-4 py-2.5 rounded-lg font-medium bg-green-600 text-white">Continue</button>
               </div>
             </div>
           </div>
