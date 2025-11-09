@@ -77,10 +77,9 @@ const Header = () => {
           {isAttendancePage ? (
             <div className="flex items-center space-x-4">
               {/* Current Time and Date */}
-              <div className="hidden md:flex items-center space-x-2 text-white">
-                
+              <div className="hidden sm:flex items-center space-x-2 text-white">
                 <div className="text-right">
-                  <div className="text-lg font-bold font-medium">{formatTime(currentTime)}</div>
+                  <div className="text-sm sm:text-lg font-bold font-medium">{formatTime(currentTime)}</div>
                   <div className="text-xs">{formatDate(currentTime)}</div>
                 </div>
               </div>
@@ -88,15 +87,15 @@ const Header = () => {
               {/* Admin Login Button */}
               <Link
                 to="/login"
-                className="flex items-center space-x-2 bg-[#2980B9] text-white px-4 py-2 rounded-lg hover:bg-[#3498DB] transition-colors"
+                className="flex items-center space-x-2 bg-[#2980B9] text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-[#3498DB] transition-colors"
               >
                 <LogIn className="w-4 h-4" />
-                <span className="hidden md:inline">Admin Login</span>
-                <span className="md:hidden">Login</span>
+                <span className="hidden sm:inline">Admin Login</span>
+                <span className="sm:hidden">Login</span>
               </Link>
 
               {/* WiFi Connectivity Indicator */}
-              <div className="hidden md:flex">
+              <div className="hidden sm:flex">
                 {isOnline ? (
                   <Wifi className="w-4 h-4 text-green-400" />
                 ) : (
@@ -107,7 +106,7 @@ const Header = () => {
           ) : (
             <>
               {/* Desktop Navigation for Admin */}
-              <nav className="hidden md:flex items-center space-x-8">
+              <nav className="hidden lg:flex items-center space-x-8">
                 {navigation.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.href;
@@ -147,7 +146,7 @@ const Header = () => {
               </nav>
 
               {/* Mobile menu button for Admin */}
-              <div className="md:hidden">
+              <div className="lg:hidden">
                 <button
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   className="text-white hover:text-gray-900 focus:outline-none focus:text-gray-900"
@@ -165,7 +164,7 @@ const Header = () => {
 
         {/* Mobile Navigation for Admin */}
         {isMenuOpen && !isAttendancePage && (
-          <div className="md:hidden">
+          <div className="lg:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-[#34495E] rounded-lg mt-2">
               {navigation.map((item) => {
                 const Icon = item.icon;
