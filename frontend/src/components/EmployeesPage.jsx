@@ -3,6 +3,10 @@ import { Plus, Search, Edit, Trash2, Camera, X, Mail, Phone, Briefcase, CheckCir
 import * as faceapi from 'face-api.js';
 import ApiService from '../services/api';
 
+/**
+ * Employees Page with post-create "Employee Added" prompt and
+ * a 3-step Face Enrollment Wizard that matches the provided screenshots.
+ */
 const EmployeesPage = () => {
   const [employees, setEmployees] = useState([]);
   const [policies, setPolicies] = useState([]);
@@ -24,25 +28,34 @@ const EmployeesPage = () => {
   const [errors, setErrors] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showFaceModal, setShowFaceModal] = useState(false);
-  const [enrollingEmployee, setEnrollingEmployee] = useState(null);
-  const [faceStatus, setFaceStatus] = useState('');
-  const [capturedDescriptors, setCapturedDescriptors] = useState([]);
-  const [capturedImages, setCapturedImages] = useState([]);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const capturedDescriptorsRef = useRef([]);
-  const capturedImagesRef = useRef([]);
-  const isCapturingRef = useRef(false);
-  const [showEnrollConfirm, setShowEnrollConfirm] = useState(false);
-  const samplesRef = useRef(null);
+
+  // Face enrollment related
   const [modelsLoaded, setModelsLoaded] = useState(false);
-  const [autoStartCapturing, setAutoStartCapturing] = useState(false);
   const modelsLoadingRef = useRef(false);
+
+  const [showAddedModal, setShowAddedModal] = useState(false); // "Employee Added" modal
+  const [newlyCreatedEmployee, setNewlyCreatedEmployee] = useState(null);
+
+  const [showWizard, setShowWizard] = useState(false); // face wizard wrapper
+  const [wizardStep, setWizardStep] = useState(0); // 0=intro, 1=capture, 2=processing, 3=success
+  const [enrollingEmployee, setEnrollingEmployee] = useState(null);
+
+  const [faceStatus, setFaceStatus] = useState('');
   const [detectionMethod, setDetectionMethod] = useState('ssdMobilenetv1');
+  const [capturedDescriptors, setCapturedDescriptors] = useState([]);
+  const capturedDescriptorsRef = useRef([]);
+  const [capturedImages, setCapturedImages] = useState([]);
+  const capturedImagesRef = useRef([]);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const isCapturingRef = useRef(false);
+
+  const [isEnrolling, setIsEnrolling] = useState(false);
+  const processingStartedRef = useRef(false);
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const samplesRef = useRef(null);
   const streamRef = useRef(null);
-  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -62,7 +75,7 @@ const EmployeesPage = () => {
     loadData();
   }, []);
 
-  // lazy model loader (call when opening the face modal)
+  // lazy model loader (call when opening the wizard)
   const loadModels = async () => {
     try {
       await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
@@ -83,46 +96,20 @@ const EmployeesPage = () => {
     employee.department.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getInitials = (name) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
-
+  const getInitials = (name) => name.split(' ').map(n => n[0]).join('').toUpperCase();
   const getAvatarColor = (name) => {
-    const colors = [
-      'bg-blue-500',
-      'bg-purple-500',
-      'bg-indigo-500',
-      'bg-pink-500',
-      'bg-cyan-500',
-      'bg-teal-500',
-      'bg-green-500',
-      'bg-orange-500'
-    ];
+    const colors = ['bg-blue-500','bg-purple-500','bg-indigo-500','bg-pink-500','bg-cyan-500','bg-teal-500','bg-green-500','bg-orange-500'];
     const index = name.charCodeAt(0) % colors.length;
     return colors[index];
   };
 
   const resetForm = () => {
-    setFormData({
-      firstName: '',
-      lastName: '',
-      employeeId: '',
-      email: '',
-      phone: '',
-      department: '',
-      designation: '',
-      policyId: '',
-      joinDate: '',
-      status: 'active'
-    });
+    setFormData({ firstName:'', lastName:'', employeeId:'', email:'', phone:'', department:'', designation:'', policyId:'', joinDate:'', status:'active' });
     setErrors({});
     setEditingEmployee(null);
   };
 
-  const openAddForm = () => {
-    resetForm();
-    setShowForm(true);
-  };
+  const openAddForm = () => { resetForm(); setShowForm(true); };
 
   const openEditForm = (employee) => {
     setFormData({
@@ -137,14 +124,10 @@ const EmployeesPage = () => {
       joinDate: employee.join_date,
       status: employee.status || 'active'
     });
-    setEditingEmployee(employee);
-    setShowForm(true);
+    setEditingEmployee(employee); setShowForm(true);
   };
 
-  const closeForm = () => {
-    setShowForm(false);
-    resetForm();
-  };
+  const closeForm = () => { setShowForm(false); resetForm(); };
 
   const validateForm = () => {
     const newErrors = {};
@@ -157,16 +140,11 @@ const EmployeesPage = () => {
     if (!formData.designation.trim()) newErrors.designation = 'Designation is required';
     if (!formData.policyId) newErrors.policyId = 'Policy is required';
     if (!formData.joinDate) newErrors.joinDate = 'Join date is required';
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(newErrors); return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
+    e.preventDefault(); if (!validateForm()) return;
     const employeeData = {
       employee_id: formData.employeeId.trim(),
       name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
@@ -179,303 +157,153 @@ const EmployeesPage = () => {
       face_enrolled: editingEmployee ? editingEmployee.face_enrolled : false,
       policy_id: parseInt(formData.policyId)
     };
-
     try {
       if (editingEmployee) {
         await ApiService.updateEmployee(editingEmployee.id, employeeData);
-        setEmployees(employees.map(emp =>
-          emp.id === editingEmployee.id ? { id: editingEmployee.id, ...employeeData } : emp
-        ));
+        setEmployees(employees.map(emp => emp.id === editingEmployee.id ? { id: editingEmployee.id, ...employeeData } : emp));
+        closeForm();
       } else {
         const newEmployee = await ApiService.createEmployee(employeeData);
         setEmployees([...employees, newEmployee]);
+        setNewlyCreatedEmployee(newEmployee);
+        setShowForm(false);
+        // Show the "Employee Added" modal
+        setShowAddedModal(true);
       }
-      closeForm();
     } catch (error) {
       console.error('Failed to save employee:', error);
       alert('Failed to save employee. Please try again.');
     }
   };
 
-  const handleDelete = (employee) => {
-    setDeleteConfirm(employee);
-  };
-
+  const handleDelete = (employee) => setDeleteConfirm(employee);
   const confirmDelete = async () => {
-    try {
-      await ApiService.deleteEmployee(deleteConfirm.id);
-      setEmployees(employees.filter(emp => emp.id !== deleteConfirm.id));
-      setDeleteConfirm(null);
-    } catch (error) {
-      console.error('Failed to delete employee:', error);
-      alert('Failed to delete employee. Please try again.');
-    }
+    try { await ApiService.deleteEmployee(deleteConfirm.id); setEmployees(employees.filter(emp => emp.id !== deleteConfirm.id)); setDeleteConfirm(null); }
+    catch (error) { console.error('Failed to delete employee:', error); alert('Failed to delete employee. Please try again.'); }
   };
 
   const handleExport = () => {
     const csvContent = [
-      ['Name', 'Employee ID', 'Email', 'Phone', 'Department', 'Designation', 'Face Enrolled', 'Join Date'],
-      ...filteredEmployees.map(emp => [
-        emp.name,
-        emp.employee_id,
-        emp.email,
-        emp.phone || '',
-        emp.department,
-        emp.designation,
-        emp.face_enrolled ? 'Yes' : 'No',
-        emp.join_date
-      ])
-    ]
-      .map(row => row.join(','))
-      .join('\n');
-
+      ['Name','Employee ID','Email','Phone','Department','Designation','Face Enrolled','Join Date'],
+      ...filteredEmployees.map(emp => [emp.name, emp.employee_id, emp.email, emp.phone || '', emp.department, emp.designation, emp.face_enrolled ? 'Yes' : 'No', emp.join_date])
+    ].map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `employees_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    const a = document.createElement('a'); a.href = url; a.download = `employees_${new Date().toISOString().split('T')[0]}.csv`; a.click(); window.URL.revokeObjectURL(url);
   };
 
-  const openFaceModal = (employee) => {
+  // ---------- Face Wizard Controls ----------
+  const openWizard = async (employee) => {
     setEnrollingEmployee(employee);
-    setShowFaceModal(true);
-    setFaceStatus('Initializing camera...');
-    setCapturedDescriptors([]);
-    setCapturedImages([]);
-    setNotifications([]);
-  setAutoStartCapturing(true);
-    // clear previous thumbnails container if any
-    if (samplesRef.current) samplesRef.current.innerHTML = '';
-    // load models if not already loaded (lazy load to speed up initial page load)
+    setWizardStep(0);
+    setShowWizard(true);
+    setFaceStatus('');
+    setCapturedDescriptors([]); capturedDescriptorsRef.current = [];
+    setCapturedImages([]); capturedImagesRef.current = [];
     if (!modelsLoaded && !modelsLoadingRef.current) {
       modelsLoadingRef.current = true;
-      loadModels().then(() => {
-        modelsLoadingRef.current = false;
-        setModelsLoaded(true);
-        // after models loaded, start video
-        startVideo();
-      }).catch(err => {
-        console.error('Failed to load models on demand:', err);
-        modelsLoadingRef.current = false;
-        // still attempt to start camera even if models fail
-        startVideo();
-      });
-    } else {
-      startVideo();
+      try { await loadModels(); } finally { modelsLoadingRef.current = false; }
     }
   };
 
-  const closeFaceModal = () => {
-    setShowFaceModal(false);
-    setEnrollingEmployee(null);
-    setFaceStatus('');
-    setCapturedDescriptors([]);
-    setCapturedImages([]);
-    setIsCapturing(false);
-    setShowEnrollConfirm(false);
+  const closeWizard = () => {
+    setShowWizard(false); setWizardStep(0); setEnrollingEmployee(null);
     stopVideo();
   };
 
   const startVideo = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      videoRef.current.srcObject = stream;
-      streamRef.current = stream;
-      // Play may reject if autoplay is blocked; ignore that and rely on readyState checks
-      const playPromise = videoRef.current.play();
-      if (playPromise && typeof playPromise.then === 'function') {
-        playPromise.catch(() => {
-          // autoplay prevented, user interaction may be required
-        });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream; streamRef.current = stream;
+        const playPromise = videoRef.current.play(); if (playPromise?.catch) playPromise.catch(() => {});
       }
-      setFaceStatus('Camera ready. Click "Start Capturing" to begin.');
-      // if autoStartCapturing requested and models are loaded, auto-start capturing
-      if (autoStartCapturing && modelsLoaded) {
-        setTimeout(() => {
-          // small delay to let video frames arrive
-          if (!isCapturingRef.current) startCapturing();
-        }, 500);
-      }
-    } catch (error) {
+    } catch (err) {
+      console.error('Camera error', err);
       setFaceStatus('Camera access denied or unavailable.');
-      console.error('Camera error:', error);
     }
   };
 
   const stopVideo = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
   };
 
-  const startCapturing = () => {
-    // ensure models are loaded and video is ready
-    if (!modelsLoaded) {
-      setFaceStatus('Models not loaded yet. Please wait.');
-      return;
-    }
-    if (!videoRef.current) {
-      setFaceStatus('Camera not available.');
-      return;
-    }
-    // reset detection method preference
+  const beginCaptureStep = async () => {
+    setWizardStep(1);
     setDetectionMethod('ssdMobilenetv1');
-  setIsCapturing(true);
-  isCapturingRef.current = true;
-    setFaceStatus('Capturing face samples...');
-    // clear any leftover thumbnails container
-    if (samplesRef.current) samplesRef.current.innerHTML = '';
-    // ensure video has frames: wait until readyState >= 2
-    const waitForVideo = (resolve, reject, tries = 0) => {
+    setFaceStatus('Initializing camera...');
+    await startVideo();
+    // Wait for frames then start sampling
+    const ensure = (resolve, reject, tries = 0) => {
       if (!videoRef.current) return reject(new Error('No video element'));
       if (videoRef.current.readyState >= 2) return resolve();
       if (tries > 50) return reject(new Error('Video not ready'));
-      setTimeout(() => waitForVideo(resolve, reject, tries + 1), 100);
+      setTimeout(() => ensure(resolve, reject, tries + 1), 100);
     };
-    new Promise(waitForVideo).then(() => captureSamples()).catch(err => {
-      console.error('Video readiness error:', err);
-      setFaceStatus('Video not ready. Please try again.');
-      setIsCapturing(false);
-      isCapturingRef.current = false;
-    });
+    new Promise(ensure).then(() => {
+      setIsCapturing(true); isCapturingRef.current = true; setFaceStatus('Capturing your face...');
+      captureSamples();
+    }).catch(() => setFaceStatus('Video not ready. Please try again.'));
   };
 
   const stopCapturing = () => {
-    setIsCapturing(false);
-    isCapturingRef.current = false;
-    if (capturedDescriptors.length >= 5) {
-      setFaceStatus(`Captured ${capturedDescriptors.length} samples. Click "Enroll Face" to save.`);
-    } else {
-      setFaceStatus(`Captured ${capturedDescriptors.length} samples. Need at least 5 samples to enroll.`);
-    }
+    setIsCapturing(false); isCapturingRef.current = false;
+    if (capturedDescriptorsRef.current.length >= 5) setFaceStatus(`Captured ${capturedDescriptorsRef.current.length} samples. You can enroll now.`);
+    else setFaceStatus(`Captured ${capturedDescriptorsRef.current.length} samples. Need at least 5.`);
   };
 
-  const captureSamples = async (retryCount = 0) => {
-    if (!isCapturingRef.current || capturedDescriptorsRef.current.length >= 10) {
-      if (capturedDescriptorsRef.current.length >= 10) {
-        setFaceStatus('All 10 samples captured. Click "Enroll Face" to save.');
-        setIsCapturing(false);
-        isCapturingRef.current = false;
-      }
-      return;
-    }
-
-    if (!videoRef.current || videoRef.current.readyState < 2) {
-      console.log(`Video not ready, readyState: ${videoRef.current?.readyState}, retry: ${retryCount}`);
-      if (retryCount < 50) { // Max 50 retries (5 seconds)
-        setTimeout(() => captureSamples(retryCount + 1), 100);
-      } else {
-        setFaceStatus('Video failed to load properly. Please try again.');
-        setIsCapturing(false);
-        isCapturingRef.current = false;
-      }
-      return;
-    }
-
+  const captureSamples = async () => {
+    if (!isCapturingRef.current || capturedDescriptorsRef.current.length >= 10) return;
     try {
-      console.log('Attempting face detection...');
       let detection;
-
       if (detectionMethod === 'ssdMobilenetv1') {
         detection = await faceapi
           .detectSingleFace(videoRef.current, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+          .withFaceLandmarks().withFaceDescriptor();
+        if (!detection) setDetectionMethod('tinyFaceDetector');
       }
-
-      if (!detection && detectionMethod === 'ssdMobilenetv1') {
-        console.log('SSD Mobilenet failed, falling back to TinyFaceDetector');
-        setDetectionMethod('tinyFaceDetector');
+      if (!detection) {
         detection = await faceapi
           .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 256, scoreThreshold: 0.1 }))
-          .withFaceLandmarks()
-          .withFaceDescriptor();
-      } else if (detectionMethod === 'tinyFaceDetector') {
-        detection = await faceapi
-          .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 256, scoreThreshold: 0.1 }))
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+          .withFaceLandmarks().withFaceDescriptor();
       }
-
       if (detection) {
-        console.log('Face detected, capturing sample');
-        // push into refs to avoid stale closure issues and then update state
         capturedDescriptorsRef.current.push(detection.descriptor);
-        const newDescriptors = capturedDescriptorsRef.current.slice();
-        setCapturedDescriptors(newDescriptors);
-        setFaceStatus(`Captured ${newDescriptors.length}/10 samples...`);
-
-        // Create thumbnail
-        const canvas = document.createElement('canvas');
-        canvas.width = 64;
-        canvas.height = 48;
-        const ctx = canvas.getContext('2d');
-        // draw the detected box area if landmarks available for slightly better crop
-        try {
-          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        } catch (err) {
-          // drawing may fail in some browsers if video is not fully ready
-          console.warn('Failed to draw video frame for thumbnail', err);
-        }
+        setCapturedDescriptors([...capturedDescriptorsRef.current]);
+        // Thumbnail
+        const canvas = document.createElement('canvas'); canvas.width = 160; canvas.height = 120; const ctx = canvas.getContext('2d');
+        try { ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height); } catch {}
         const imgData = canvas.toDataURL('image/jpeg');
-  capturedImagesRef.current.push(imgData);
-  const newImages = capturedImagesRef.current.slice();
-  setCapturedImages(newImages);
-        if (samplesRef.current) {
-          const img = document.createElement('img');
-          img.src = imgData;
-          img.className = 'w-16 h-12 object-cover border border-gray-300 rounded';
-          samplesRef.current.appendChild(img);
-        }
-        // if we've reached the desired number stop capturing automatically
+        capturedImagesRef.current.push(imgData); setCapturedImages([...capturedImagesRef.current]);
+        setFaceStatus(`Capturing your face...\nImage ${capturedDescriptorsRef.current.length} of 10`);
         if (capturedDescriptorsRef.current.length >= 10) {
-          setFaceStatus('All 10 samples captured. Click "Enroll Face" to save.');
-          setIsCapturing(false);
-          isCapturingRef.current = false;
-          return;
+          setIsCapturing(false); isCapturingRef.current = false; setFaceStatus('All 10 images captured. Ready to enroll.');
+          // Automatically enroll face
+          enrollFace();
         }
-      } else {
-        console.log('No face detected');
-        setFaceStatus(`No face detected. Captured ${capturedDescriptorsRef.current.length}/10 samples...`);
       }
-    } catch (error) {
-      console.error('Detection error:', error);
-      setFaceStatus('Error during detection.');
-    }
-
-    setTimeout(captureSamples, 250); // 250ms interval
+    } catch (err) { console.error('Detection error', err); setFaceStatus('Error during detection.'); }
+    if (isCapturingRef.current) setTimeout(captureSamples, 250);
   };
 
   const enrollFace = async () => {
-    if (capturedDescriptors.length < 5) {
-      alert('Please capture at least 5 face samples before enrolling.');
-      return;
-    }
-
+    if (capturedDescriptorsRef.current.length < 5) { alert('Please capture at least 5 images.'); return; }
     try {
-      setFaceStatus('Enrolling face...');
-      const metadata = {
-        method: 'auto-10',
-        intervalMs: 250,
-        totalSamples: capturedDescriptors.length,
-        detectionMethod: detectionMethod
-      };
-      await ApiService.enrollFace(enrollingEmployee.employee_id, capturedDescriptors, metadata);
-      // Backend already updates face_enrolled status, so just update local state
-      setEmployees(employees.map(emp =>
-        emp.id === enrollingEmployee.id ? { ...emp, face_enrolled: true } : emp
-      ));
-      setFaceStatus('Face enrolled successfully!');
-      setTimeout(() => closeFaceModal(), 2000);
-    } catch (error) {
-      console.error('Enrollment error:', error);
-      setFaceStatus('Enrollment failed. Please try again.');
+      setIsEnrolling(true);
+      setFaceStatus('Registering face...');
+      const metadata = { method: 'auto-10', intervalMs: 250, totalSamples: capturedDescriptorsRef.current.length, detectionMethod };
+      await ApiService.enrollFace(enrollingEmployee.employee_id, capturedDescriptorsRef.current, metadata);
+      setEmployees(emps => emps.map(emp => emp.id === enrollingEmployee.id ? { ...emp, face_enrolled: true } : emp));
+      stopVideo();
+      setWizardStep(2);
+    } catch (err) {
+      console.error('Enrollment error:', err); setFaceStatus('Enrollment failed. Please try again.');
+    } finally {
+      setIsEnrolling(false);
     }
   };
 
+  // ---------------- UI ----------------
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -497,42 +325,25 @@ const EmployeesPage = () => {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Employee Management</h1>
               <p className="text-sm text-gray-600 mt-1">Manage employees and face enrollment</p>
             </div>
-            <button
-              onClick={openAddForm}
-              className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Add Employee</span>
+            <button onClick={openAddForm} className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm">
+              <Plus className="w-5 h-5" /><span>Add Employee</span>
             </button>
           </div>
         </div>
 
-        {/* Search and Filter Bar */}
+        {/* Search / Filter */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search employees..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+              <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input type="text" placeholder="Search employees..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
             </div>
             <div className="flex gap-2">
-              <button
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline">Filter</span>
+              <button className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <Filter className="w-4 h-4" /><span className="hidden sm:inline">Filter</span>
               </button>
-              <button
-                onClick={handleExport}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Export</span>
+              <button onClick={handleExport} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <Download className="w-4 h-4" /><span className="hidden sm:inline">Export</span>
               </button>
             </div>
           </div>
@@ -542,84 +353,41 @@ const EmployeesPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
           {filteredEmployees.map((employee) => (
             <div key={employee.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg transition-shadow">
-              {/* Card Header */}
               <div className="flex items-start justify-between mb-4">
-                <div className={`w-12 h-12 rounded-full ${getAvatarColor(employee.name)} flex items-center justify-center text-white font-bold text-lg flex-shrink-0`}>
-                  {getInitials(employee.name)}
-                </div>
+                <div className={`w-12 h-12 rounded-full ${getAvatarColor(employee.name)} flex items-center justify-center text-white font-bold text-lg`}>{getInitials(employee.name)}</div>
                 <div className="flex gap-1">
-                  <button
-                    onClick={() => openEditForm(employee)}
-                    className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Edit Employee"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(employee)}
-                    className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete Employee"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <button onClick={() => openEditForm(employee)} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit className="w-4 h-4"/></button>
+                  <button onClick={() => setDeleteConfirm(employee)} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4"/></button>
                 </div>
               </div>
-
-              {/* Employee Info */}
               <div className="mb-4">
                 <h3 className="text-base font-semibold text-gray-900 mb-1">{employee.name}</h3>
                 <p className="text-sm text-blue-600 font-medium mb-3">{employee.employee_id}</p>
-
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Mail className="w-4 h-4 flex-shrink-0" />
-                    <span className="truncate">{employee.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Phone className="w-4 h-4 flex-shrink-0" />
-                    <span>{employee.phone || 'N/A'}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Briefcase className="w-4 h-4 flex-shrink-0" />
-                    <span>{employee.department}</span>
-                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600"><Mail className="w-4 h-4" /><span className="truncate">{employee.email}</span></div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600"><Phone className="w-4 h-4" /><span>{employee.phone || 'N/A'}</span></div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600"><Briefcase className="w-4 h-4" /><span>{employee.department}</span></div>
                 </div>
               </div>
-
-              {/* Face Enrollment Status */}
               <div className="mb-3">
                 {employee.face_enrolled ? (
                   <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    <span className="text-sm font-medium text-green-700">Face Enrolled</span>
+                    <CheckCircle className="w-4 h-4 text-green-600" /><span className="text-sm font-medium text-green-700">Face Enrolled</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                    <span className="text-sm font-medium text-red-700">Not Enrolled</span>
+                    <AlertCircle className="w-4 h-4 text-red-600" /><span className="text-sm font-medium text-red-700">Not Enrolled</span>
                   </div>
                 )}
               </div>
-
-              {/* Enroll Button */}
-              <button
-                onClick={() => openFaceModal(employee)}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
-                title={employee.face_enrolled ? 'Re-enroll Face' : 'Enroll Face'}
-              >
-                <Camera className="w-4 h-4" />
-                <span>{employee.face_enrolled ? 'Re-enroll Face' : 'Enroll Face'}</span>
-              </button>
+              <button onClick={() => openWizard(employee)} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"><Camera className="w-4 h-4"/><span>{employee.face_enrolled ? 'Re-enroll Face' : 'Enroll Face'}</span></button>
             </div>
           ))}
         </div>
 
-        {/* No Employees Found */}
         {filteredEmployees.length === 0 && (
           <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-8 h-8 text-gray-400" />
-            </div>
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><Search className="w-8 h-8 text-gray-400"/></div>
             <p className="text-lg font-medium text-gray-900 mb-2">No employees found</p>
             <p className="text-sm text-gray-600">Try adjusting your search or add a new employee</p>
           </div>
@@ -627,201 +395,76 @@ const EmployeesPage = () => {
 
         {/* Add/Edit Form Modal */}
         {showForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
-                  </h2>
-                  <button
-                    onClick={closeForm}
-                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Close"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                  <h2 className="text-2xl font-bold text-gray-900">{editingEmployee ? 'Edit Employee' : 'Add New Employee'}</h2>
+                  <button onClick={closeForm} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5"/></button>
                 </div>
-
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="firstName" className="block text-sm font-semibold text-gray-700 mb-2">
-                        First Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="firstName"
-                        name="firstName"
-                        value={formData.firstName}
-                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        placeholder="John"
-                      />
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+                      <input type="text" value={formData.firstName} onChange={(e)=>setFormData({...formData, firstName:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="John"/>
                       {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
                     </div>
                     <div>
-                      <label htmlFor="lastName" className="block text-sm font-semibold text-gray-700 mb-2">
-                        Last Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="lastName"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        placeholder="Smith"
-                      />
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+                      <input type="text" value={formData.lastName} onChange={(e)=>setFormData({...formData, lastName:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Smith"/>
                       {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
                     </div>
                   </div>
-
                   <div>
-                    <label htmlFor="employeeId" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Employee ID <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="employeeId"
-                      name="employeeId"
-                      value={formData.employeeId}
-                      onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      placeholder="EMP-001"
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Employee ID <span className="text-red-500">*</span></label>
+                    <input type="text" value={formData.employeeId} onChange={(e)=>setFormData({...formData, employeeId:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="EMP-001"/>
                     {errors.employeeId && <p className="text-red-500 text-sm mt-1">{errors.employeeId}</p>}
                   </div>
-
                   <div>
-                    <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Email <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      placeholder="john.smith@company.com"
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
+                    <input type="email" value={formData.email} onChange={(e)=>setFormData({...formData, email:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="john.smith@company.com"/>
                     {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
                   </div>
-
                   <div>
-                    <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-2">Phone</label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      placeholder="+1 234 567 8900"
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Phone</label>
+                    <input type="tel" value={formData.phone} onChange={(e)=>setFormData({...formData, phone:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="+1 234 567 8900"/>
                   </div>
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="department" className="block text-sm font-semibold text-gray-700 mb-2">
-                        Department <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="department"
-                        name="department"
-                        value={formData.department}
-                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        placeholder="Engineering"
-                      />
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Department <span className="text-red-500">*</span></label>
+                      <input type="text" value={formData.department} onChange={(e)=>setFormData({...formData, department:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Engineering"/>
                       {errors.department && <p className="text-red-500 text-sm mt-1">{errors.department}</p>}
                     </div>
                     <div>
-                      <label htmlFor="designation" className="block text-sm font-semibold text-gray-700 mb-2">
-                        Designation <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="designation"
-                        name="designation"
-                        value={formData.designation}
-                        onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        placeholder="Senior Developer"
-                      />
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Designation <span className="text-red-500">*</span></label>
+                      <input type="text" value={formData.designation} onChange={(e)=>setFormData({...formData, designation:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Senior Developer"/>
                       {errors.designation && <p className="text-red-500 text-sm mt-1">{errors.designation}</p>}
                     </div>
                   </div>
-
                   <div>
-                    <label htmlFor="policyId" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Attendance Policy <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      id="policyId"
-                      name="policyId"
-                      value={formData.policyId}
-                      onChange={(e) => setFormData({ ...formData, policyId: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    >
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Attendance Policy <span className="text-red-500">*</span></label>
+                    <select value={formData.policyId} onChange={(e)=>setFormData({...formData, policyId:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="">Select a policy</option>
-                      {policies.map((policy) => (
-                        <option key={policy.id} value={policy.id}>{policy.name}</option>
-                      ))}
+                      {policies.map((p)=> (<option key={p.id} value={p.id}>{p.name}</option>))}
                     </select>
                     {errors.policyId && <p className="text-red-500 text-sm mt-1">{errors.policyId}</p>}
                   </div>
-
                   <div>
-                    <label htmlFor="joinDate" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Join Date <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      id="joinDate"
-                      name="joinDate"
-                      value={formData.joinDate}
-                      onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Join Date <span className="text-red-500">*</span></label>
+                    <input type="date" value={formData.joinDate} onChange={(e)=>setFormData({...formData, joinDate:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"/>
                     {errors.joinDate && <p className="text-red-500 text-sm mt-1">{errors.joinDate}</p>}
                   </div>
-
                   <div>
-                    <label htmlFor="status" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Status <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      id="status"
-                      name="status"
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    >
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Status <span className="text-red-500">*</span></label>
+                    <select value={formData.status} onChange={(e)=>setFormData({...formData, status:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                       <option value="on_leave">On Leave</option>
                     </select>
-                    {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status}</p>}
                   </div>
-
                   <div className="flex gap-3 pt-4">
-                    <button
-                      onClick={closeForm}
-                      type="button"
-                      className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSubmit}
-                      type="submit"
-                      className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                    >
-                      {editingEmployee ? 'Update Employee' : 'Add Employee'}
-                    </button>
+                    <button onClick={closeForm} type="button" className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50">Cancel</button>
+                    <button onClick={handleSubmit} type="submit" className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">{editingEmployee ? 'Update Employee' : 'Add Employee'}</button>
                   </div>
                 </div>
               </div>
@@ -829,136 +472,126 @@ const EmployeesPage = () => {
           </div>
         )}
 
-        {/* Face Enrollment Modal */}
-        {showFaceModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Face Enrollment - {enrollingEmployee?.name}
-                  </h2>
-                  <button
-                    onClick={closeFaceModal}
-                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Close"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
+        {/* Employee Added modal after cicking on employee add */}
+        {showAddedModal && newlyCreatedEmployee && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center">
+              <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
+                <Camera className="w-7 h-7 text-blue-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-1">Employee Added!</h3>
+              <p className="text-gray-700 mb-6"><span className="font-semibold">{newlyCreatedEmployee.name}</span> has been added successfully. Would you like to enroll their face now?</p>
+              <div className="flex gap-3">
+                <button onClick={()=>{ setShowAddedModal(false); setNewlyCreatedEmployee(null); }} className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg font-medium">Enroll Later</button>
+                <button onClick={()=>{ setShowAddedModal(false); openWizard(newlyCreatedEmployee); }} className="flex-1 px-4 py-2.5 rounded-lg font-medium bg-blue-600 text-white inline-flex items-center justify-center gap-2"><Camera className="w-4 h-4"/>Enroll Now</button>
+              </div>
+            </div>
+          </div>
+        )}
 
-                <div className="space-y-4">
-                  {/* Camera Section */}
-                  <div className="relative bg-gray-100 rounded-lg overflow-hidden">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="w-full h-64 object-cover"
-                    />
-                    <canvas
-                      ref={canvasRef}
-                      className="absolute top-0 left-0 w-full h-64"
-                      style={{ display: 'none' }}
-                    />
-                  </div>
-
-                  {/* Status */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">{faceStatus}</p>
-                  </div>
-
-                  {/* Samples Thumbnails */}
-                  {capturedDescriptors.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm text-gray-600">
-                        <span>Captured Samples</span>
-                        <span>{capturedDescriptors.length}/10</span>
+        {/* Face Enrollment Wizard  */}
+        {showWizard && enrollingEmployee && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#0f1a2b] text-white rounded-2xl w-full max-w-md overflow-hidden">
+              {/* Header / Stepper */}
+              <div className="p-5 flex items-center justify-between">
+                <h3 className="text-xl font-semibold">Face Enrollment</h3>
+                <button onClick={closeWizard} className="w-9 h-9 grid place-items-center rounded-lg hover:bg-white/10"><X className="w-5 h-5"/></button>
+              </div>
+              <div className="pb-2 ">
+                <div className="flex items-center justify-between px-5">
+                  {[0,1,2].map((s,idx)=> (
+                    <div key={idx} className="flex items-center flex-1">
+                      <div className={`w-9 h-9 rounded-full grid place-items-center ${(wizardStep > s || (wizardStep === 2 && s === 2)) ? 'bg-green-500' : wizardStep === s ? 'bg-blue-500' : 'bg-slate-600'}`}>
+                        {idx === 1 ? <Camera className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${(capturedDescriptors.length / 10) * 100}%` }}
-                        />
-                      </div>
-                      <div ref={samplesRef} className="flex gap-2 flex-wrap mt-2"></div>
+                      {idx<2 && <div className={`h-1 flex-1 mx-2 rounded ${wizardStep>idx? 'bg-green-500':'bg-slate-600'}`}></div>}
                     </div>
-                  )}
+                  ))}
+                </div>
+              </div>
 
-                  {/* Controls */}
-                  <div className="flex gap-3">
-                    {!isCapturing && capturedDescriptors.length < 5 ? (
-                      <button
-                        onClick={startCapturing}
-                        disabled={!modelsLoaded}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Play className="w-4 h-4" />
-                        Start Capturing
-                      </button>
-                    ) : isCapturing ? (
-                      <button
-                        onClick={stopCapturing}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-                      >
-                        <Square className="w-4 h-4" />
-                        Stop Capturing
-                      </button>
-                    ) : (
-                      <button
-                        onClick={enrollFace}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                      >
-                        <Camera className="w-4 h-4" />
-                        Enroll Face
-                      </button>
+              {/* Body */}
+              <div className="bg-[#0b1220] p-6">
+                {/* Intro Step */}
+                {wizardStep===0 && (
+                  <div>
+                    <div className="w-24 h-24 rounded-full mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-500 grid place-items-center text-3xl font-bold">{getInitials(enrollingEmployee.name)}</div>
+                    <div className="text-center mb-4">
+                      <h4 className="text-2xl font-semibold">{enrollingEmployee.name}</h4>
+                      <p className="text-slate-300">{enrollingEmployee.employee_id}</p>
+                      <p className="text-slate-300">{enrollingEmployee.department}</p>
+                    </div>
+                    <div className="bg-slate-800/70 rounded-xl p-4 text-slate-100 mb-6">
+                      <p className="font-semibold mb-2">Instructions:</p>
+                      <ul className="space-y-1 text-sm">
+                        <li>• Position your face in the camera frame</li>
+                        <li>• Look directly at the camera</li>
+                        <li>• Ensure good lighting</li>
+                        <li>• 10 images will be captured automatically</li>
+                      </ul>
+                    </div>
+                    <button onClick={beginCaptureStep} className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl py-3">Start Capture</button>
+                  </div>
+                )}
+
+                {/* Capture Step */}
+                {wizardStep===1 && (
+                  <div>
+                    <div className="relative bg-slate-900 rounded-xl overflow-hidden mb-4">
+                      <video ref={videoRef} autoPlay muted playsInline className="w-full h-64 object-cover" />
+                      <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-64 hidden" />
+                    </div>
+                    <div className="text-center text-slate-200 mb-2 whitespace-pre-line">{faceStatus || 'Capturing your face...'}</div>
+                    <div className="w-full bg-slate-700 rounded-full h-2 mb-2">
+                      <div className="bg-green-500 h-2 rounded-full transition-all" style={{ width: `${(capturedDescriptors.length/10)*100}%`}} />
+                    </div>
+                    <div className="grid grid-cols-5 gap-2 mb-4">
+                      {capturedImages.map((src, i)=> (
+                        <img key={i} src={src} alt={`sample-${i}`} className="w-full h-16 object-cover rounded border border-slate-700"/>
+                      ))}
+                    </div>
+                    <p className="text-center text-slate-400 text-sm">Capturing 10 images automatically...</p>
+                    {isEnrolling && (
+                      <div className="flex items-center justify-center gap-2 text-green-400">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
+                        <span className="text-sm">Processing enrollment...</span>
+                      </div>
                     )}
                   </div>
+                )}
 
-                  {/* Instructions */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Instructions:</h3>
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      <li>• Position your face in the center of the camera</li>
-                      <li>• Ensure good lighting and clear view of your face</li>
-                      <li>• Capture at least 5 samples for better accuracy</li>
-                      <li>• Keep your head still during capture</li>
-                    </ul>
+                {/* Success Step */}
+                {wizardStep===2 && (
+                  <div className="text-center">
+                    
+                    <div className="w-20 h-20 rounded-full bg-green-500 grid place-items-center mx-auto mb-4">
+                      <CheckCircle className="w-10 h-10 text-white"/>
+                    </div>
+                    <h4 className="text-2xl font-semibold mb-1">Enrollment Successful!</h4>
+                    <p className="text-slate-300 mb-6">Face has been registered successfully</p>
+                    <button onClick={closeWizard} className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl py-3">Continue</button>
                   </div>
-                </div>
+                )}
+
               </div>
             </div>
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
+        {/* Delete Confirmation */}
         {deleteConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                    <Trash2 className="w-6 h-6 text-red-600" />
-                  </div>
+                  <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center"><Trash2 className="w-6 h-6 text-red-600"/></div>
                   <h2 className="text-xl font-bold text-gray-900">Delete Employee</h2>
                 </div>
-                <p className="text-gray-600 mb-6">
-                  Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone and will remove all associated data.
-                </p>
+                <p className="text-gray-600 mb-6">Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone and will remove all associated data.</p>
                 <div className="flex gap-3">
-                  <button
-                    onClick={() => setDeleteConfirm(null)}
-                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmDelete}
-                    className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-                  >
-                    Delete
-                  </button>
+                  <button onClick={()=>setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50">Cancel</button>
+                  <button onClick={confirmDelete} className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700">Delete</button>
                 </div>
               </div>
             </div>
