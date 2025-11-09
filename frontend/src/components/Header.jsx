@@ -58,28 +58,33 @@ const Header = () => {
   const isAttendancePage = location.pathname === '/';
 
   return (
-    <header className="bg-[#2C3E50] shadow-lg border-b border-gray-200">
+    <header className={isAttendancePage ? "bg-[#2C3E50] shadow-lg border-b border-gray-200" : "bg-white shadow-lg border-b border-gray-200"}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo for Landing Page */}
+          {/* Logo on the left for both pages */}
           <div className="flex items-center">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-[#2980B9] rounded-lg flex items-center justify-center">
-                <Camera className="w-5 h-5 text-white" />
+            {isAttendancePage ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-[#2980B9] rounded-lg flex items-center justify-center">
+                  <Camera className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold text-white">Kiosk Attendance System</span>
               </div>
-              <span className="text-xl font-bold text-white">
-                Kiosk Attendance System
-              </span>
-            </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <span className="text-xl font-bold text-gray-900">Admin Panel</span>
+                <span className="px-2 py-1 bg-gray-100 text-gray-700 font-normal text-sm rounded">Logged in as Admin</span>
+              </div>
+            )}
           </div>
 
-          {/* Conditional Right Side Content */}
+          {/* Right side content */}
           {isAttendancePage ? (
-            <div className="flex items-center space-x-4">
-              {/* Current Time and Date */}
-              <div className="hidden sm:flex items-center space-x-2 text-white">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Current Time and Date - visible on mobile with smaller font */}
+              <div className="flex items-center space-x-2 text-white">
                 <div className="text-right">
-                  <div className="text-sm sm:text-lg font-bold font-medium">{formatTime(currentTime)}</div>
+                  <div className="text-xs sm:text-sm lg:text-lg font-bold font-medium">{formatTime(currentTime)}</div>
                   <div className="text-xs">{formatDate(currentTime)}</div>
                 </div>
               </div>
@@ -87,15 +92,15 @@ const Header = () => {
               {/* Admin Login Button */}
               <Link
                 to="/login"
-                className="flex items-center space-x-2 bg-[#2980B9] text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-[#3498DB] transition-colors"
+                className="flex items-center space-x-1 sm:space-x-2 bg-[#2980B9] text-white px-2 sm:px-3 lg:px-4 py-2 rounded-lg hover:bg-[#3498DB] transition-colors text-sm"
               >
                 <LogIn className="w-4 h-4" />
                 <span className="hidden sm:inline">Admin Login</span>
                 <span className="sm:hidden">Login</span>
               </Link>
 
-              {/* WiFi Connectivity Indicator */}
-              <div className="hidden sm:flex">
+              {/* WiFi Connectivity Indicator - visible on mobile */}
+              <div className="flex">
                 {isOnline ? (
                   <Wifi className="w-4 h-4 text-green-400" />
                 ) : (
@@ -104,9 +109,9 @@ const Header = () => {
               </div>
             </div>
           ) : (
-            <>
+            <div className="flex items-center space-x-4">
               {/* Desktop Navigation for Admin */}
-              <nav className="hidden lg:flex items-center space-x-8">
+              <nav className="hidden lg:flex items-center space-x-6">
                 {navigation.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.href;
@@ -117,7 +122,7 @@ const Header = () => {
                       className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                         isActive
                           ? 'bg-[#3498DB] text-white'
-                          : 'text-gray-300 hover:text-white hover:bg-[#34495E]'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
@@ -138,7 +143,7 @@ const Header = () => {
                       window.location.href = '/login';
                     }
                   }}
-                  className="flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  className="flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Logout</span>
@@ -149,7 +154,7 @@ const Header = () => {
               <div className="lg:hidden">
                 <button
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="text-white hover:text-gray-900 focus:outline-none focus:text-gray-900"
+                  className="text-gray-600 hover:text-gray-900 focus:outline-none focus:text-gray-900"
                 >
                   {isMenuOpen ? (
                     <X className="w-6 h-6" />
@@ -158,7 +163,7 @@ const Header = () => {
                   )}
                 </button>
               </div>
-            </>
+            </div>
           )}
         </div>
 
