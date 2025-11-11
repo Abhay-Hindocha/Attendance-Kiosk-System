@@ -329,12 +329,21 @@ const AttendancePage = () => {
             .custom-scrollbar::-webkit-scrollbar-thumb:hover {
               background: #718096;
             }
+            @keyframes blink {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.3; }
+            }
+            .blink {
+              animation: blink 4s infinite;
+            }
           `}
         </style>
         <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
           {/* Camera Section */}
-          <div className="lg:col-span-2 bg-[#1b233c]/70 border border-white/10 rounded-2xl backdrop-blur-md grid " style={{ gridTemplateRows: '4fr .5fr' }}>
-            <div className="p-6 flex flex-col rounded-t-3xl overflow-hidden" style={{ background: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.2))' }}>
+          <div className="lg:col-span-2 bg-[#1b233c]/70 border border-gray-500 rounded-2xl backdrop-blur-md grid " style={{ gridTemplateRows: '4fr .5fr' }}>
+            <div className="p-6 flex flex-col rounded-t-2xl overflow-hidden relative" style={{ background: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.2))' }}>
+              {/* Red Blinking Dot */}
+              <div className="m-3 absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full blink"></div>
               {/* Status Label */}
               <div className="flex justify-start">
                 <div className={`bg-[#0e1629] px-4 py-2 rounded-full text-sm font-medium text-white ${
@@ -456,12 +465,12 @@ const AttendancePage = () => {
           {/* Recent Activity */}
           <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex-1 flex flex-col">
             <div className="flex items-center mb-4 gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className={`w-2 h-2 bg-green-500 rounded-full ${recentActivities.length > 0 ? 'blink' : ''}`}></div>
               <h2 className="text-lg font-semibold text-white">
                 Recent Activity
               </h2>
             </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="overflow-y-scroll custom-scrollbar max-h-48">
               <div className="space-y-3">
                 {recentActivities.map((a, index) => (
                   <div
@@ -498,19 +507,25 @@ const AttendancePage = () => {
           </div>
 
           {/* Instructions */}
-          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex-shrink-0">
-            <h2 className="text-lg font-semibold text-white mb-4">
-              Instructions
-            </h2>
-            <ul className="text-sm text-gray-300 space-y-2 list-decimal list-inside">
-              <li>
-                Stand <span className="text-white font-medium">2–3 feet</span>{" "}
-                away from the screen
+          <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/20 p-6 flex-shrink-0">
+            <h3 className="text-white text-lg font-semibold mb-4">Instructions</h3>
+            <ul className="space-y-3 text-slate-300 text-sm">
+              <li className="flex items-start gap-2">
+                <span className="text-blue-400 font-bold">1.</span>
+                <span>Stand 2-3 feet away from the screen</span>
               </li>
-              <li>Look directly at the camera</li>
-              <li>Click "Scan Face" to start recognition</li>
-              <li>Wait for automatic recognition</li>
-              <li>Attendance will be marked automatically</li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-400 font-bold">2.</span>
+                <span>Look directly at the camera</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-400 font-bold">3.</span>
+                <span>Wait for automatic recognition</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-400 font-bold">4.</span>
+                <span>Confirmation will appear on screen</span>
+              </li>
             </ul>
           </div>
 
