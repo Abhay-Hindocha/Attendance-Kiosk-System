@@ -427,6 +427,8 @@ class AttendanceController extends Controller
             ->select(
                 'employees.id',
                 'employees.name',
+                'employees.email',
+                'employees.phone',
                 'employees.department',
                 'employees.employee_id',
                 DB::raw('TIME(attendances.check_in) as check_in_time'),
@@ -506,11 +508,14 @@ class AttendanceController extends Controller
             ->select(
                 'employees.id',
                 'employees.name',
+                'employees.email',
+                'employees.phone',
                 'employees.department',
                 'employees.employee_id',
                 DB::raw('TIME(attendances.check_in) as check_in_time'),
                 DB::raw('TIME(attendances.check_out) as check_out_time'),
-                'attendances.status'
+                'attendances.status',
+                DB::raw("TIMESTAMPDIFF(MINUTE, DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE), TIME(attendances.check_in)) as late_minutes")
             )
             ->get();
 
@@ -539,11 +544,14 @@ class AttendanceController extends Controller
             ->select(
                 'employees.id',
                 'employees.name',
+                'employees.email',
+                'employees.phone',
                 'employees.department',
                 'employees.employee_id',
                 DB::raw('TIME(attendances.check_in) as check_in_time'),
                 DB::raw('TIME(attendances.check_out) as check_out_time'),
-                'attendances.status'
+                'attendances.status',
+                DB::raw("TIMESTAMPDIFF(MINUTE, policies.work_end_time, TIME(attendances.check_out)) as early_minutes")
             )
             ->get();
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, CheckCircle, XCircle, Calendar, Clock, TrendingUp } from 'lucide-react';
+import { X, Users, CheckCircle, XCircle, Calendar, Clock, TrendingUp, Mail, Phone, AlertCircle } from 'lucide-react';
 import ApiService from '../services/api';
 
 const StatsModal = ({ isOpen, onClose, statType, statValue }) => {
@@ -79,18 +79,29 @@ const StatsModal = ({ isOpen, onClose, statType, statValue }) => {
 
   if (!isOpen) return null;
 
+  const getHeaderTitle = () => {
+    switch (statType) {
+      case 'total_employees': return 'All Employees';
+      case 'present_today': return 'Employees Present Today';
+      case 'absent_today': return 'Employees Absent Today';
+      case 'on_leave': return 'Employees On Leave';
+      case 'late_arrivals': return 'Late Arrivals Today';
+      case 'early_departures': return 'Early Departures Today';
+      default: return 'Details';
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b">
-          <div className="flex items-center space-x-3">
-            {getIcon()}
-            <h2 className="text-xl font-semibold text-gray-900">{getTitle()}</h2>
-            <span className="text-sm text-gray-500">({statValue})</span>
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 md:p-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900">{getHeaderTitle()}</h2>
+            <p className="text-sm md:text-base text-gray-600 mt-1">{statValue} records</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -119,25 +130,74 @@ const StatsModal = ({ isOpen, onClose, statType, statValue }) => {
           {!isLoading && !error && data.length > 0 && (
             <div className="space-y-4">
               {data.map((item, index) => (
-                <div key={index} className="border rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {item.name || item.employee?.name || `Employee ${item.employee_id || item.id}`}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {item.department || item.employee?.department || 'N/A'}
-                      </p>
+                <div key={index} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                          {item.name ? item.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'N/A'}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{item.name || item.employee?.name || `Employee ${item.employee_id || item.id}`}</h3>
+                          <p className="text-sm text-gray-600">{item.department || item.employee?.department || 'N/A'}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                        <div className="flex items-center gap-2 text-xs text-gray-600">
+                          <Mail className="w-4 h-4" />
+                          <span className="truncate">{item.email || item.employee?.email || 'N/A'}</span>
+                        </div>
+                        {statType === 'early_departures' ? (
+                          <>
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <Phone className="w-4 h-4" />
+                              <span>{item.phone || item.employee?.phone || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <Clock className="w-4 h-4" />
+                              <span>Check-out: {item.check_out_time || item.employee?.check_out_time || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-purple-600">
+                              <AlertCircle className="w-4 h-4" />
+                              <span>Early by: {item.early_minutes || item.employee?.early_minutes || 'N/A'} mins</span>
+                            </div>
+                          </>
+                        ) : statType === 'late_arrivals' ? (
+                          <>
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <Clock className="w-4 h-4" />
+                              <span>Check-in: {item.check_in_time}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-orange-600">
+                              <AlertCircle className="w-4 h-4" />
+                              <span>Late by: {item.late_minutes || item.employee?.late_minutes || 'N/A'} mins</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <Phone className="w-4 h-4" />
+                              <span>{item.phone || item.employee?.phone || 'N/A'}</span>
+                            </div>
+                            {item.check_in_time && (
+                              <div className="flex items-center gap-2 text-xs text-gray-600">
+                                <Clock className="w-4 h-4" />
+                                <span>Check-in: {item.check_in_time}</span>
+                              </div>
+                            )}
+                            {item.check_out_time && (
+                              <div className="flex items-center gap-2 text-xs text-gray-600">
+                                <Clock className="w-4 h-4" />
+                                <span>Check-out: {item.check_out_time}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                     <div className="text-right">
-                      {item.check_in_time && (
-                        <p className="text-sm text-gray-600">Check-in: {item.check_in_time}</p>
-                      )}
-                      {item.check_out_time && (
-                        <p className="text-sm text-gray-600">Check-out: {item.check_out_time}</p>
-                      )}
                       {item.status && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           item.status === 'present' ? 'bg-green-100 text-green-700' :
                           item.status === 'absent' ? 'bg-red-100 text-red-700' :
                           item.status === 'on_leave' ? 'bg-yellow-100 text-yellow-700' :

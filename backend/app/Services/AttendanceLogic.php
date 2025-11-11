@@ -171,7 +171,7 @@ class AttendanceLogic
         $halfDayMinutes = ($policy->half_day_hours * 60) + $policy->half_day_minutes;
         $fullDayMinutes = ($policy->full_day_hours * 60) + $policy->full_day_minutes;
         $graceMinutes = ($policy->early_grace_period ?? 0);
-        $oneHourLessFullDay = $fullDayMinutes - 60 - $graceMinutes;
+        $oneHourLessFullDay = $fullDayMinutes - 60 ;
 
         // Rule 1: Less than half day = Absent
         if ($totalMinutesWorked < $halfDayMinutes) {
