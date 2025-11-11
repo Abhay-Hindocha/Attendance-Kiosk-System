@@ -18,12 +18,12 @@ class AttendanceController extends Controller
 
         return Attendance::where('employee_id', $employeeId)
             ->whereBetween('date', [$startDate, $endDate])
-            ->with('employee')
+            ->with('employee', 'breaks')
             ->get()
             ->map(function ($attendance) {
-                $checkIn = $attendance->check_in ? Carbon::parse($attendance->check_in)->format('H:i') : null;
-                $checkOut = $attendance->check_out ? Carbon::parse($attendance->check_out)->format('H:i') : null;
-                
+                $checkIn = $attendance->check_in ? $attendance->check_in->toISOString() : null;
+                $checkOut = $attendance->check_out ? $attendance->check_out->toISOString() : null;
+
                 $totalHours = null;
                 if ($checkIn && $checkOut) {
                     $totalMinutes = Carbon::parse($checkOut)->diffInMinutes(Carbon::parse($checkIn));
@@ -32,17 +32,27 @@ class AttendanceController extends Controller
                     $totalHours = $hours . 'h ' . $minutes . 'm';
                 }
 
+                // Determine status based on attendance data
+                $status = $attendance->status;
+                if ($status === 'late') {
+                    $status = 'Late Entry';
+                } elseif ($status === 'present') {
+                    $status = 'Present';
+                } elseif ($status === 'absent') {
+                    $status = 'Absent';
+                } elseif ($status === 'half_day') {
+                    $status = 'Half Day';
+                } else {
+                    $status = ucfirst($status);
+                }
+
                 return [
                     'date' => $attendance->date,
                     'check_in' => $checkIn,
                     'check_out' => $checkOut,
                     'total_hours' => $totalHours,
-                    'breaks_count' => $attendance->breaks_count,
-                    'is_late' => $attendance->is_late,
-                    'is_early_departure' => $attendance->is_early_departure,
-                    'is_absent' => $attendance->is_absent,
-                    'is_leave' => $attendance->is_leave,
-                    'is_holiday' => $attendance->is_holiday
+                    'breaks' => $attendance->breaks->count(),
+                    'status' => $status
                 ];
             });
     }
@@ -69,26 +79,13 @@ class AttendanceController extends Controller
             fputcsv($file, $columns);
 
             foreach ($attendances as $attendance) {
-                $status = 'Present';
-                if ($attendance['is_late']) {
-                    $status = 'Late Entry';
-                } elseif ($attendance['is_early_departure']) {
-                    $status = 'Late Departure';
-                } elseif ($attendance['is_absent']) {
-                    $status = 'Absent';
-                } elseif ($attendance['is_leave']) {
-                    $status = 'On Leave';
-                } elseif ($attendance['is_holiday']) {
-                    $status = 'Holiday';
-                }
-
                 fputcsv($file, [
                     $attendance['date'],
-                    $attendance['check_in'] ?? '-',
-                    $attendance['check_out'] ?? '-',
+                    $attendance['check_in'] ? Carbon::parse($attendance['check_in'])->format('H:i') : '-',
+                    $attendance['check_out'] ? Carbon::parse($attendance['check_out'])->format('H:i') : '-',
                     $attendance['total_hours'] ?? '-',
-                    $attendance['breaks_count'] ? "{$attendance['breaks_count']} times" : '-',
-                    $status
+                    $attendance['breaks'] ? "{$attendance['breaks']} times" : '-',
+                    $attendance['status']
                 ]);
             }
 

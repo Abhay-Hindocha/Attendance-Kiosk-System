@@ -26,6 +26,11 @@ class ApiService {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json();
+          // Handle Laravel validation errors
+          if (response.status === 422 && errorData.errors) {
+            const messages = Object.values(errorData.errors).flat();
+            throw { message: messages.join(' ') };
+          }
         } else {
           // If response is not JSON (e.g., HTML error page), use text
           const text = await response.text();
@@ -64,20 +69,11 @@ class ApiService {
 
   // Authentication methods
   async login(credentials) {
-    const response = await fetch(`${this.baseURL}/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(credentials),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw errorData;
-    }
-
-    const data = await response.json();
+    // Use the generic post helper so the `Accept: application/json` header
+    // (and other standard headers) are included. This prevents Laravel from
+    // returning an HTML redirect on validation errors when the request
+    // doesn't declare it expects JSON.
+    const data = await this.post('/login', credentials);
     // Store the token
     localStorage.setItem('authToken', data.token);
     localStorage.setItem('userRole', data.admin.role);
@@ -240,6 +236,18 @@ class ApiService {
 
   async getEarlyDeparturesToday() {
     return this.request('/attendance/early-departures-today');
+  }
+
+  // Employee Monthly Attendance
+  async getEmployeeMonthlyAttendance(employeeId, year, month) {
+    return this.request(`/attendance/employee/${employeeId}/${year}/${month}`);
+  }
+
+  // Export Employee Monthly Attendance
+  async exportEmployeeMonthlyAttendance(employeeId, year, month) {
+    return this.request(`/attendance/export/employee/${employeeId}/${year}/${month}`, {
+      responseType: 'blob'
+    });
   }
 }
 

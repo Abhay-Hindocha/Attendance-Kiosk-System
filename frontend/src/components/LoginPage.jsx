@@ -28,7 +28,13 @@ const LoginPage = () => {
       navigate('/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
-      setError(error.message || 'Invalid email or password. Please try again.');
+      if (error.errors) {
+        // Handle Laravel validation error messages
+        const messages = Object.values(error.errors).flat();
+        setError(messages.join(' '));
+      } else {
+        setError(error.message || 'Invalid email or password. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

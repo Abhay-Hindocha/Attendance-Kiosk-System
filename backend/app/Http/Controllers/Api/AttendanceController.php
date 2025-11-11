@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\BreakRecord;
+use App\Models\Holiday;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AttendanceController extends Controller
 {
@@ -613,5 +615,148 @@ class AttendanceController extends Controller
             'message' => 'Check-in marked successfully',
             'attendance' => $attendance->load('employee')
         ], 201);
+    }
+
+    public function getEmployeeMonthlyAttendance($employeeId, $year, $month)
+    {
+        \Log::info("getEmployeeMonthlyAttendance called", ['employeeId' => $employeeId, 'year' => $year, 'month' => $month]);
+
+        // First try to find by employee_id (string), then by id (integer)
+        $employee = Employee::where('employee_id', $employeeId)->orWhere('id', $employeeId)->first();
+        if (!$employee) {
+            \Log::warning("Employee not found", ['employeeId' => $employeeId]);
+            return response()->json([]);
+        }
+
+        $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+        $endDate = $startDate->copy()->endOfMonth();
+
+        \Log::info("Date range", ['startDate' => $startDate->toDateString(), 'endDate' => $endDate->toDateString()]);
+
+        $attendances = Attendance::where('employee_id', $employee->id)
+            ->whereBetween('date', [$startDate, $endDate])
+            ->with('employee', 'breaks')
+            ->get()
+            ->keyBy(function($item) {
+                return Carbon::parse($item->date)->toDateString();
+            });
+
+        \Log::info("Attendances found", ['count' => $attendances->count(), 'attendances' => $attendances->toArray()]);
+
+        $holidays = Holiday::whereBetween('date', [$startDate, $endDate])
+            ->get()
+            ->keyBy('date');
+
+        $result = [];
+        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
+            $dateKey = $date->toDateString();
+            $attendance = $attendances->get($dateKey);
+            $holiday = $holidays->get($dateKey);
+
+            if ($attendance) {
+                \Log::info("Processing attendance for date", ['date' => $dateKey, 'attendance' => $attendance->toArray(), 'breaks_count' => $attendance->breaks->count()]);
+
+                $checkIn = $attendance->check_in ? $attendance->check_in->toISOString() : null;
+                $checkOut = $attendance->check_out ? $attendance->check_out->toISOString() : null;
+
+                $totalHours = null;
+                if ($checkIn && $checkOut) {
+                    $totalMinutes = Carbon::parse($checkOut)->diffInMinutes(Carbon::parse($checkIn));
+                    $hours = floor($totalMinutes / 60);
+                    $minutes = $totalMinutes % 60;
+                    $totalHours = $hours . 'h ' . $minutes . 'm';
+                }
+
+                // Determine status based on attendance data
+                $status = $attendance->status;
+                if ($status === 'late') {
+                    $status = 'Late Entry';
+                } elseif ($status === 'present') {
+                    $status = 'Present';
+                } elseif ($status === 'absent') {
+                    $status = 'Absent';
+                } elseif ($status === 'half_day') {
+                    $status = 'Half Day';
+                } else {
+                    $status = ucfirst($status);
+                }
+
+                $result[] = [
+                    'date' => $dateKey,
+                    'check_in' => $checkIn,
+                    'check_out' => $checkOut,
+                    'total_hours' => $totalHours,
+                    'breaks' => $attendance->breaks->count(),
+                    'status' => $status,
+                    'holiday' => $holiday ? ['name' => $holiday->name, 'description' => $holiday->description] : null
+                ];
+            } elseif ($holiday) {
+                $result[] = [
+                    'date' => $dateKey,
+                    'check_in' => null,
+                    'check_out' => null,
+                    'total_hours' => null,
+                    'breaks' => 0,
+                    'status' => 'Holiday',
+                    'holiday' => ['name' => $holiday->name, 'description' => $holiday->description]
+                ];
+            } else {
+                // No attendance and no holiday - only include if it's past (till one day behind), and not a weekend
+                $yesterday = Carbon::yesterday()->toDateString();
+                if ($dateKey <= $yesterday && !$date->isWeekend()) {
+                    $result[] = [
+                        'date' => $dateKey,
+                        'check_in' => null,
+                        'check_out' => null,
+                        'total_hours' => null,
+                        'breaks' => 0,
+                        'status' => 'Absent',
+                        'holiday' => null
+                    ];
+                }
+            }
+        }
+
+        \Log::info("Final result", ['result' => $result]);
+
+        return response()->json($result);
+    }
+
+    public function exportEmployeeMonthlyAttendance($employeeId, $year, $month)
+    {
+        $employee = Employee::findOrFail($employeeId);
+        $attendances = $this->getEmployeeMonthlyAttendance($employeeId, $year, $month);
+
+        $filename = "attendance-{$employee->name}-{$year}-{$month}.csv";
+
+        $headers = [
+            "Content-type" => "text/csv",
+            "Content-Disposition" => "attachment; filename=$filename",
+            "Pragma" => "no-cache",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0"
+        ];
+
+        $columns = ['Date', 'Check In', 'Check Out', 'Total Hours', 'Breaks', 'Status'];
+
+        $callback = function() use ($attendances, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            foreach ($attendances as $attendance) {
+                fputcsv($file, [
+                    $attendance['date'],
+                    $attendance['check_in'] ? Carbon::parse($attendance['check_in'])->format('H:i') : '-',
+                    $attendance['check_out'] ? Carbon::parse($attendance['check_out'])->format('H:i') : '-',
+                    $attendance['total_hours'] ?? '-',
+                    $attendance['breaks'] ? "{$attendance['breaks']} times" : '-',
+                    $attendance['status']
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return new StreamedResponse($callback, 200, $headers);
     }
 }

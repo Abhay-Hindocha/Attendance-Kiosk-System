@@ -7,6 +7,7 @@ use App\Models\Admin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -18,9 +19,19 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
+        Log::info('Login attempt for email: ' . $request->email);
+
         $admin = Admin::where('email', $request->email)->first();
 
-        if (!$admin || !Hash::check($request->password, $admin->password)) {
+        if (!$admin) {
+            Log::warning('Admin not found for email: ' . $request->email);
+            throw ValidationException::withMessages([
+                'email' => ['The provided credentials are incorrect.'],
+            ]);
+        }
+
+        if (!Hash::check($request->password, $admin->password)) {
+            Log::warning('Password mismatch for admin ID: ' . $admin->id);
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
