@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Clock, CheckCircle, XCircle, TrendingUp, Calendar, AlertCircle, RefreshCcw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import ApiService from '../services/api';
 import StatsModal from './StatsModal';
 
 const DashboardPage = () => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
@@ -262,7 +264,7 @@ const DashboardPage = () => {
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                 Live Activity Feed
               </h2>
-              <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">View All</button>
+              <button onClick={() => navigate('/reports')} className="text-sm text-blue-600 hover:text-blue-700 font-medium">View All</button>
             </div>
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {liveActivity.slice(0, 8).map((activity, index) => (
@@ -343,21 +345,21 @@ const DashboardPage = () => {
             <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6">Quick Actions</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button
-                onClick={() => window.location.href = '/employees'}
+                onClick={() => navigate('/employees')}
                 className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left"
               >
                 <Users className="w-6 h-6 text-blue-600 mb-2" />
                 <p className="text-sm font-medium text-gray-900">Manage Employees</p>
               </button>
               <button
-                onClick={() => window.location.href = '/reports'}
+                onClick={() => navigate('/reports')}
                 className="p-4 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-left"
               >
                 <TrendingUp className="w-6 h-6 text-green-600 mb-2" />
                 <p className="text-sm font-medium text-gray-900">View Reports</p>
               </button>
               <button
-                onClick={() => window.location.href = '/policies'}
+                onClick={() => navigate('/policies')}
                 className="p-4 border-2 border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors text-left"
               >
                 <Clock className="w-6 h-6 text-purple-600 mb-2" />

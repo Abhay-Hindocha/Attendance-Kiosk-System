@@ -510,8 +510,8 @@ export default function AttendanceReportsPage() {
                       <p className="text-xs text-gray-600 mb-2">Break Details:</p>
                       {log.breaks.map((b, idx) => (
                         <div key={idx} className="flex gap-4 text-sm">
-                          <span className="text-gray-700">Out: {b.out_time ? new Date(b.out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}</span>
-                          <span className="text-gray-700">In: {b.in_time ? new Date(b.in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}</span>
+                          <span className="text-gray-700">Out: {b.break_out ? new Date(b.break_out).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}</span>
+                          <span className="text-gray-700">In: {b.break_in ? new Date(b.break_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}</span>
                         </div>
                       ))}
                     </div>

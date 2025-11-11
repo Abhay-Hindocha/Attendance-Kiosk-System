@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\BreakRecord;
 use App\Models\Holiday;
 use App\Models\Policy;
+use App\Services\AttendanceLogic;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AttendanceController extends Controller
 {
+    protected AttendanceLogic $attendanceLogic;
+
+    public function __construct(AttendanceLogic $attendanceLogic)
+    {
+        $this->attendanceLogic = $attendanceLogic;
+    }
+
     // Get a list of attendance records with optional filtering and pagination
     // Supports filters: employee_id, month/year, date, status
     public function index(Request $request)
@@ -103,7 +111,7 @@ class AttendanceController extends Controller
             'total_employees' => Employee::count(),
             'present_today' => DB::table('attendances')
                 ->where('date', $today)
-                ->whereIn('status', ['present', 'late'])
+                ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
                 ->whereNotNull('check_in')
                 ->count(),
             'absent_today' => DB::table('employees')
@@ -125,7 +133,8 @@ class AttendanceController extends Controller
                     $query->whereNull('attendances.id')
                         ->orWhere(function($q) {
                             $q->whereNull('attendances.check_in')
-                              ->whereNull('attendances.check_out');
+                              ->whereNull('attendances.check_out')
+                              ->orWhere('attendances.status', 'absent');
                         });
                 })
                 ->count(),
@@ -160,7 +169,7 @@ class AttendanceController extends Controller
                           ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_early_tracking', true)
-                ->whereRaw("TIME(attendances.check_out) < policies.work_end_time")
+                ->whereRaw("TIME(attendances.check_out) < DATE_SUB(policies.work_end_time, INTERVAL COALESCE(policies.early_grace_period, 0) MINUTE)")
                 ->count(),
         ];
 
@@ -168,7 +177,7 @@ class AttendanceController extends Controller
         $yesterday_stats = [
             'present_yesterday' => DB::table('attendances')
                 ->where('date', $yesterday)
-                ->whereIn('status', ['present', 'late'])
+                ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
                 ->whereNotNull('check_in')
                 ->count(),
             'absent_yesterday' => DB::table('employees')
@@ -225,7 +234,7 @@ class AttendanceController extends Controller
                           ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_early_tracking', true)
-                ->whereRaw("DATE_FORMAT(check_out, '%H:%i:%s') < work_end_time")
+                ->whereRaw("TIME(attendances.check_out) < DATE_SUB(policies.work_end_time, INTERVAL COALESCE(policies.early_grace_period, 0) MINUTE)")
                 ->count()
         ];
 
@@ -251,7 +260,7 @@ class AttendanceController extends Controller
             ->select(
                 'department',
                 DB::raw('COUNT(DISTINCT employees.id) as total_employees'),
-                DB::raw("COUNT(DISTINCT CASE WHEN attendances.status IN ('present', 'late') THEN employees.id END) as present_employees")
+                DB::raw("COUNT(DISTINCT CASE WHEN attendances.status IN ('present', 'late', 'half_day', 'early_departure') THEN employees.id END) as present_employees")
             )
             ->leftJoin('attendances', function($join) use ($today) {
                 $join->on('employees.id', '=', 'attendances.employee_id')
@@ -286,7 +295,7 @@ class AttendanceController extends Controller
             FROM attendances
             WHERE date BETWEEN ? AND ?
             AND check_in IS NOT NULL
-            AND status IN ('present', 'late')
+            AND status IN ('present', 'late', 'half_day', 'early_departure')
         ", [$lastWeek->toDateString(), $today->toDateString()]);
 
         $avgCheckIn = $avgCheckInResult[0]->avg_time ?? null;
@@ -297,18 +306,18 @@ class AttendanceController extends Controller
             'average_work_hours' => Attendance::whereBetween('date', [$lastWeek, $today])
                 ->whereNotNull('check_in')
                 ->whereNotNull('check_out')
-                ->whereIn('status', ['present', 'late'])
+                ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
                 ->avg(DB::raw('TIMESTAMPDIFF(HOUR, check_in, check_out)')),
 
             'punctuality_rate' => Attendance::whereBetween('date', [$lastWeek, $today])
-                ->whereIn('status', ['present', 'late'])
+                ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
                 ->count() > 0
                     ? round(
                         (Attendance::whereBetween('date', [$lastWeek, $today])
                             ->where('status', 'present')
                             ->count() * 100.0) /
                         Attendance::whereBetween('date', [$lastWeek, $today])
-                            ->whereIn('status', ['present', 'late'])
+                            ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
                             ->count()
                     )
                     : 0
@@ -379,7 +388,9 @@ class AttendanceController extends Controller
                     && (!$attendance->employee->policy->effective_to || Carbon::parse($attendance->employee->policy->effective_to)->gte(Carbon::today()))
                     && (!$attendance->employee->policy->effective_from || Carbon::parse($attendance->employee->policy->effective_from)->lte(Carbon::today()))) {
                     $workEndTime = Carbon::createFromFormat('H:i:s', $attendance->employee->policy->work_end_time);
-                    if (Carbon::parse($attendance->check_out)->lt($workEndTime)) {
+                    $gracePeriod = $attendance->employee->policy->early_grace_period ?? 0;
+                    $allowedEndTime = $workEndTime->subMinutes($gracePeriod);
+                    if (Carbon::parse($attendance->check_out)->lt($allowedEndTime)) {
                         $action = 'Early Departure';
                     }
                 }
@@ -411,7 +422,7 @@ class AttendanceController extends Controller
         $presentEmployees = DB::table('attendances')
             ->join('employees', 'attendances.employee_id', '=', 'employees.id')
             ->where('attendances.date', $today)
-            ->whereIn('attendances.status', ['present', 'late'])
+            ->whereIn('attendances.status', ['present', 'late', 'half_day', 'early_departure'])
             ->whereNotNull('attendances.check_in')
             ->select(
                 'employees.id',
@@ -524,7 +535,7 @@ class AttendanceController extends Controller
                       ->orWhereNull('policies.effective_from');
             })
             ->where('policies.enable_early_tracking', true)
-            ->whereRaw("TIME(attendances.check_out) < policies.work_end_time")
+            ->whereRaw("TIME(attendances.check_out) < DATE_SUB(policies.work_end_time, INTERVAL COALESCE(policies.early_grace_period, 0) MINUTE)")
             ->select(
                 'employees.id',
                 'employees.name',
@@ -564,9 +575,9 @@ class AttendanceController extends Controller
             if ($scanCount == 2) {
                 // 2nd scan: Check-out
                 $existingAttendance->update(['check_out' => $now]);
-                // Calculate total hours and update status if necessary
-                $this->updateAttendanceStatusBasedOnHours($existingAttendance);
-                $this->checkAndUpdateEarlyDeparture($existingAttendance);
+                // Calculate and update status using new logic
+                $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
+                $existingAttendance->update(['status' => $status]);
                 return response()->json([
                     'message' => 'Check-out marked successfully',
                     'attendance' => $existingAttendance->load('employee')
@@ -574,14 +585,14 @@ class AttendanceController extends Controller
             } elseif ($scanCount % 2 == 0) {
                 // Even scans >2: Check-out (initially)
                 $existingAttendance->update(['check_out' => $now]);
-                // Calculate total hours and update status if necessary
-                $this->updateAttendanceStatusBasedOnHours($existingAttendance);
-                $this->checkAndUpdateEarlyDeparture($existingAttendance);
+                // Calculate and update status using new logic
+                $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
+                $existingAttendance->update(['status' => $status]);
                 return response()->json([
                     'message' => 'Check-out marked successfully',
                     'attendance' => $existingAttendance->load('employee')
                 ]);
-            } else {
+            } elseif ($scanCount % 2 == 1 && $scanCount > 2) {
                 // Odd scans >2: Break end, retroactively change previous even to break start
                 $existingAttendance->update(['check_out' => null]);
                 $breakStartIndex = $scanCount - 2;
@@ -598,35 +609,20 @@ class AttendanceController extends Controller
             }
         }
 
-        // Determine status based on employee's policy
-        $status = 'present';
-        if ($employee->policy
-            && $employee->policy->enable_late_tracking
-            && (!$employee->policy->effective_to || Carbon::parse($employee->policy->effective_to)->gte(Carbon::today()))
-            && (!$employee->policy->effective_from || Carbon::parse($employee->policy->effective_from)->lte(Carbon::today()))) {
-            $workStartTime = Carbon::createFromFormat('H:i:s', $employee->policy->work_start_time);
-            $gracePeriod = $employee->policy->late_grace_period ?? 0;
-            $allowedCheckInTime = $workStartTime->addMinutes($gracePeriod);
-
-            if ($now->greaterThan($allowedCheckInTime)) {
-                $status = 'late';
-            }
-        } else {
-            // Default logic if no policy or inactive
-            if ($now->hour >= 9) {
-                $status = 'late';
-            }
-        }
-
-        // Create new attendance record
+        // Create new attendance record with check-in status
         $attendance = Attendance::create([
             'employee_id' => $employee->id,
             'check_in' => $now,
             'date' => $today,
-            'status' => $status,
+            'status' => 'present', // Default status at check-in
             'scan_count' => 1,
             'scan_times' => [$now->toDateTimeString()],
         ]);
+
+        // Refresh and calculate proper status based on policy
+        $attendance->refresh();
+        $status = $this->attendanceLogic->calculateStatus($employee, $attendance);
+        $attendance->update(['status' => $status]);
 
         return response()->json([
             'message' => 'Check-in marked successfully',
@@ -652,7 +648,7 @@ class AttendanceController extends Controller
 
         $attendances = Attendance::where('employee_id', $employee->id)
             ->whereBetween('date', [$startDate, $endDate])
-            ->with('employee', 'breaks')
+            ->with('employee.policy', 'breaks')
             ->get()
             ->keyBy(function($item) {
                 return Carbon::parse($item->date)->toDateString();
@@ -679,136 +675,44 @@ class AttendanceController extends Controller
                 $checkIn = $attendance->check_in ? $attendance->check_in->toISOString() : null;
                 $checkOut = $attendance->check_out ? $attendance->check_out->toISOString() : null;
 
-                $totalHours = null;
+                // Calculate total work minutes and format
                 $totalMinutesWorked = null;
+                $totalHours = null;
+                
                 if ($attendance->check_in && $attendance->check_out) {
-                    // Total minutes between check-in and check-out (absolute)
                     $totalMinutes = $attendance->check_out->diffInMinutes($attendance->check_in, true);
 
-                    // Subtract break durations (if any) to get actual worked minutes
+                    // Subtract break durations if policy doesn't include breaks
                     $breakMinutes = 0;
-                    foreach ($attendance->breaks as $br) {
-                        if ($br->break_start && $br->break_end) {
-                            $breakMinutes += $br->break_end->diffInMinutes($br->break_start, true);
+                    if (!$employee->policy || !$employee->policy->include_break) {
+                        foreach ($attendance->breaks as $br) {
+                            if ($br->break_start && $br->break_end) {
+                                $breakMinutes += $br->break_end->diffInMinutes($br->break_start, true);
+                            }
                         }
                     }
 
                     $totalMinutesWorked = max(0, $totalMinutes - $breakMinutes);
-
-                    // Format total hours from worked minutes
-                    $grossHours = floor($totalMinutesWorked / 60);
-                    $grossMinutes = $totalMinutesWorked % 60;
-                    $totalHours = $grossHours . 'h ' . $grossMinutes . 'm';
+                    $totalHours = $this->attendanceLogic->formatWorkDuration($totalMinutesWorked);
                 }
 
-                // Determine status based on attendance data
-                $status = $attendance->status;
-
-                // Check late arrival based on policy settings
-                if ($attendance->check_in && $employee->policy) {
-                    $policy = $employee->policy;
-                    if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
-                        && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($dateKey)))) {
-                        if ($policy->enable_late_tracking) {
-                            $workStartTime = Carbon::createFromFormat('H:i:s', $policy->work_start_time);
-                            $gracePeriod = $policy->late_grace_period ?? 0;
-                            $allowedCheckInTime = $workStartTime->addMinutes($gracePeriod);
-                            $checkInTime = Carbon::parse($attendance->check_in);
-
-                            if ($checkInTime->greaterThan($allowedCheckInTime)) {
-                                $status = 'late';
-                                // Update the database record if not already late
-                                if ($attendance->status !== 'late') {
-                                    $attendance->update(['status' => 'late']);
-                                }
-                            } else {
-                                // If not late but was previously marked as late, reset to present
-                                if ($attendance->status === 'late') {
-                                    $status = 'present';
-                                    $attendance->update(['status' => 'present']);
-                                }
-                            }
-                        } else {
-                            // Late tracking disabled - reset any late status to present
-                            if ($attendance->status === 'late') {
-                                $status = 'present';
-                                $attendance->update(['status' => 'present']);
-                            }
-                        }
-                    }
+                // Use AttendanceLogic to calculate the correct status
+                $status = $this->attendanceLogic->calculateStatus($employee, $attendance);
+                
+                // Update the database record if status changed
+                if ($status !== $attendance->status) {
+                    $attendance->update(['status' => $status]);
                 }
 
-                // Auto-update status based on hours if not absent and not late
-                if ($status !== 'absent' && $status !== 'late' && $totalMinutesWorked !== null && $employee->policy) {
-                    $policy = $employee->policy;
-                    if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
-                        && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($dateKey)))) {
-
-                        $halfDayMinutes = ($policy->half_day_hours * 60) + $policy->half_day_minutes;
-                        $fullDayMinutes = ($policy->full_day_hours * 60) + $policy->full_day_minutes;
-
-                        if ($totalMinutesWorked >= $halfDayMinutes) {
-                            $status = 'present';
-                            // Update the database record
-                            $attendance->update(['status' => 'present']);
-                        } elseif ($totalMinutesWorked > 0) {
-                            $status = 'half_day';
-                            // Update the database record
-                            $attendance->update(['status' => 'half_day']);
-                        } elseif ($status === 'present' && $totalMinutesWorked <= 0) {
-                            // Handle cases where breaks exceed work time or no work, set to half day
-                            $status = 'half_day';
-                            $attendance->update(['status' => 'half_day']);
-                        }
-                    }
-                }
-
-                // Check for early departure based on policy settings
-                if (($status === 'present' || $status === 'late') && $employee->policy && $attendance->check_out) {
-                    $policy = $employee->policy;
-                    if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
-                        && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($dateKey)))) {
-                        if ($policy->enable_early_tracking) {
-                            $workEndTime = Carbon::createFromFormat('H:i:s', $policy->work_end_time);
-                            $checkOutTime = Carbon::parse($attendance->check_out);
-                            if ($checkOutTime->lt($workEndTime)) {
-                                $minutesEarly = $workEndTime->diffInMinutes($checkOutTime);
-                                $gracePeriod = $policy->early_grace_period ?? 0;
-                                if ($minutesEarly > $gracePeriod) {
-                                    $status = 'Early Departure';
-                                    // Update the database status to early_departure
-                                    $attendance->update(['status' => 'early_departure']);
-                                }
-                            } else {
-                                // If not early departure but was previously marked as such, reset to present/late
-                                if ($attendance->status === 'early_departure') {
-                                    $status = $attendance->status === 'late' ? 'Late Arrival' : 'Present';
-                                    $attendance->update(['status' => $attendance->status === 'late' ? 'late' : 'present']);
-                                }
-                            }
-                        } else {
-                            // Early tracking disabled - reset any early_departure status to present/late
-                            if ($attendance->status === 'early_departure') {
-                                $status = $attendance->status === 'late' ? 'Late Arrival' : 'Present';
-                                $attendance->update(['status' => $attendance->status === 'late' ? 'late' : 'present']);
-                            }
-                        }
-                    }
-                }
-
-                if ($status === 'late') {
-                    $status = 'Late Arrival';
-                } elseif ($status === 'present') {
-                    $status = 'Present';
-                } elseif ($status === 'absent') {
-                    $status = 'Absent';
-                } elseif ($status === 'half_day') {
-                    $status = 'Half Day';
-                } elseif ($status === 'Early Departure') {
-                    $status = 'Early Departure';
-                } else {
-                    $status = ucfirst($status);
-                }
+                // Map database status to display strings
+                $displayStatusMap = [
+                    'late' => 'Late Arrival',
+                    'present' => 'Present',
+                    'absent' => 'Absent',
+                    'half_day' => 'Half Day',
+                    'early_departure' => 'Early Departure',
+                ];
+                $displayStatus = $displayStatusMap[$status] ?? ucfirst($status);
 
                 $result[] = [
                     'date' => $dateKey,
@@ -817,11 +721,11 @@ class AttendanceController extends Controller
                     'total_hours' => $totalHours,
                     'breaks' => $attendance->breaks->map(function($break) {
                         return [
-                            'in_time' => $break->break_start ? $break->break_start->toISOString() : null,
-                            'out_time' => $break->break_end ? $break->break_end->toISOString() : null,
+                            'break_out' => $break->break_start ? $break->break_start->toISOString() : null,
+                            'break_in' => $break->break_end ? $break->break_end->toISOString() : null,
                         ];
                     })->toArray(),
-                    'status' => $status,
+                    'status' => $displayStatus,
                     'holiday' => $holiday ? ['name' => $holiday->name, 'description' => $holiday->description] : null
                 ];
             } elseif ($holiday) {
@@ -867,73 +771,6 @@ class AttendanceController extends Controller
         return $result;
     }
 
-    private function updateAttendanceStatusBasedOnHours(Attendance $attendance)
-    {
-        if (!$attendance->check_in || !$attendance->check_out) {
-            return;
-        }
-
-        $employee = $attendance->employee;
-        if (!$employee->policy) {
-            return;
-        }
-
-        $policy = $employee->policy;
-        if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::today())
-            && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::today()))) {
-
-            $totalMinutes = Carbon::parse($attendance->check_out)->diffInMinutes(Carbon::parse($attendance->check_in));
-
-            // Subtract break durations
-            foreach ($attendance->breaks as $break) {
-                if ($break->break_start && $break->break_end) {
-                    $breakMinutes = Carbon::parse($break->break_end)->diffInMinutes(Carbon::parse($break->break_start));
-                    $totalMinutes -= $breakMinutes;
-                }
-            }
-
-            $halfDayMinutes = ($policy->half_day_hours * 60) + $policy->half_day_minutes;
-            $fullDayMinutes = ($policy->full_day_hours * 60) + $policy->full_day_minutes;
-
-            if ($totalMinutes >= $halfDayMinutes) {
-                $attendance->update(['status' => 'present']);
-            } elseif ($totalMinutes > 0) {
-                $attendance->update(['status' => 'half_day']);
-            }
-        }
-    }
-
-    private function checkAndUpdateEarlyDeparture(Attendance $attendance)
-    {
-        if (!$attendance->check_out) {
-            return;
-        }
-
-        $employee = $attendance->employee;
-        if (!$employee->policy) {
-            return;
-        }
-
-        $policy = $employee->policy;
-        if (!$policy->enable_early_tracking) {
-            return;
-        }
-
-        if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($attendance->date))
-            && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($attendance->date)))) {
-
-            $workEndTime = Carbon::createFromFormat('H:i:s', $policy->work_end_time);
-            $checkOutTime = Carbon::parse($attendance->check_out);
-            $gracePeriod = $policy->early_grace_period ?? 0;
-
-            if ($checkOutTime->lt($workEndTime)) {
-                $minutesEarly = $workEndTime->diffInMinutes($checkOutTime);
-                if ($minutesEarly > $gracePeriod) {
-                    $attendance->update(['status' => 'early_departure']);
-                }
-            }
-        }
-    }
 
     public function exportEmployeeMonthlyAttendance($employeeId, $year, $month)
     {
@@ -966,9 +803,9 @@ class AttendanceController extends Controller
                     $breaksText = count($attendance['breaks']) . ' times';
                     $breakDetailsArray = [];
                     foreach ($attendance['breaks'] as $index => $break) {
-                        $in = $break['in_time'] ? Carbon::parse($break['in_time'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                        $out = $break['out_time'] ? Carbon::parse($break['out_time'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$in}-{$out}";
+                        $out = $break['break_out'] ? Carbon::parse($break['break_out'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $in = $break['break_in'] ? Carbon::parse($break['break_in'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$out}-{$in}";
                     }
                     $breakDetails = implode(', ', $breakDetailsArray);
                 } elseif (is_numeric($attendance['breaks'])) {
@@ -1030,9 +867,9 @@ class AttendanceController extends Controller
                     $breaksText = count($attendance->breaks) . ' times';
                     $breakDetailsArray = [];
                     foreach ($attendance->breaks as $index => $break) {
-                        $in = $break->break_start ? Carbon::parse($break->break_start)->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                        $out = $break->break_end ? Carbon::parse($break->break_end)->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$in}-{$out}";
+                        $out = $break->break_start ? Carbon::parse($break->break_start)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $in = $break->break_end ? Carbon::parse($break->break_end)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$out}-{$in}";
                     }
                     $breakDetails = implode(', ', $breakDetailsArray);
                 } elseif (is_numeric($attendance->breaks)) {
@@ -1119,11 +956,11 @@ class AttendanceController extends Controller
                     if (is_array($attendance->breaks) && count($attendance->breaks) > 0) {
                         $breaksText = count($attendance->breaks) . ' times';
                         $breakDetailsArray = [];
-                        foreach ($attendance->breaks as $index => $break) {
-                            $in = $break->break_start ? Carbon::parse($break->break_start)->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                            $out = $break->break_end ? Carbon::parse($break->break_end)->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                            $breakDetailsArray[] = "Break " . ($index + 1) . ": {$in}-{$out}";
-                        }
+                    foreach ($attendance->breaks as $index => $break) {
+                        $out = $break->break_start ? Carbon::parse($break->break_start)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $in = $break->break_end ? Carbon::parse($break->break_end)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$out}-{$in}";
+                    }
                         $breakDetails = implode(', ', $breakDetailsArray);
                     } elseif (is_numeric($attendance->breaks)) {
                         $breaksText = $attendance->breaks . ' times';
@@ -1230,8 +1067,8 @@ class AttendanceController extends Controller
                         'total_hours' => $attendance->total_hours,
                         'breaks' => $attendance->breaks->map(function($break) {
                             return [
-                                'in_time' => $break->break_start ? $break->break_start->toISOString() : null,
-                                'out_time' => $break->break_end ? $break->break_end->toISOString() : null,
+                                'break_out' => $break->break_start ? $break->break_start->toISOString() : null,
+                                'break_in' => $break->break_end ? $break->break_end->toISOString() : null,
                             ];
                         })->toArray(),
                         'status' => $attendance->status
@@ -1265,9 +1102,9 @@ class AttendanceController extends Controller
                 $breaksText = count($attendance['breaks']) . ' times';
                 $breakDetailsArray = [];
                 foreach ($attendance['breaks'] as $index => $break) {
-                    $in = $break['in_time'] ? Carbon::parse($break['in_time'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                    $out = $break['out_time'] ? Carbon::parse($break['out_time'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                    $breakDetailsArray[] = "Break " . ($index + 1) . ": {$in}-{$out}";
+                    $out = $break['break_out'] ? Carbon::parse($break['break_out'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                    $in = $break['break_in'] ? Carbon::parse($break['break_in'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                    $breakDetailsArray[] = "Break " . ($index + 1) . ": {$out}-{$in}";
                 }
                 $breakDetails = implode(', ', $breakDetailsArray);
             } elseif (is_numeric($attendance['breaks'])) {
