@@ -1,52 +1,59 @@
-const API_BASE_URL = 'http://localhost:8000/api';
+// This is the ApiService class, which handles all HTTP communication with the backend API.
+// It provides a centralized way to make API calls, handle authentication, and manage responses.
+// The service uses the Fetch API and includes automatic token handling and error management.
+
+const API_BASE_URL = 'http://localhost:8000/api'; // Base URL for the Laravel backend API
 
 class ApiService {
   constructor() {
-    this.baseURL = API_BASE_URL;
+    this.baseURL = API_BASE_URL; // Initialize the base URL for API requests
   }
 
+  // Generic request method that handles all HTTP requests to the API
+  // Automatically includes authentication headers and handles common error cases
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
-    const token = localStorage.getItem('authToken');
+    const url = `${this.baseURL}${endpoint}`; // Construct the full URL
+    const token = localStorage.getItem('authToken'); // Get auth token from local storage
     const config = {
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-        ...options.headers,
+        'Content-Type': 'application/json', // Default content type
+        'Accept': 'application/json',       // Expect JSON responses
+        ...(token && { 'Authorization': `Bearer ${token}` }), // Add auth header if token exists
+        ...options.headers, // Allow overriding headers
       },
-      ...options,
+      ...options, // Include other options like method, body, etc.
     };
 
     try {
-      const response = await fetch(url, config);
+      const response = await fetch(url, config); // Make the HTTP request
 
-      if (!response.ok) {
+      if (!response.ok) { // If response is not successful (status not 2xx)
         let errorData;
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
-          errorData = await response.json();
-          // Handle Laravel validation errors
+          errorData = await response.json(); // Parse JSON error response
+          // Handle Laravel validation errors specifically
           if (response.status === 422 && errorData.errors) {
-            const messages = Object.values(errorData.errors).flat();
-            throw { message: messages.join(' ') };
+            const messages = Object.values(errorData.errors).flat(); // Flatten error messages
+            throw { message: messages.join(' ') }; // Throw combined error message
           }
         } else {
           // If response is not JSON (e.g., HTML error page), use text
           const text = await response.text();
           errorData = { message: text };
         }
-        throw errorData;
+        throw errorData; // Throw the error to be caught by the caller
       }
 
+      // Handle different response types
       if (options.responseType === 'blob') {
-        return response.blob();
+        return response.blob(); // Return blob for file downloads
       } else {
-        return response.json();
+        return response.json(); // Return parsed JSON for regular responses
       }
     } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
+      console.error('API request failed:', error); // Log errors for debugging
+      throw error; // Re-throw the error
     }
   }
 

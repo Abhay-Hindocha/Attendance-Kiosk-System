@@ -1,5 +1,8 @@
 <?php
 
+// This is the AttendanceController, which handles all attendance-related API operations.
+// It manages CRUD operations for attendance records, statistics, and face recognition marking.
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -14,35 +17,39 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AttendanceController extends Controller
 {
+    // Get a list of attendance records with optional filtering and pagination
+    // Supports filters: employee_id, month/year, date, status
     public function index(Request $request)
     {
+        // Start with a query that includes the related employee data
         $query = Attendance::with('employee');
 
-        // Filter by employee ID
+        // Filter by employee ID if provided in the request
         if ($request->has('employee_id')) {
             $query->where('employee_id', $request->employee_id);
         }
 
-        // Filter by month and year if provided
+        // Filter by month and year if both are provided
         if ($request->has('month') && $request->has('year')) {
             $query->whereMonth('date', $request->month)
                   ->whereYear('date', $request->year);
         }
 
-        // Filter by date if provided
+        // Filter by specific date if provided
         if ($request->has('date')) {
             $query->where('date', $request->date);
         }
 
-        // Filter by status if provided
+        // Filter by attendance status if provided
         if ($request->has('status')) {
             $query->where('status', $request->status);
         }
 
-        // Paginate results
+        // Paginate the results (default 15 per page, can be overridden)
         $perPage = $request->get('per_page', 15);
         $attendances = $query->paginate($perPage);
 
+        // Return the paginated attendance records as JSON
         return response()->json($attendances);
     }
 

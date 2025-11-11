@@ -1,3 +1,7 @@
+// This is the AttendancePage component, which provides the main face recognition interface.
+// It handles camera access, face detection, recognition, and attendance marking.
+// The component integrates with face-api.js for face recognition and communicates with the backend API.
+
 import React, { useState, useRef, useEffect } from "react";
 import { Camera, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import * as faceapi from 'face-api.js';
@@ -5,13 +9,13 @@ import ApiService from '../services/api';
 import Header from './Header';
 import Footer from './Footer';
 
-// Notification system
+// Notification system for displaying real-time messages to the user
 const notifications = [];
 const notify = (text) => {
   const el = document.createElement('div');
   el.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
   notifications.unshift(el);
-  if (notifications.length > 10) notifications.pop(); // Keep only last 10
+  if (notifications.length > 10) notifications.pop(); // Keep only last 10 notifications
   updateNotifications();
 };
 
