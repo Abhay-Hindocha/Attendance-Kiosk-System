@@ -24,7 +24,8 @@ class Employee extends Model
         'join_date',      // Date when the employee joined the company
         'face_enrolled',  // Boolean flag indicating if face recognition is set up
         'policy_id',      // Foreign key linking to the attendance policy
-        'status'          // Current status (active, inactive, etc.)
+        'status',         // Current status (active, inactive, on_leave, etc.)
+        'leave_reason'    // Reason for leave when status is on_leave
     ];
 
     // Relationship: An employee belongs to one policy

@@ -40,7 +40,7 @@ const Header = () => {
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
     { name: 'Policies', href: '/policies', icon: Settings },
     { name: 'Employees', href: '/employees', icon: Users },
-    { name: 'Attendance', href: '/attendance', icon: Clock }, // fixed route
+    { name: 'Reports', href: '/reports', icon: BarChart3 }, // fixed route
   ];
 
   // active state helper (handles nested routes like /employees/123)

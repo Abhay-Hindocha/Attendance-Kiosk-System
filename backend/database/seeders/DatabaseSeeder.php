@@ -34,14 +34,15 @@ class DatabaseSeeder extends Seeder
             ['email' => 'test@example.com'],
             [
                 'name' => 'Test User',
+                'password' => Hash::make('password'),
             ]
         );
 
-        // Seed policies
-        Policy::factory()->count(5)->create();
+        // Seed policies (only 3 policies)
+        Policy::factory()->count(3)->create();
 
-        // Seed employees (each linked to a random policy)
-        Employee::factory()->count(20)->create();
+        // Seed holidays
+        $this->call(HolidaySeeder::class);
 
         // Seed attendances (each linked to a random employee)
         Attendance::factory()->count(100)->create();

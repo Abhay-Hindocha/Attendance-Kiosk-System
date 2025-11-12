@@ -560,6 +560,8 @@ class AttendanceController extends Controller
             if ($scanCount == 2) {
                 // 2nd scan: Check-out
                 $existingAttendance->update(['check_out' => $now]);
+                // Calculate total hours and update status if necessary
+                $this->updateAttendanceStatusBasedOnHours($existingAttendance);
                 return response()->json([
                     'message' => 'Check-out marked successfully',
                     'attendance' => $existingAttendance->load('employee')
@@ -567,6 +569,8 @@ class AttendanceController extends Controller
             } elseif ($scanCount % 2 == 0) {
                 // Even scans >2: Check-out (initially)
                 $existingAttendance->update(['check_out' => $now]);
+                // Calculate total hours and update status if necessary
+                $this->updateAttendanceStatusBasedOnHours($existingAttendance);
                 return response()->json([
                     'message' => 'Check-out marked successfully',
                     'attendance' => $existingAttendance->load('employee')
@@ -660,6 +664,9 @@ class AttendanceController extends Controller
             $attendance = $attendances->get($dateKey);
             $holiday = $holidays->get($dateKey);
 
+            // Check if employee is on leave for this date
+            $isOnLeave = $employee->status === 'on_leave' && $date->isToday();
+
             if ($attendance) {
                 \Log::info("Processing attendance for date", ['date' => $dateKey, 'attendance' => $attendance->toArray(), 'breaks_count' => $attendance->breaks->count()]);
 
@@ -667,15 +674,51 @@ class AttendanceController extends Controller
                 $checkOut = $attendance->check_out ? $attendance->check_out->toISOString() : null;
 
                 $totalHours = null;
+                $totalMinutesWorked = null;
                 if ($checkIn && $checkOut) {
                     $totalMinutes = Carbon::parse($checkOut)->diffInMinutes(Carbon::parse($checkIn));
-                    $hours = floor($totalMinutes / 60);
-                    $minutes = $totalMinutes % 60;
-                    $totalHours = $hours . 'h ' . $minutes . 'm';
+
+                    // Calculate gross hours (always positive)
+                    $grossHours = floor($totalMinutes / 60);
+                    $grossMinutes = $totalMinutes % 60;
+                    $totalHours = $grossHours . 'h ' . $grossMinutes . 'm';
+
+                    // Subtract break durations for worked time calculation
+                    $workedMinutes = $totalMinutes;
+                    foreach ($attendance->breaks as $break) {
+                        if ($break->break_start && $break->break_end) {
+                            $breakMinutes = Carbon::parse($break->break_end)->diffInMinutes(Carbon::parse($break->break_start));
+                            $workedMinutes -= $breakMinutes;
+                        }
+                    }
+
+                    $totalMinutesWorked = max(0, $workedMinutes);
                 }
 
                 // Determine status based on attendance data
                 $status = $attendance->status;
+
+                // Auto-update status based on hours if not already set to half_day or absent
+                if ($status !== 'half_day' && $status !== 'absent' && $totalMinutesWorked !== null && $employee->policy) {
+                    $policy = $employee->policy;
+                    if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
+                        && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($dateKey)))) {
+
+                        $halfDayMinutes = ($policy->half_day_hours * 60) + $policy->half_day_minutes;
+                        $fullDayMinutes = ($policy->full_day_hours * 60) + $policy->full_day_minutes;
+
+                        if ($totalMinutesWorked >= $halfDayMinutes && $totalMinutesWorked < $fullDayMinutes) {
+                            $status = 'half_day';
+                            // Update the database record
+                            $attendance->update(['status' => 'half_day']);
+                        } elseif ($status === 'present' && $totalMinutesWorked < 0) {
+                            // Handle cases where breaks exceed work time, set to half day
+                            $status = 'half_day';
+                            $attendance->update(['status' => 'half_day']);
+                        }
+                    }
+                }
+
                 if ($status === 'late') {
                     $status = 'Late Entry';
                 } elseif ($status === 'present') {
@@ -693,7 +736,12 @@ class AttendanceController extends Controller
                     'check_in' => $checkIn,
                     'check_out' => $checkOut,
                     'total_hours' => $totalHours,
-                    'breaks' => $attendance->breaks->count(),
+                    'breaks' => $attendance->breaks->map(function($break) {
+                        return [
+                            'in_time' => $break->break_start ? $break->break_start->toISOString() : null,
+                            'out_time' => $break->break_end ? $break->break_end->toISOString() : null,
+                        ];
+                    })->toArray(),
                     'status' => $status,
                     'holiday' => $holiday ? ['name' => $holiday->name, 'description' => $holiday->description] : null
                 ];
@@ -703,9 +751,20 @@ class AttendanceController extends Controller
                     'check_in' => null,
                     'check_out' => null,
                     'total_hours' => null,
-                    'breaks' => 0,
+                    'breaks' => [],
                     'status' => 'Holiday',
                     'holiday' => ['name' => $holiday->name, 'description' => $holiday->description]
+                ];
+            } elseif ($isOnLeave) {
+                $result[] = [
+                    'date' => $dateKey,
+                    'check_in' => null,
+                    'check_out' => null,
+                    'total_hours' => null,
+                    'breaks' => [],
+                    'status' => 'On Leave',
+                    'leave_reason' => $employee->leave_reason,
+                    'holiday' => null
                 ];
             } else {
                 // No attendance and no holiday - only include if it's past (till one day behind), and not a weekend
@@ -716,7 +775,7 @@ class AttendanceController extends Controller
                         'check_in' => null,
                         'check_out' => null,
                         'total_hours' => null,
-                        'breaks' => 0,
+                        'breaks' => [],
                         'status' => 'Absent',
                         'holiday' => null
                     ];
@@ -727,6 +786,40 @@ class AttendanceController extends Controller
         \Log::info("Final result", ['result' => $result]);
 
         return response()->json($result);
+    }
+
+    private function updateAttendanceStatusBasedOnHours(Attendance $attendance)
+    {
+        if (!$attendance->check_in || !$attendance->check_out) {
+            return;
+        }
+
+        $employee = $attendance->employee;
+        if (!$employee->policy) {
+            return;
+        }
+
+        $policy = $employee->policy;
+        if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::today())
+            && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::today()))) {
+
+            $totalMinutes = Carbon::parse($attendance->check_out)->diffInMinutes(Carbon::parse($attendance->check_in));
+
+            // Subtract break durations
+            foreach ($attendance->breaks as $break) {
+                if ($break->break_start && $break->break_end) {
+                    $breakMinutes = Carbon::parse($break->break_end)->diffInMinutes(Carbon::parse($break->break_start));
+                    $totalMinutes -= $breakMinutes;
+                }
+            }
+
+            $halfDayMinutes = ($policy->half_day_hours * 60) + $policy->half_day_minutes;
+            $fullDayMinutes = ($policy->full_day_hours * 60) + $policy->full_day_minutes;
+
+            if ($totalMinutes >= $halfDayMinutes && $totalMinutes < $fullDayMinutes) {
+                $attendance->update(['status' => 'half_day']);
+            }
+        }
     }
 
     public function exportEmployeeMonthlyAttendance($employeeId, $year, $month)
@@ -751,12 +844,20 @@ class AttendanceController extends Controller
             fputcsv($file, $columns);
 
             foreach ($attendances as $attendance) {
+                $breaksText = '';
+                if (is_array($attendance['breaks']) && count($attendance['breaks']) > 0) {
+                    $breaksText = count($attendance['breaks']) . ' times';
+                } elseif (is_numeric($attendance['breaks'])) {
+                    $breaksText = $attendance['breaks'] . ' times';
+                } else {
+                    $breaksText = '-';
+                }
                 fputcsv($file, [
                     $attendance['date'],
                     $attendance['check_in'] ? Carbon::parse($attendance['check_in'])->format('H:i') : '-',
                     $attendance['check_out'] ? Carbon::parse($attendance['check_out'])->format('H:i') : '-',
                     $attendance['total_hours'] ?? '-',
-                    $attendance['breaks'] ? "{$attendance['breaks']} times" : '-',
+                    $breaksText,
                     $attendance['status']
                 ]);
             }
