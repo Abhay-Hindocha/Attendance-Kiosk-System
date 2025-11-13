@@ -675,24 +675,24 @@ class AttendanceController extends Controller
 
                 $totalHours = null;
                 $totalMinutesWorked = null;
-                if ($checkIn && $checkOut) {
-                    $totalMinutes = Carbon::parse($checkOut)->diffInMinutes(Carbon::parse($checkIn));
+                if ($attendance->check_in && $attendance->check_out) {
+                    // Total minutes between check-in and check-out (absolute)
+                    $totalMinutes = $attendance->check_out->diffInMinutes($attendance->check_in, true);
 
-                    // Calculate gross hours (always positive)
-                    $grossHours = floor($totalMinutes / 60);
-                    $grossMinutes = $totalMinutes % 60;
-                    $totalHours = $grossHours . 'h ' . $grossMinutes . 'm';
-
-                    // Subtract break durations for worked time calculation
-                    $workedMinutes = $totalMinutes;
-                    foreach ($attendance->breaks as $break) {
-                        if ($break->break_start && $break->break_end) {
-                            $breakMinutes = Carbon::parse($break->break_end)->diffInMinutes(Carbon::parse($break->break_start));
-                            $workedMinutes -= $breakMinutes;
+                    // Subtract break durations (if any) to get actual worked minutes
+                    $breakMinutes = 0;
+                    foreach ($attendance->breaks as $br) {
+                        if ($br->break_start && $br->break_end) {
+                            $breakMinutes += $br->break_end->diffInMinutes($br->break_start, true);
                         }
                     }
 
-                    $totalMinutesWorked = max(0, $workedMinutes);
+                    $totalMinutesWorked = max(0, $totalMinutes - $breakMinutes);
+
+                    // Format total hours from worked minutes
+                    $grossHours = floor($totalMinutesWorked / 60);
+                    $grossMinutes = $totalMinutesWorked % 60;
+                    $totalHours = $grossHours . 'h ' . $grossMinutes . 'm';
                 }
 
                 // Determine status based on attendance data

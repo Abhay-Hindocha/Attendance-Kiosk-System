@@ -25,11 +25,24 @@ class AttendanceController extends Controller
                 $checkOut = $attendance->check_out ? $attendance->check_out->toISOString() : null;
 
                 $totalHours = null;
-                if ($checkIn && $checkOut) {
-                    $totalMinutes = Carbon::parse($checkOut)->diffInMinutes(Carbon::parse($checkIn));
-                    $hours = floor($totalMinutes / 60);
-                    $minutes = $totalMinutes % 60;
-                    $totalHours = $hours . 'h ' . $minutes . 'm';
+                if ($attendance->check_in && $attendance->check_out) {
+                    // Use absolute diff to avoid negative minutes due to timezone/order issues
+                    $totalMinutes = $attendance->check_out->diffInMinutes($attendance->check_in, true);
+
+                    // Subtract break durations (if any) to get actual worked minutes
+                    $breakMinutes = 0;
+                    foreach ($attendance->breaks as $br) {
+                        if ($br->break_start && $br->break_end) {
+                            $breakMinutes += $br->break_end->diffInMinutes($br->break_start, true);
+                        }
+                    }
+
+                    $totalMinutesWorked = max(0, $totalMinutes - $breakMinutes);
+
+                    // Format total hours from worked minutes
+                    $grossHours = floor($totalMinutesWorked / 60);
+                    $grossMinutes = $totalMinutesWorked % 60;
+                    $totalHours = $grossHours . 'h ' . $grossMinutes . 'm';
                 }
 
                 // Determine status based on attendance data
