@@ -1087,11 +1087,19 @@ class AttendanceController extends Controller
             'employee_id' => 'required|string',
             'email' => 'required|email',
             'report_type' => 'required|in:daily,monthly,custom',
-            'year' => 'required_if:report_type,monthly|integer|min:2000|max:' . (date('Y') + 1),
-            'month' => 'required_if:report_type,monthly|integer|min:1|max:12',
-            'start_date' => 'required_if:report_type,custom|date',
-            'end_date' => 'required_if:report_type,custom|date|after_or_equal:start_date',
         ]);
+
+        if ($request->report_type === 'monthly') {
+            $request->validate([
+                'year' => 'required|integer|min:2000|max:' . (date('Y') + 1),
+                'month' => 'required|integer|min:1|max:12',
+            ]);
+        } elseif ($request->report_type === 'custom') {
+            $request->validate([
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after_or_equal:start_date',
+            ]);
+        }
 
         $employee = Employee::where('employee_id', $request->employee_id)->orWhere('id', $request->employee_id)->first();
         if (!$employee) {
