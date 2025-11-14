@@ -312,132 +312,133 @@ const AttendancePage = () => {
         </style>
         <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
           {/* Camera Section */}
-          <div className="lg:col-span-2 bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between">
-          {/* Status Label */}
-          <div className="flex justify-start">
-            <div className={`bg-[#0e1629] px-4 py-1 rounded-full text-sm font-medium text-white ${
-              status === "success" || status.includes("successfully") ? "bg-green-600" :
-              status === "Face not recognized" || status === "No face detected" || status.includes("failed") ? "bg-red-600" :
-              "bg-[#0e1629]"
-            }`}>
-              {status === "ready" ? "Ready" : status}
-            </div>
-          </div>
+          <div className="lg:col-span-2 bg-[#1b233c]/70 border border-white/10 rounded-2xl backdrop-blur-md grid " style={{ gridTemplateRows: '4fr .5fr' }}>
+            <div className="p-6 flex flex-col rounded-t-3xl overflow-hidden" style={{ background: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.2))' }}>
+              {/* Status Label */}
+              <div className="flex justify-start">
+                <div className={`bg-[#0e1629] px-4 py-2 rounded-full text-sm font-medium text-white ${
+                  status === "success" || status.includes("successfully") ? "bg-green-600" :
+                  status === "Face not recognized" || status === "No face detected" || status.includes("failed") ? "bg-red-600" :
+                  "bg-[#0e1629]"
+                }`}>
+                  {status === "ready" ? "Ready" : status}
+                </div>
+              </div>
 
-          {/* Main Area */}
-          <div className="flex-1 flex flex-col items-center justify-center text-center">
-            {status === "Attendance marked successfully!" && recognizedEmployee && markedTime ? (
-              <>
-                <div className="relative mb-6">
-                  <div className="w-32 h-32 bg-green-500 rounded-full flex items-center justify-center">
-                    <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-4xl font-bold text-green-500">
-                      {recognizedEmployee.employee_name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
+              {/* Main Area */}
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                {status === "Attendance marked successfully!" && recognizedEmployee && markedTime ? (
+                  <>
+                    <div className="relative mb-6">
+                      <div className="w-32 h-32 bg-green-500 rounded-full flex items-center justify-center">
+                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-4xl font-bold text-green-500">
+                          {recognizedEmployee.employee_name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div className="mb-4 p-4 bg-green-500/20 rounded-lg border border-green-500/30">
-                  <div className="flex items-center gap-2 text-green-400 mb-2">
-                    <CheckCircle className="w-5 h-5" />
-                    <span className="font-medium">Attendance Marked Successfully!</span>
-                  </div>
-                  <p className="text-white font-medium">{recognizedEmployee.employee_name}</p>
-                  <p className="text-gray-300 text-sm">Employee ID: {recognizedEmployee.employee_id}</p>
-                  <p className="text-gray-300 text-sm">Status: {currentAction || "Checked In"}</p>
-                  <p className="text-gray-300 text-sm">Time: {markedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
-                </div>
-              </>
-            ) : status === "Face not recognized" ? (
-              <>
-                <div className="relative mb-6">
-                  <div className="w-32 h-32 bg-red-500 rounded-full flex items-center justify-center">
-                    <XCircle className="w-16 h-16 text-white" />
-                  </div>
-                </div>
-                <div className="mb-4 p-4 bg-red-500/20 rounded-lg border border-red-500/30">
-                  <div className="flex items-center gap-2 text-red-400 mb-2">
-                    <XCircle className="w-5 h-5" />
-                    <span className="font-medium">Face Not Recognized</span>
-                  </div>
-                  <p className="text-gray-300 text-sm">
-                    Please try again or contact support
-                  </p>
-                </div>
-              </>
-            ) : !isScanning ? (
-              <>
-                <Camera className="w-16 h-16 text-white/70 mb-4" />
-                <p className="text-lg text-white font-medium mb-1">
-                  Position your face in the frame
-                </p>
-                <p className="text-sm text-gray-400">
-                  Camera is active and scanning
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="relative mb-6">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-96 h-96 border-4 border-blue-400/40 rounded-lg object-cover"
-                  />
-                  <canvas
-                    ref={canvasRef}
-                    className="absolute top-0 left-0 w-96 h-96"
-                    style={{ display: 'none' }}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-16 h-16 border-4 border-blue-500 rounded-full animate-spin border-t-transparent" />
-                  </div>
-                </div>
-                {recognizedEmployee && (
-                  <div className="mb-4 p-4 bg-green-500/20 rounded-lg border border-green-500/30">
-                    <div className="flex items-center gap-2 text-green-400 mb-2">
-                      <CheckCircle className="w-5 h-5" />
-                      <span className="font-medium">Recognized!</span>
+                    <div className="mb-4 p-4 bg-green-500/20 rounded-lg border border-green-500/30">
+                      <div className="flex items-center gap-2 text-green-400 mb-2">
+                        <CheckCircle className="w-5 h-5" />
+                        <span className="font-medium">Attendance Marked Successfully!</span>
+                      </div>
+                      <p className="text-white font-medium">{recognizedEmployee.employee_name}</p>
+                      <p className="text-gray-300 text-sm">Employee ID: {recognizedEmployee.employee_id}</p>
+                      <p className="text-gray-300 text-sm">Status: {currentAction || "Checked In"}</p>
+                      <p className="text-gray-300 text-sm">Time: {markedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
                     </div>
-                    <p className="text-white font-medium">{recognizedEmployee.employee_name}</p>
-                    <p className="text-gray-300 text-sm">Employee ID: {recognizedEmployee.employee_id}</p>
-                    <p className="text-gray-300 text-sm">Mood: {recognizedEmployee.mood}</p>
-                  </div>
+                  </>
+                ) : status === "Face not recognized" ? (
+                  <>
+                    <div className="relative mb-6">
+                      <div className="w-32 h-32 bg-red-500 rounded-full flex items-center justify-center">
+                        <XCircle className="w-16 h-16 text-white" />
+                      </div>
+                    </div>
+                    <div className="mb-4 p-4 bg-red-500/20 rounded-lg border border-red-500/30">
+                      <div className="flex items-center gap-2 text-red-400 mb-2">
+                        <XCircle className="w-5 h-5" />
+                        <span className="font-medium">Face Not Recognized</span>
+                      </div>
+                      <p className="text-gray-300 text-sm">
+                        Please try again or contact support
+                      </p>
+                    </div>
+                  </>
+                ) : !isScanning ? (
+                  <>
+                    <Camera className="w-16 h-16 text-white/70 mb-4" />
+                    <p className="text-lg text-white font-medium mb-1">
+                      Position your face in the frame
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Camera is active and scanning
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="relative mb-6">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        className="w-96 h-96 border-4 border-blue-400/40 rounded-lg object-cover"
+                      />
+                      <canvas
+                        ref={canvasRef}
+                        className="absolute top-0 left-0 w-96 h-96"
+                        style={{ display: 'none' }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-16 h-16 border-4 border-blue-500 rounded-full animate-spin border-t-transparent" />
+                      </div>
+                    </div>
+                    {recognizedEmployee && (
+                      <div className="mb-4 p-4 bg-green-500/20 rounded-lg border border-green-500/30">
+                        <div className="flex items-center gap-2 text-green-400 mb-2">
+                          <CheckCircle className="w-5 h-5" />
+                          <span className="font-medium">Recognized!</span>
+                        </div>
+                        <p className="text-white font-medium">{recognizedEmployee.employee_name}</p>
+                        <p className="text-gray-300 text-sm">Employee ID: {recognizedEmployee.employee_id}</p>
+                        <p className="text-gray-300 text-sm">Mood: {recognizedEmployee.mood}</p>
+                      </div>
+                    )}
+                    <p className="text-lg text-white font-medium mb-1">
+                      Analyzing face... ({countdown}s)
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Please keep your face in the frame
+                    </p>
+                  </>
                 )}
-                <p className="text-lg text-white font-medium mb-1">
-                  Analyzing face... ({countdown}s)
-                </p>
-                <p className="text-sm text-gray-400">
-                  Please keep your face in the frame
-                </p>
-              </>
-            )}
-          </div>
-
-          {/* Scan Button */}
-          <div className="flex justify-center">
-            <button
-              onClick={handleScan}
-              disabled={isScanning || !modelsLoaded}
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-            >
-              <Camera className="w-5 h-5" />
-              {isScanning ? "Scanning..." : "Scan Face"}
-            </button>
-          </div>
+              </div>
+            </div>
+            <div className="bg-grey-900 p-6 flex justify-center items-center">
+              {/* Scan Button */}
+              <button
+                onClick={handleScan}
+                disabled={isScanning || !modelsLoaded}
+                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Camera className="w-5 h-5" />
+                {isScanning ? "Scanning..." : "Scan Face"}
+              </button>
+            </div>
           </div>
 
           {/* Right Panel */}
         <div className="flex flex-col h-full space-y-6">
           {/* Recent Activity */}
           <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex-1 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center mb-4 gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <h2 className="text-lg font-semibold text-white">
                 Recent Activity
               </h2>
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               <div className="space-y-3">
