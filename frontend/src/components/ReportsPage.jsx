@@ -18,7 +18,7 @@ export default function AttendanceReportsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [attendanceRecords, setAttendanceRecords] = useState({});
-  const [holidays, setHolidays] = useState({});
+
 
   const monthDate = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
   const monthName = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -61,21 +61,7 @@ export default function AttendanceReportsPage() {
     }
   };
 
-  const fetchHolidays = async () => {
-    try {
-      const data = await api.getHolidays();
-      const holidayMap = {};
-      (data || []).forEach(holiday => {
-        holidayMap[holiday.date] = {
-          name: holiday.name,
-          description: holiday.description
-        };
-      });
-      setHolidays(holidayMap);
-    } catch (err) {
-      console.error('Failed to fetch holidays:', err);
-    }
-  };
+
 
   const fetchAttendance = async () => {
     if (!selectedEmployee) return;
@@ -107,7 +93,7 @@ export default function AttendanceReportsPage() {
     }
   };
 
-  useEffect(() => { fetchEmployees(); fetchHolidays(); }, []);
+  useEffect(() => { fetchEmployees(); }, []);
   useEffect(() => { fetchAttendance(); }, [selectedEmployee, monthOffset]);
 
   useEffect(() => {
@@ -128,12 +114,8 @@ export default function AttendanceReportsPage() {
       const cellDate = new Date(year, m, d);
       const cellKeyISO = formatLocalYMD(cellDate);
       let rec = attendanceRecords[key];
-      const holiday = holidays[key];
 
-      if (!rec && holiday) {
-        // If it's a holiday but no attendance record, create a holiday record
-        rec = { status: 'Holiday', checkIn: '-', checkOut: '-', totalHours: '-', holiday };
-      } else if (!rec) {
+      if (!rec) {
         const yesterdayKey = new Date(today);
         yesterdayKey.setDate(yesterdayKey.getDate() - 1);
         const yesterdayKeyStr = formatLocalYMD(yesterdayKey);

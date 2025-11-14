@@ -785,7 +785,7 @@ class AttendanceController extends Controller
 
         \Log::info("Final result", ['result' => $result]);
 
-        return response()->json($result);
+        return $result;
     }
 
     private function updateAttendanceStatusBasedOnHours(Attendance $attendance)
@@ -824,7 +824,10 @@ class AttendanceController extends Controller
 
     public function exportEmployeeMonthlyAttendance($employeeId, $year, $month)
     {
-        $employee = Employee::findOrFail($employeeId);
+        $employee = Employee::where('employee_id', $employeeId)->orWhere('id', $employeeId)->first();
+        if (!$employee) {
+            return response()->json(['error' => 'Employee not found'], 404);
+        }
         $attendances = $this->getEmployeeMonthlyAttendance($employeeId, $year, $month);
 
         $filename = "attendance-{$employee->name}-{$year}-{$month}.csv";
@@ -837,7 +840,7 @@ class AttendanceController extends Controller
             "Expires" => "0"
         ];
 
-        $columns = ['Date', 'Check In', 'Check Out', 'Total Hours', 'Breaks', 'Status'];
+        $columns = ['Date', 'Check In', 'Check Out', 'Total Hours', 'Breaks', 'Break Details', 'Status'];
 
         $callback = function() use ($attendances, $columns) {
             $file = fopen('php://output', 'w');
@@ -845,12 +848,22 @@ class AttendanceController extends Controller
 
             foreach ($attendances as $attendance) {
                 $breaksText = '';
+                $breakDetails = '';
                 if (is_array($attendance['breaks']) && count($attendance['breaks']) > 0) {
                     $breaksText = count($attendance['breaks']) . ' times';
+                    $breakDetailsArray = [];
+                    foreach ($attendance['breaks'] as $index => $break) {
+                        $in = $break['in_time'] ? Carbon::parse($break['in_time'])->format('H:i') : '-';
+                        $out = $break['out_time'] ? Carbon::parse($break['out_time'])->format('H:i') : '-';
+                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$in}-{$out}";
+                    }
+                    $breakDetails = implode(', ', $breakDetailsArray);
                 } elseif (is_numeric($attendance['breaks'])) {
                     $breaksText = $attendance['breaks'] . ' times';
+                    $breakDetails = '-';
                 } else {
                     $breaksText = '-';
+                    $breakDetails = '-';
                 }
                 fputcsv($file, [
                     $attendance['date'],
@@ -858,6 +871,7 @@ class AttendanceController extends Controller
                     $attendance['check_out'] ? Carbon::parse($attendance['check_out'])->format('H:i') : '-',
                     $attendance['total_hours'] ?? '-',
                     $breaksText,
+                    $breakDetails,
                     $attendance['status']
                 ]);
             }

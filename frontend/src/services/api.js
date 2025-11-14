@@ -257,10 +257,7 @@ class ApiService {
     });
   }
 
-  // Holiday endpoints
-  async getHolidays() {
-    return this.request('/holidays');
-  }
+
 }
 
 export default new ApiService();

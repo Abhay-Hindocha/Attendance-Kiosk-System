@@ -11,7 +11,7 @@ use App\Http\Controllers\Api\PolicyController;   // Controller for attendance po
 use App\Http\Controllers\Api\AttendanceController; // Controller for attendance records and statistics
 use App\Http\Controllers\Api\FaceController;     // Controller for face recognition features
 use App\Http\Controllers\Api\AuthController;     // Controller for authentication (login/logout)
-use App\Http\Controllers\Api\HolidayController;  // Controller for holiday management
+
 
 // Authentication routes - These handle user login and session management
 Route::post('/login', [AuthController::class, 'login']); // Endpoint for user login
@@ -30,8 +30,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Policy routes - CRUD operations for managing attendance policies
     Route::apiResource('policies', PolicyController::class); // Standard RESTful routes for policies
 
-    // Holiday routes - CRUD operations for managing public holidays
-    Route::apiResource('holidays', HolidayController::class); // Standard RESTful routes for holidays
+
 
     // Attendance routes - CRUD operations and additional statistics/reporting endpoints
     Route::apiResource('attendances', AttendanceController::class); // Standard RESTful routes for attendances
