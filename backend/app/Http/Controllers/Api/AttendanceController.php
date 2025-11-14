@@ -13,6 +13,7 @@ use App\Models\Holiday;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AttendanceController extends Controller
@@ -907,5 +908,305 @@ class AttendanceController extends Controller
         };
 
         return new StreamedResponse($callback, 200, $headers);
+    }
+
+    public function exportEmployeeDailyAttendance($employeeId, $date)
+    {
+        $employee = Employee::where('employee_id', $employeeId)->orWhere('id', $employeeId)->first();
+        if (!$employee) {
+            return response()->json(['error' => 'Employee not found'], 404);
+        }
+
+        $attendance = Attendance::where('employee_id', $employee->id)
+            ->where('date', $date)
+            ->with('employee', 'breaks')
+            ->first();
+
+        $filename = "attendance-daily-{$employee->name}-{$date}.csv";
+
+        $headers = [
+            "Content-type" => "text/csv",
+            "Content-Disposition" => "attachment; filename=$filename",
+            "Pragma" => "no-cache",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0"
+        ];
+
+        $columns = ['Date', 'Check In', 'Check Out', 'Total Hours', 'Breaks', 'Break Details', 'Status'];
+
+        $callback = function() use ($attendance, $date, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            if ($attendance) {
+                $breaksText = '';
+                $breakDetails = '';
+                if (is_array($attendance->breaks) && count($attendance->breaks) > 0) {
+                    $breaksText = count($attendance->breaks) . ' times';
+                    $breakDetailsArray = [];
+                    foreach ($attendance->breaks as $index => $break) {
+                        $in = $break->break_start ? Carbon::parse($break->break_start)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $out = $break->break_end ? Carbon::parse($break->break_end)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$in}-{$out}";
+                    }
+                    $breakDetails = implode(', ', $breakDetailsArray);
+                } elseif (is_numeric($attendance->breaks)) {
+                    $breaksText = $attendance->breaks . ' times';
+                    $breakDetails = '-';
+                } else {
+                    $breaksText = '-';
+                    $breakDetails = '-';
+                }
+
+                $checkIn = $attendance->check_in ? Carbon::parse($attendance->check_in)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                $checkOut = $attendance->check_out ? Carbon::parse($attendance->check_out)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                $totalHours = $attendance->total_hours ?? '-';
+                $status = $attendance->status;
+
+                fputcsv($file, [
+                    $date,
+                    $checkIn,
+                    $checkOut,
+                    $totalHours,
+                    $breaksText,
+                    $breakDetails,
+                    $status
+                ]);
+            } else {
+                fputcsv($file, [
+                    $date,
+                    '-',
+                    '-',
+                    '-',
+                    '-',
+                    '-',
+                    'Absent'
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return new StreamedResponse($callback, 200, $headers);
+    }
+
+    public function exportEmployeeCustomRangeAttendance($employeeId, $startDate, $endDate)
+    {
+        $employee = Employee::where('employee_id', $employeeId)->orWhere('id', $employeeId)->first();
+        if (!$employee) {
+            return response()->json(['error' => 'Employee not found'], 404);
+        }
+
+        $attendances = Attendance::where('employee_id', $employee->id)
+            ->whereBetween('date', [$startDate, $endDate])
+            ->with('employee', 'breaks')
+            ->get()
+            ->keyBy(function($item) {
+                return Carbon::parse($item->date)->toDateString();
+            });
+
+        $filename = "attendance-custom-{$employee->name}-{$startDate}-to-{$endDate}.csv";
+
+        $headers = [
+            "Content-type" => "text/csv",
+            "Content-Disposition" => "attachment; filename=$filename",
+            "Pragma" => "no-cache",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0"
+        ];
+
+        $columns = ['Date', 'Check In', 'Check Out', 'Total Hours', 'Breaks', 'Break Details', 'Status'];
+
+        $callback = function() use ($attendances, $startDate, $endDate, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            $start = Carbon::parse($startDate);
+            $end = Carbon::parse($endDate);
+
+            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                $dateKey = $date->toDateString();
+                $attendance = $attendances->get($dateKey);
+
+                if ($attendance) {
+                    $breaksText = '';
+                    $breakDetails = '';
+                    if (is_array($attendance->breaks) && count($attendance->breaks) > 0) {
+                        $breaksText = count($attendance->breaks) . ' times';
+                        $breakDetailsArray = [];
+                        foreach ($attendance->breaks as $index => $break) {
+                            $in = $break->break_start ? Carbon::parse($break->break_start)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                            $out = $break->break_end ? Carbon::parse($break->break_end)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                            $breakDetailsArray[] = "Break " . ($index + 1) . ": {$in}-{$out}";
+                        }
+                        $breakDetails = implode(', ', $breakDetailsArray);
+                    } elseif (is_numeric($attendance->breaks)) {
+                        $breaksText = $attendance->breaks . ' times';
+                        $breakDetails = '-';
+                    } else {
+                        $breaksText = '-';
+                        $breakDetails = '-';
+                    }
+
+                    $checkIn = $attendance->check_in ? Carbon::parse($attendance->check_in)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                    $checkOut = $attendance->check_out ? Carbon::parse($attendance->check_out)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                    $totalHours = $attendance->total_hours ?? '-';
+                    $status = $attendance->status;
+
+                    fputcsv($file, [
+                        $dateKey,
+                        $checkIn,
+                        $checkOut,
+                        $totalHours,
+                        $breaksText,
+                        $breakDetails,
+                        $status
+                    ]);
+                } else {
+                    fputcsv($file, [
+                        $dateKey,
+                        '-',
+                        '-',
+                        '-',
+                        '-',
+                        '-',
+                        'Absent'
+                    ]);
+                }
+            }
+
+            fclose($file);
+        };
+
+        return new StreamedResponse($callback, 200, $headers);
+    }
+
+    public function emailEmployeeAttendanceReport(Request $request)
+    {
+        $request->validate([
+            'employee_id' => 'required|string',
+            'email' => 'required|email',
+            'report_type' => 'required|in:daily,monthly,custom',
+            'year' => 'required_if:report_type,monthly|integer|min:2000|max:' . (date('Y') + 1),
+            'month' => 'required_if:report_type,monthly|integer|min:1|max:12',
+            'start_date' => 'required_if:report_type,custom|date',
+            'end_date' => 'required_if:report_type,custom|date|after_or_equal:start_date',
+        ]);
+
+        $employee = Employee::where('employee_id', $request->employee_id)->orWhere('id', $request->employee_id)->first();
+        if (!$employee) {
+            return response()->json(['error' => 'Employee not found'], 404);
+        }
+
+        $reportType = $request->report_type;
+        $year = $request->year;
+        $month = $request->month;
+        $startDate = $request->start_date;
+        $endDate = $request->end_date;
+
+        // Generate the report data based on type
+        if ($reportType === 'daily') {
+            $date = date('Y-m-d');
+            $attendances = [Attendance::where('employee_id', $employee->id)
+                ->where('date', $date)
+                ->with('employee', 'breaks')
+                ->first()];
+        } elseif ($reportType === 'monthly') {
+            $attendances = $this->getEmployeeMonthlyAttendance($request->employee_id, $year, $month);
+        } elseif ($reportType === 'custom') {
+            $attendances = Attendance::where('employee_id', $employee->id)
+                ->whereBetween('date', [$startDate, $endDate])
+                ->with('employee', 'breaks')
+                ->get()
+                ->keyBy(function($item) {
+                    return Carbon::parse($item->date)->toDateString();
+                });
+
+            // Convert to array format similar to monthly
+            $result = [];
+            $start = Carbon::parse($startDate);
+            $end = Carbon::parse($endDate);
+            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                $dateKey = $date->toDateString();
+                $attendance = $attendances->get($dateKey);
+                if ($attendance) {
+                    $result[] = [
+                        'date' => $dateKey,
+                        'check_in' => $attendance->check_in ? $attendance->check_in->toISOString() : null,
+                        'check_out' => $attendance->check_out ? $attendance->check_out->toISOString() : null,
+                        'total_hours' => $attendance->total_hours,
+                        'breaks' => $attendance->breaks->map(function($break) {
+                            return [
+                                'in_time' => $break->break_start ? $break->break_start->toISOString() : null,
+                                'out_time' => $break->break_end ? $break->break_end->toISOString() : null,
+                            ];
+                        })->toArray(),
+                        'status' => $attendance->status
+                    ];
+                } else {
+                    $result[] = [
+                        'date' => $dateKey,
+                        'check_in' => null,
+                        'check_out' => null,
+                        'total_hours' => null,
+                        'breaks' => [],
+                        'status' => 'Absent'
+                    ];
+                }
+            }
+            $attendances = $result;
+        }
+
+        // Generate CSV content
+        $csvContent = "Date,Check In,Check Out,Total Hours,Breaks,Break Details,Status\n";
+
+        foreach ($attendances as $attendance) {
+            if ($reportType === 'daily' && !$attendance) {
+                $csvContent .= date('Y-m-d') . ",-,-,-,-,-,Absent\n";
+                continue;
+            }
+
+            $breaksText = '';
+            $breakDetails = '';
+            if (is_array($attendance['breaks']) && count($attendance['breaks']) > 0) {
+                $breaksText = count($attendance['breaks']) . ' times';
+                $breakDetailsArray = [];
+                foreach ($attendance['breaks'] as $index => $break) {
+                    $in = $break['in_time'] ? Carbon::parse($break['in_time'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                    $out = $break['out_time'] ? Carbon::parse($break['out_time'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                    $breakDetailsArray[] = "Break " . ($index + 1) . ": {$in}-{$out}";
+                }
+                $breakDetails = implode(', ', $breakDetailsArray);
+            } elseif (is_numeric($attendance['breaks'])) {
+                $breaksText = $attendance['breaks'] . ' times';
+                $breakDetails = '-';
+            } else {
+                $breaksText = '-';
+                $breakDetails = '-';
+            }
+
+            $csvContent .= $attendance['date'] . ",";
+            $csvContent .= ($attendance['check_in'] ? Carbon::parse($attendance['check_in'])->setTimezone(config('app.timezone'))->format('H:i') : '-') . ",";
+            $csvContent .= ($attendance['check_out'] ? Carbon::parse($attendance['check_out'])->setTimezone(config('app.timezone'))->format('H:i') : '-') . ",";
+            $csvContent .= ($attendance['total_hours'] ?? '-') . ",";
+            $csvContent .= $breaksText . ",";
+            $csvContent .= $breakDetails . ",";
+            $csvContent .= $attendance['status'] . "\n";
+        }
+
+        // Send email with CSV attachment
+        try {
+            Mail::raw('Please find attached the attendance report.', function ($message) use ($request, $employee, $csvContent) {
+                $message->to($request->email)
+                        ->subject('Attendance Report for ' . $employee->name)
+                        ->attachData($csvContent, 'attendance-report.csv', [
+                            'mime' => 'text/csv',
+                        ]);
+            });
+
+            return response()->json(['message' => 'Attendance report sent successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to send email: ' . $e->getMessage()], 500);
+        }
     }
 }

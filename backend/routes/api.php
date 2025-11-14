@@ -45,6 +45,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('attendance/early-departures-today', [AttendanceController::class, 'getEarlyDeparturesToday']); // Get early departures today
     Route::get('attendance/employee/{employeeId}/{year}/{month}', [AttendanceController::class, 'getEmployeeMonthlyAttendance']); // Get monthly attendance for specific employee
     Route::get('attendance/export/employee/{employeeId}/{year}/{month}', [AttendanceController::class, 'exportEmployeeMonthlyAttendance']); // Export monthly attendance data
+    Route::get('attendance/export/daily/employee/{employeeId}/{date}', [AttendanceController::class, 'exportEmployeeDailyAttendance']); // Export daily attendance data
+    Route::get('attendance/export/custom/employee/{employeeId}/{startDate}/{endDate}', [AttendanceController::class, 'exportEmployeeCustomRangeAttendance']); // Export custom range attendance data
+    Route::post('attendance/email', [AttendanceController::class, 'emailEmployeeAttendanceReport']); // Email attendance report to employee
 
     // Face recognition routes - Enrollment and unenrollment require authentication
     Route::post('faces/enroll', [FaceController::class, 'enroll']); // Enroll a new face for recognition

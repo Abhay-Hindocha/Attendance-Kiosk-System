@@ -2,7 +2,7 @@
 // It provides a centralized way to make API calls, handle authentication, and manage responses.
 // The service uses the Fetch API and includes automatic token handling and error management.
 
-const API_BASE_URL = 'http://localhost:8000/api' || REACT_APP_API_BASE_URL; // Base URL for the Laravel backend API
+const API_BASE_URL = 'http://localhost:8000/api' || REACT_APP_API_BASE_URL  ; // Base URL for the Laravel backend API
 
 class ApiService {
   constructor() {
@@ -254,6 +254,36 @@ class ApiService {
   async exportEmployeeMonthlyAttendance(employeeId, year, month) {
     return this.request(`/attendance/export/employee/${employeeId}/${year}/${month}`, {
       responseType: 'blob'
+    });
+  }
+
+  // Export Employee Daily Attendance
+  async exportEmployeeDailyAttendance(employeeId, date) {
+    return this.request(`/attendance/export/daily/employee/${employeeId}/${date}`, {
+      responseType: 'blob'
+    });
+  }
+
+  // Export Employee Custom Range Attendance
+  async exportEmployeeCustomRangeAttendance(employeeId, startDate, endDate) {
+    return this.request(`/attendance/export/custom/employee/${employeeId}/${startDate}/${endDate}`, {
+      responseType: 'blob'
+    });
+  }
+
+  // Email Employee Attendance Report
+  async emailEmployeeAttendanceReport(employeeId, email, reportType, year, month, startDate, endDate) {
+    return this.request('/attendance/email', {
+      method: 'POST',
+      body: JSON.stringify({
+        employee_id: employeeId,
+        email,
+        report_type: reportType,
+        year,
+        month,
+        start_date: startDate,
+        end_date: endDate
+      }),
     });
   }
 

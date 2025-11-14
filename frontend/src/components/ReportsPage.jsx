@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Download, Clock, LogOut, Users } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Download, Clock, LogOut, Users, Filter, Mail } from 'lucide-react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,19 +11,47 @@ export default function AttendanceReportsPage() {
   const navigate = useNavigate();
   const today = new Date();
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [monthOffset, setMonthOffset] = useState(0);
+  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
   const [employees, setEmployees] = useState([]);
   const [page, setPage] = useState(1);
   const pageSize = 5;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [attendanceRecords, setAttendanceRecords] = useState({});
+  const [selectedReportType, setSelectedReportType] = useState('monthly');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [email, setEmail] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [filteredEmployees, setFilteredEmployees] = useState([]);
 
+  const handlePreviousMonth = () => {
+    if (selectedMonth === 0) {
+      setSelectedMonth(11);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
 
-  const monthDate = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+  const handleNextMonth = () => {
+    if (selectedMonth === 11) {
+      setSelectedMonth(0);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
+  const monthDate = new Date(selectedYear, selectedMonth, 1);
   const monthName = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
-  const startingDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).getDay();
+  const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+  const startingDay = new Date(selectedYear, selectedMonth, 1).getDay();
 
   const formatLocalYMD = (d) => {
     const year = d.getFullYear();
@@ -52,6 +80,9 @@ export default function AttendanceReportsPage() {
     try {
       const data = await api.getEmployees();
       setEmployees(data || []);
+      const uniqueDepts = [...new Set((data || []).map(emp => emp.department).filter(Boolean))];
+      setDepartments(uniqueDepts);
+      setFilteredEmployees(data || []);
       if (data && data.length > 0) {
         setSelectedEmployee(data[0].employee_id);
       }
@@ -97,12 +128,35 @@ export default function AttendanceReportsPage() {
   };
 
   useEffect(() => { fetchEmployees(); }, []);
-  useEffect(() => { fetchAttendance(); }, [selectedEmployee, monthOffset]);
+  useEffect(() => { fetchAttendance(); }, [selectedEmployee, selectedYear, selectedMonth]);
 
   useEffect(() => {
     const id = setInterval(() => { if (selectedEmployee) fetchAttendance(); }, 30000);
     return () => clearInterval(id);
-  }, [selectedEmployee, monthOffset]);
+  }, [selectedEmployee, selectedYear, selectedMonth]);
+
+  // Filter employees based on selected department
+  useEffect(() => {
+    if (selectedDepartment) {
+      setFilteredEmployees(employees.filter(emp => emp.department === selectedDepartment));
+    } else {
+      setFilteredEmployees(employees);
+    }
+  }, [selectedDepartment, employees]);
+
+  // Handle filter application
+  const handleApplyFilter = () => {
+    setShowFilterModal(false);
+  };
+
+  // Handle filter reset
+  const handleResetFilter = () => {
+    setSelectedDepartment(null);
+    setShowFilterModal(false);
+  };
+
+  // Close dropdown when clicking outside
+
 
   const buildCalendar = () => {
     const cells = [];
@@ -147,69 +201,150 @@ export default function AttendanceReportsPage() {
 
   const handleExport = async () => {
     if (!selectedEmployee) return;
+    if (selectedReportType === 'custom' && (!customStartDate || !customEndDate)) {
+      setError('Please select both start and end dates for custom range');
+      return;
+    }
+    if (selectedReportType === 'custom' && new Date(customStartDate) > new Date(customEndDate)) {
+      setError('Start date cannot be after end date');
+      return;
+    }
     try {
+      let blob, filename;
       const year = monthDate.getFullYear();
       const month = monthDate.getMonth() + 1;
-      const blob = await api.exportEmployeeMonthlyAttendance(selectedEmployee, year, month);
+
+      if (selectedReportType === 'daily') {
+        const today = new Date().toISOString().split('T')[0];
+        blob = await api.exportEmployeeDailyAttendance(selectedEmployee, today);
+        filename = `attendance-daily-${selectedEmployee}-${today}.csv`;
+      } else if (selectedReportType === 'monthly') {
+        blob = await api.exportEmployeeMonthlyAttendance(selectedEmployee, year, month);
+        filename = `attendance-monthly-${selectedEmployee}-${year}-${month}.csv`;
+      } else if (selectedReportType === 'custom') {
+        blob = await api.exportEmployeeCustomRangeAttendance(selectedEmployee, customStartDate, customEndDate);
+        filename = `attendance-custom-${selectedEmployee}-${customStartDate}-to-${customEndDate}.csv`;
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `attendance-${selectedEmployee}-${year}-${month}.csv`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      setShowExportModal(false);
     } catch (err) {
       if (err?.response?.status === 401) navigate('/login');
-      setError('Failed to export attendance records');
+      setError('Failed to download attendance records');
     }
   };
+
+  const handleEmailReport = async () => {
+    if (!selectedEmployee || !email) {
+      setError('Please select an employee and enter an email address');
+      return;
+    }
+    if (selectedReportType === 'custom' && (!customStartDate || !customEndDate)) {
+      setError('Please select both start and end dates for custom range');
+      return;
+    }
+    if (selectedReportType === 'custom' && new Date(customStartDate) > new Date(customEndDate)) {
+      setError('Start date cannot be after end date');
+      return;
+    }
+    try {
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth() + 1;
+      await api.emailEmployeeAttendanceReport(
+        selectedEmployee,
+        email,
+        selectedReportType,
+        year,
+        month,
+        customStartDate,
+        customEndDate
+      );
+      setShowEmailModal(false);
+      setEmail('');
+      setError(null);
+      // You might want to show a success message here
+    } catch (err) {
+      if (err?.response?.status === 401) navigate('/login');
+      setError('Failed to send email report');
+    }
+  };
+
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
 
-        {/* Header (matches screenshot spacing and Export button) */}
-        <div className="flex items-center justify-between">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-gray-800">Attendance Calendar</h1>
             <p className="text-sm text-gray-500">View attendance records</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex gap-3">
             <button
-              onClick={handleExport}
+              onClick={() => setShowFilterModal(true)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+            >
+              <Filter className="w-5 h-5" />
+              Filter
+            </button>
+            <button
+              onClick={() => setShowEmailModal(true)}
               disabled={loading || !selectedEmployee}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md shadow hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Mail className="w-4 h-4" />
+              Email Report
+            </button>
+            <button
+              onClick={() => setShowExportModal(true)}
+              disabled={loading || !selectedEmployee}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
-              {loading ? 'Exporting...' : 'Export'}
+              {loading ? 'Export' : 'Export'}
             </button>
           </div>
         </div>
 
-        {/* Controls */}
+        {/* Controls and Calendar */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex-1 max-w-xs">
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Employee</label>
-              <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                value={selectedEmployee || ''}
-                onChange={(e) => setSelectedEmployee(e.target.value)}
-                disabled={loading}
-              >
-                {employees.map(emp => (
-                  <option key={emp.employee_id} value={emp.employee_id}>{emp.name}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer hover:border-gray-400 transition-colors"
+                  value={selectedEmployee || ''}
+                  onChange={(e) => setSelectedEmployee(e.target.value)}
+                  disabled={loading}
+                >
+                  {filteredEmployees.map(emp => (
+                    <option key={emp.employee_id} value={emp.employee_id}>{emp.name}</option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-4">
-              <button onClick={() => setMonthOffset(m => m - 1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <button onClick={handlePreviousMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <h2 className="text-lg md:text-xl font-bold text-gray-900 text-center">{monthName}</h2>
-              <button onClick={() => setMonthOffset(m => m + 1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <h2 className="text-xl font-bold text-gray-900 text-center">{monthName}</h2>
+              <button onClick={handleNextMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
@@ -217,10 +352,7 @@ export default function AttendanceReportsPage() {
           </div>
 
           {error && <div className="text-rose-500 text-sm">{error}</div>}
-        </div>
 
-        {/* Calendar card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
             <div className="text-center font-semibold text-gray-700 text-sm py-2">Sun</div>
             <div className="text-center font-semibold text-gray-700 text-sm py-2">Mon</div>
@@ -233,7 +365,7 @@ export default function AttendanceReportsPage() {
 
           <div className="grid grid-cols-7 gap-1 md:gap-2">
             {/* leading placeholders */}
-            {cells.slice(0, startingDay).map((_, i) => <div key={`lead-${i}`} className="aspect-square rounded-lg border border-transparent bg-gray-50" />)}
+            {cells.slice(0, startingDay).map((_, i) => <div key={`lead-${i}`} className="aspect-square" />)}
 
             {cells.slice(startingDay).map((c, idx) => {
               const status = c.rec?.status;
@@ -241,13 +373,11 @@ export default function AttendanceReportsPage() {
               const isWeekend = new Date(c.key).getDay() === 0 || new Date(c.key).getDay() === 6;
 
               return (
-                <div key={`${c.key}-${idx}`} className={`aspect-square rounded-lg border-2 p-2 cursor-pointer transition-all hover:shadow-md ${status ? colorClass : isWeekend ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-200'}`}>
+                <div key={`${c.key}-${idx}`} className={`aspect-square border-2 rounded-lg p-2 cursor-pointer transition-all hover:shadow-md ${status ? colorClass : isWeekend ? 'bg-gray-100 border-gray-200' : 'bg-white border-gray-200'}`}>
                   <div className="h-full flex flex-col">
 
                     {/* Day */}
-                    <div className="mb-1">
-                      <div className={`text-sm font-semibold ${status ? 'text-white' : 'text-gray-700'}`}>{c.day}</div>
-                    </div>
+                    <span className={`text-sm font-semibold mb-1 ${status ? 'text-white' : 'text-gray-700'}`}>{c.day}</span>
 
                     {/* Status details */}
                     <div className="flex-1 flex flex-col justify-center text-xs">
@@ -256,7 +386,7 @@ export default function AttendanceReportsPage() {
                           {status === 'Holiday' ? (
                             <span className={`font-medium ${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.holiday?.name || 'Holiday'}</span>
                           ) : status === 'On Leave' ? (
-                            <span className={`font-medium ${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.leaveReason || 'Leave'}</span>
+                            <span className={`font-medium ${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.leaveReason || 'Sick Leave'}</span>
                           ) : status === 'Present' || status === 'Late Arrival' || status === 'Early Departure' || status === 'Half Day' ? (
                             <>
                               <span className={`${status ? 'text-white' : 'text-gray-700'}`}>In: {c.rec.checkIn}</span>
@@ -278,14 +408,14 @@ export default function AttendanceReportsPage() {
           </div>
 
           {/* Legend */}
-          <div className="flex flex-wrap items-center gap-4 mt-6 text-sm text-gray-600">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-emerald-500" /> Present</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-violet-500" /> Late Entry</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-rose-500" /> Absent</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-blue-500" /> Holiday</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-amber-500" /> On Leave</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-pink-500" /> Early Departure</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-yellow-500" /> Half Day</div>
+          <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-200 grid grid-cols-2 sm:flex sm:flex-wrap gap-3 md:gap-4">
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-500 rounded"></div><span className="text-sm text-gray-700">Present</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-yellow-500 rounded"></div><span className="text-sm text-gray-700">Half Day</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-500 rounded"></div><span className="text-sm text-gray-700">Absent</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-blue-500 rounded"></div><span className="text-sm text-gray-700">Holiday</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-500 rounded"></div><span className="text-sm text-gray-700">On Leave</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-purple-500 rounded"></div><span className="text-sm text-gray-700">Late Arrival</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-pink-500 rounded"></div><span className="text-sm text-gray-700">Early Departure</span></div>
           </div>
         </div>
 
@@ -391,16 +521,209 @@ export default function AttendanceReportsPage() {
           </div>
 
           {/* pagination */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row items-center justify-between mt-6 pt-4 border-t border-gray-200 gap-4">
             <p className="text-sm text-gray-600">Showing {pagedLogs.length} of {allLogs.length} records</p>
             <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Previous</button>
-              <button className={`px-4 py-2 rounded-lg text-sm font-medium ${page === 1 ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors'}`}>1</button>
-              {totalPages > 1 && <button className={`px-4 py-2 rounded-lg text-sm font-medium ${page === 2 ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors'}`}>2</button>}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Next</button>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className={`px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors ${page === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}>Previous</button>
+              <button className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white">{page}</button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className={`px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors ${page === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}>Next</button>
             </div>
           </div>
         </div>
+
+        {/* Export Modal */}
+        {showExportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Export Attendance Report</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
+                  <div className="relative">
+                    <select
+                      value={selectedReportType}
+                      onChange={(e) => setSelectedReportType(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer hover:border-gray-400 transition-colors"
+                    >
+                      <option value="daily">Daily (CSV)</option>
+                      <option value="monthly">Monthly (CSV)</option>
+                      <option value="custom">Custom range (CSV)</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedReportType === 'custom' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Downloading...' : 'Download'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filter Modal */}
+        {showFilterModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Filter Employees</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                  <div className="relative">
+                    <select
+                      value={selectedDepartment || ''}
+                      onChange={(e) => setSelectedDepartment(e.target.value || null)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer hover:border-gray-400 transition-colors"
+                    >
+                      <option value="">All Departments</option>
+                      {departments.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={handleResetFilter}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={handleApplyFilter}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Email Modal */}
+        {showEmailModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Attendance Report</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter email address"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
+                  <select
+                    value={selectedReportType}
+                    onChange={(e) => setSelectedReportType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="custom">Custom range</option>
+                  </select>
+                </div>
+
+                {selectedReportType === 'custom' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowEmailModal(false);
+                    setEmail('');
+                  }}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEmailReport}
+                  disabled={loading}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Sending...' : 'Send Email'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
