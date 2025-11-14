@@ -314,11 +314,10 @@ class AttendanceController extends Controller
 
     public function getLiveActivity()
     {
+        $today = Carbon::today()->toDateString();
+
         $attendances = Attendance::with(['employee:id,name,department', 'breaks'])
-            ->where(function ($query) {
-                $query->where('check_in', '>=', Carbon::now()->subDay())
-                      ->orWhere('check_out', '>=', Carbon::now()->subDay());
-            })
+            ->where('date', $today)
             ->where(function ($query) {
                 $query->whereNotNull('check_in')
                       ->orWhereNotNull('check_out');

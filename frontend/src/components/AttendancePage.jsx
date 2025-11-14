@@ -41,6 +41,11 @@ const AttendancePage = () => {
   const streamRef = useRef(null);
 
   useEffect(() => {
+    // Remove localStorage token when coming to attendance page
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('isAuthenticated');
+
     const loadModels = async () => {
       try {
         await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
