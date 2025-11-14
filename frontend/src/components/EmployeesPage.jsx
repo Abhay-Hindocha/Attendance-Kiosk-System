@@ -367,9 +367,15 @@ const EmployeesPage = () => {
                 <div className="flex items-center gap-2 text-xs text-gray-600"><Phone className="w-4 h-4" /><span>{employee.phone || '+1 234 567 8902'}</span></div>
                 <div className="flex items-center gap-2 text-xs text-gray-600"><User className="w-4 h-4" /><span>{employee.department}</span></div>
               </div>
-              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg mb-3">
-                <CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs font-medium text-green-700">Face Enrolled</span>
-              </div>
+              {employee.face_enrolled ? (
+                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg mb-3">
+                  <CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs font-medium text-green-700">Face Enrolled</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-3">
+                  <XCircle className="w-4 h-4 text-red-600" /><span className="text-xs font-medium text-red-700">Face Not Enrolled</span>
+                </div>
+              )}
               <button onClick={() => openWizard(employee)} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"><Camera className="w-4 h-4"/><span>{employee.face_enrolled ? 'Re-enroll Face' : 'Enroll Face'}</span></button>
             </div>
           ))}
