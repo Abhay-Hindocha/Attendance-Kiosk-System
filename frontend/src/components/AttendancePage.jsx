@@ -46,7 +46,7 @@ const AttendancePage = () => {
     localStorage.removeItem('userRole');
     localStorage.removeItem('isAuthenticated');
 
-    const loadModels = async () => {
+    const loadModelsAndCamera = async () => {
       try {
         await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
         await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
@@ -55,30 +55,51 @@ const AttendancePage = () => {
         await faceapi.nets.faceExpressionNet.loadFromUri('/models');
         setModelsLoaded(true);
         notify('Face recognition and expression models loaded successfully');
+
+        // Pre-acquire camera stream after models are loaded
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          streamRef.current = stream;
+          notify('Camera stream pre-acquired successfully');
+        } catch (cameraError) {
+          console.error('Failed to pre-acquire camera stream:', cameraError);
+          notify('Failed to access camera. Please check permissions.');
+        }
       } catch (error) {
         console.error('Failed to load face-api models:', error);
         notify('Failed to load face recognition models');
       }
     };
-    loadModels();
+    loadModelsAndCamera();
+
+    // Cleanup function to stop camera stream on unmount
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
   }, []);
 
   const startVideo = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      videoRef.current.srcObject = stream;
-      streamRef.current = stream;
-    } catch (error) {
-      console.error('Camera error:', error);
-      setStatus('Camera access denied');
+    if (streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    } else {
+      // Fallback: request camera access if pre-acquired stream failed
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        notify('Camera accessed successfully');
+      } catch (error) {
+        console.error('Camera error:', error);
+        setStatus('Camera access denied');
+        notify('Camera access denied. Please check permissions.');
+      }
     }
   };
 
   const stopVideo = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
     if (videoRef.current) {
       videoRef.current.srcObject = null;
       videoRef.current.pause();
