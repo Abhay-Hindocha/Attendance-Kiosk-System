@@ -291,7 +291,7 @@ const AttendancePage = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 bg-gradient-to-br from-[#0a1123] via-[#111c35] to-[#0c1229] flex items-center justify-center p-6">
+      <main className="flex-1 bg-gradient-to-br from-[#0a1123] via-[#111c35] to-[#0c1229] flex items-center justify-center p-6 overflow-hidden">
         <style>
           {`
             .custom-scrollbar::-webkit-scrollbar {
@@ -310,7 +310,7 @@ const AttendancePage = () => {
             }
           `}
         </style>
-        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
           {/* Camera Section */}
           <div className="lg:col-span-2 bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between">
           {/* Status Label */}
@@ -430,61 +430,53 @@ const AttendancePage = () => {
           </div>
 
           {/* Right Panel */}
-        <div className="space-y-6">
+        <div className="flex flex-col h-full space-y-6">
           {/* Recent Activity */}
-          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
+          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex-1 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">
                 Recent Activity
               </h2>
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
             </div>
-            <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
-              {recentActivities.map((a, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between bg-[#222b4a]/60 hover:bg-[#2b3560]/60 transition rounded-xl px-4 py-3"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white">
-                      {a.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <div className="space-y-3">
+                {recentActivities.map((a, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between bg-[#222b4a]/60 hover:bg-[#2b3560]/60 transition rounded-xl px-4 py-3"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white">
+                        {a.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </div>
+                      <div>
+                        <p className="text-white font-medium text-sm">
+                          {a.name}
+                        </p>
+                        <p className="text-gray-400 text-xs">{a.action}</p>
+                        {a.mood && (
+                          <p className="text-gray-500 text-xs">Mood: {a.mood}</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-white font-medium text-sm">
-                        {a.name}
-                      </p>
-                      <p className="text-gray-400 text-xs">{a.action}</p>
-                      {a.mood && (
-                        <p className="text-gray-500 text-xs">Mood: {a.mood}</p>
-                      )}
-                    </div>
+                    <p className="text-gray-400 text-xs">{a.time}</p>
                   </div>
-                  <p className="text-gray-400 text-xs">{a.time}</p>
-                </div>
-              ))}
-              {recentActivities.length === 0 && (
-                <div className="text-center text-gray-400 text-sm py-8">
-                  No recent activities yet
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Notifications */}
-          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
-            <h2 className="text-lg font-semibold text-white mb-4">
-              Notifications
-            </h2>
-            <div id="attendance-notifications" className="text-sm text-gray-300 space-y-1 max-h-32 overflow-y-auto">
-              {/* Notifications will be inserted here */}
+                ))}
+                {recentActivities.length === 0 && (
+                  <div className="text-center text-gray-400 text-sm py-8">
+                    No recent activities yet
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Instructions */}
-          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
+          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex-shrink-0">
             <h2 className="text-lg font-semibold text-white mb-4">
               Instructions
             </h2>
@@ -498,6 +490,16 @@ const AttendancePage = () => {
               <li>Wait for automatic recognition</li>
               <li>Attendance will be marked automatically</li>
             </ul>
+          </div>
+
+          {/* Notifications */}
+          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-4 backdrop-blur-md flex-shrink-0">
+            <h2 className="text-sm font-semibold text-white mb-2">
+              Notifications
+            </h2>
+            <div id="attendance-notifications" className="text-xs text-gray-300 space-y-1 max-h-16 overflow-y-auto">
+              {/* Notifications will be inserted here */}
+            </div>
           </div>
         </div>
         </div>
