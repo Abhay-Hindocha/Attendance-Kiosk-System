@@ -697,8 +697,8 @@ class AttendanceController extends Controller
                 // Determine status based on attendance data
                 $status = $attendance->status;
 
-                // Auto-update status based on hours if not already set to half_day or absent
-                if ($status !== 'half_day' && $status !== 'absent' && $totalMinutesWorked !== null && $employee->policy) {
+                // Auto-update status based on hours if not absent
+                if ($status !== 'absent' && $totalMinutesWorked !== null && $employee->policy) {
                     $policy = $employee->policy;
                     if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
                         && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($dateKey)))) {
@@ -706,19 +706,23 @@ class AttendanceController extends Controller
                         $halfDayMinutes = ($policy->half_day_hours * 60) + $policy->half_day_minutes;
                         $fullDayMinutes = ($policy->full_day_hours * 60) + $policy->full_day_minutes;
 
-                        if ($totalMinutesWorked >= $halfDayMinutes && $totalMinutesWorked < $fullDayMinutes) {
+                        if ($totalMinutesWorked >= $halfDayMinutes) {
+                            $status = 'present';
+                            // Update the database record
+                            $attendance->update(['status' => 'present']);
+                        } elseif ($totalMinutesWorked > 0) {
                             $status = 'half_day';
                             // Update the database record
                             $attendance->update(['status' => 'half_day']);
-                        } elseif ($status === 'present' && $totalMinutesWorked < 0) {
-                            // Handle cases where breaks exceed work time, set to half day
+                        } elseif ($status === 'present' && $totalMinutesWorked <= 0) {
+                            // Handle cases where breaks exceed work time or no work, set to half day
                             $status = 'half_day';
                             $attendance->update(['status' => 'half_day']);
                         }
                     }
                 }
 
-                // Check for early departure and apply new logic with grace period
+                // Check for early departure
                 if (($status === 'present' || $status === 'late') && $employee->policy && $employee->policy->enable_early_tracking && $attendance->check_out) {
                     $policy = $employee->policy;
                     if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
@@ -733,6 +737,7 @@ class AttendanceController extends Controller
                                 $attendance->update(['status' => 'half_day']);
                             } elseif ($minutesEarly > $gracePeriod) {
                                 $status = 'Early Departure';
+                                $attendance->update(['status' => 'Early Departure']);
                             }
                             // If within grace period, leave status unchanged
                         }
@@ -836,7 +841,9 @@ class AttendanceController extends Controller
             $halfDayMinutes = ($policy->half_day_hours * 60) + $policy->half_day_minutes;
             $fullDayMinutes = ($policy->full_day_hours * 60) + $policy->full_day_minutes;
 
-            if ($totalMinutes >= $halfDayMinutes && $totalMinutes < $fullDayMinutes) {
+            if ($totalMinutes >= $halfDayMinutes) {
+                $attendance->update(['status' => 'present']);
+            } elseif ($totalMinutes > 0) {
                 $attendance->update(['status' => 'half_day']);
             }
         }
