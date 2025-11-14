@@ -18,6 +18,7 @@ export default function AttendanceReportsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [attendanceRecords, setAttendanceRecords] = useState({});
+  const [holidays, setHolidays] = useState({});
 
   const monthDate = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
   const monthName = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -40,7 +41,7 @@ export default function AttendanceReportsPage() {
       case 'Absent': return 'bg-rose-500 text-white';
       case 'Holiday': return 'bg-blue-500 text-white';
       case 'On Leave': return 'bg-amber-500 text-white';
-      case 'Late Departure': return 'bg-pink-500 text-white';
+      case 'Early Departure': return 'bg-pink-500 text-white';
       case 'Half Day': return 'bg-yellow-500 text-white';
       default: return '';
     }
@@ -57,6 +58,22 @@ export default function AttendanceReportsPage() {
     } catch (err) {
       if (err?.response?.status === 401) navigate('/login');
       setError('Failed to fetch employees');
+    }
+  };
+
+  const fetchHolidays = async () => {
+    try {
+      const data = await api.getHolidays();
+      const holidayMap = {};
+      (data || []).forEach(holiday => {
+        holidayMap[holiday.date] = {
+          name: holiday.name,
+          description: holiday.description
+        };
+      });
+      setHolidays(holidayMap);
+    } catch (err) {
+      console.error('Failed to fetch holidays:', err);
     }
   };
 
@@ -90,7 +107,7 @@ export default function AttendanceReportsPage() {
     }
   };
 
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => { fetchEmployees(); fetchHolidays(); }, []);
   useEffect(() => { fetchAttendance(); }, [selectedEmployee, monthOffset]);
 
   useEffect(() => {
@@ -111,8 +128,12 @@ export default function AttendanceReportsPage() {
       const cellDate = new Date(year, m, d);
       const cellKeyISO = formatLocalYMD(cellDate);
       let rec = attendanceRecords[key];
+      const holiday = holidays[key];
 
-      if (!rec) {
+      if (!rec && holiday) {
+        // If it's a holiday but no attendance record, create a holiday record
+        rec = { status: 'Holiday', checkIn: '-', checkOut: '-', totalHours: '-', holiday };
+      } else if (!rec) {
         const yesterdayKey = new Date(today);
         yesterdayKey.setDate(yesterdayKey.getDate() - 1);
         const yesterdayKeyStr = formatLocalYMD(yesterdayKey);
@@ -240,23 +261,23 @@ export default function AttendanceReportsPage() {
                     </div>
 
                     {/* Check times or reason - hidden on small screens (like screenshot) */}
-                    <div className="text-xs self-start hidden md:block mt-2">
+                    <div className="text-xs self-start mt-2">
                       {c.rec ? (
                         <>
-                          {status === 'Present' || status === 'Late Entry' || status === 'Late Departure' || status === 'Half Day' ? (
+                          {status === 'Present' || status === 'Late Entry' || status === 'Early Departure' || status === 'Half Day' ? (
                             <>
-                              <div className="flex items-center gap-1 truncate">
+                              <div className="flex items-center gap-1 truncate hidden md:flex">
                                 <Clock className={`w-3 h-3 ${status ? 'text-white' : 'text-gray-500'}`} />
                                 <span className={`${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.checkIn}</span>
                               </div>
-                              <div className="flex items-center gap-1 truncate mt-1">
+                              <div className="flex items-center gap-1 truncate mt-1 hidden md:flex">
                                 <LogOut className={`w-3 h-3 ${status ? 'text-white' : 'text-gray-500'}`} />
                                 <span className={`${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.checkOut}</span>
                               </div>
                             </>
                           ) : status === 'Holiday' ? (
                             <div className="truncate">
-                              <span className={`${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.holiday?.name || 'Holiday'}</span>
+                              <span className={`font-semibold ${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.holiday?.name || 'Holiday'}</span>
                             </div>
                           ) : status === 'On Leave' ? (
                             <div className="truncate">
@@ -284,9 +305,8 @@ export default function AttendanceReportsPage() {
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-rose-500" /> Absent</div>
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-blue-500" /> Holiday</div>
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-amber-500" /> On Leave</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-pink-500" /> Late Departure</div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-pink-500" /> Early Departure</div>
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-yellow-500" /> Half Day</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-gray-300" /> Early Departure</div>
           </div>
         </div>
 

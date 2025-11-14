@@ -256,6 +256,11 @@ class ApiService {
       responseType: 'blob'
     });
   }
+
+  // Holiday endpoints
+  async getHolidays() {
+    return this.request('/holidays');
+  }
 }
 
 export default new ApiService();
