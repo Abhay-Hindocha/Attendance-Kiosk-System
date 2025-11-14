@@ -83,6 +83,33 @@ export default function AttendanceReportsPage() {
           leaveReason: record.leave_reason || null
         };
       });
+
+      // Check for early departures
+      const employee = employees.find(emp => emp.employee_id === selectedEmployee);
+      if (employee && employee.policy && employee.policy.enable_early_tracking && employee.policy.work_end_time) {
+        const workEndTime = employee.policy.work_end_time.substring(0, 5); // 'HH:MM'
+        const gracePeriod = employee.policy.early_grace_period ?? 0;
+        Object.keys(recordMap).forEach(dateKey => {
+          const rec = recordMap[dateKey];
+          if (rec.checkOut !== '-' && (rec.status === 'Present' || rec.status === 'Late Entry')) {
+            if (rec.checkOut < workEndTime) {
+              // Calculate minutes early
+              const [endHour, endMinute] = workEndTime.split(':').map(Number);
+              const [checkHour, checkMinute] = rec.checkOut.split(':').map(Number);
+              const endMinutes = endHour * 60 + endMinute;
+              const checkMinutes = checkHour * 60 + checkMinute;
+              const minutesEarly = endMinutes - checkMinutes;
+              if (minutesEarly > 60) {
+                rec.status = 'Half Day';
+              } else if (minutesEarly > gracePeriod) {
+                rec.status = 'Early Departure';
+              }
+              // If within grace period, leave status unchanged
+            }
+          }
+        });
+      }
+
       setAttendanceRecords(recordMap);
     } catch (err) {
       console.error(err);
@@ -330,13 +357,13 @@ export default function AttendanceReportsPage() {
                         <div className="flex items-center gap-3">
                           <div className="text-sm font-semibold">{new Date(log.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
                           <div className={`text-[12px] px-3 py-1 rounded-full ${log.status === 'Present' ? 'bg-green-100 text-green-800' :
-                              log.status === 'Absent' ? 'bg-red-100 text-red-800' :
-                                log.status === 'Late Entry' ? 'bg-purple-100 text-purple-800' :
-                                  log.status === 'Late Departure' ? 'bg-pink-100 text-pink-800' :
-                                    log.status === 'Holiday' ? 'bg-blue-100 text-blue-800' :
-                                      log.status === 'On Leave' ? 'bg-orange-100 text-orange-800' :
-                                        log.status === 'Half Day' ? 'bg-yellow-100 text-yellow-800' :
-                                          'bg-gray-100 text-gray-800'
+                            log.status === 'Absent' ? 'bg-red-100 text-red-800' :
+                              log.status === 'Late Entry' ? 'bg-purple-100 text-purple-800' :
+                                log.status === 'Early Departure' ? 'bg-pink-100 text-pink-800' :
+                                  log.status === 'Holiday' ? 'bg-blue-100 text-blue-800' :
+                                    log.status === 'On Leave' ? 'bg-orange-100 text-orange-800' :
+                                      log.status === 'Half Day' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-gray-100 text-gray-800'
                             }`}>{log.status}</div>
                         </div>
                         <div className="text-sm text-gray-500 mt-1">{employees.find(emp => emp.employee_id === selectedEmployee)?.policy?.name || 'No Policy'}</div>

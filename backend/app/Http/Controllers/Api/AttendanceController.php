@@ -718,6 +718,27 @@ class AttendanceController extends Controller
                     }
                 }
 
+                // Check for early departure and apply new logic with grace period
+                if (($status === 'present' || $status === 'late') && $employee->policy && $employee->policy->enable_early_tracking && $attendance->check_out) {
+                    $policy = $employee->policy;
+                    if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
+                        && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($dateKey)))) {
+                        $workEndTime = Carbon::createFromFormat('H:i:s', $policy->work_end_time);
+                        $checkOutTime = Carbon::parse($attendance->check_out);
+                        if ($checkOutTime->lt($workEndTime)) {
+                            $minutesEarly = $workEndTime->diffInMinutes($checkOutTime);
+                            $gracePeriod = $policy->early_grace_period ?? 0;
+                            if ($minutesEarly > 60) {
+                                $status = 'half_day';
+                                $attendance->update(['status' => 'half_day']);
+                            } elseif ($minutesEarly > $gracePeriod) {
+                                $status = 'Early Departure';
+                            }
+                            // If within grace period, leave status unchanged
+                        }
+                    }
+                }
+
                 if ($status === 'late') {
                     $status = 'Late Entry';
                 } elseif ($status === 'present') {
@@ -852,8 +873,8 @@ class AttendanceController extends Controller
                     $breaksText = count($attendance['breaks']) . ' times';
                     $breakDetailsArray = [];
                     foreach ($attendance['breaks'] as $index => $break) {
-                        $in = $break['in_time'] ? Carbon::parse($break['in_time'])->format('H:i') : '-';
-                        $out = $break['out_time'] ? Carbon::parse($break['out_time'])->format('H:i') : '-';
+                        $in = $break['in_time'] ? Carbon::parse($break['in_time'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $out = $break['out_time'] ? Carbon::parse($break['out_time'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
                         $breakDetailsArray[] = "Break " . ($index + 1) . ": {$in}-{$out}";
                     }
                     $breakDetails = implode(', ', $breakDetailsArray);
@@ -866,8 +887,8 @@ class AttendanceController extends Controller
                 }
                 fputcsv($file, [
                     $attendance['date'],
-                    $attendance['check_in'] ? Carbon::parse($attendance['check_in'])->format('H:i') : '-',
-                    $attendance['check_out'] ? Carbon::parse($attendance['check_out'])->format('H:i') : '-',
+                    $attendance['check_in'] ? Carbon::parse($attendance['check_in'])->setTimezone(config('app.timezone'))->format('H:i') : '-',
+                    $attendance['check_out'] ? Carbon::parse($attendance['check_out'])->setTimezone(config('app.timezone'))->format('H:i') : '-',
                     $attendance['total_hours'] ?? '-',
                     $breaksText,
                     $breakDetails,

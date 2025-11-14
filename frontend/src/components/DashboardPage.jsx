@@ -28,7 +28,6 @@ const DashboardPage = () => {
     punctuality_rate: 0
   });
   const [liveActivity, setLiveActivity] = useState([]);
-  const [showAllActivities, setShowAllActivities] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [modalState, setModalState] = useState({ isOpen: false, statType: null, statValue: 0 });
 
@@ -250,13 +249,13 @@ const DashboardPage = () => {
               </h2>
               <button
                 className="text-sm text-blue-600 hover:text-blue-700"
-                onClick={() => setShowAllActivities(!showAllActivities)}
+                onClick={() => window.location.href = '/reports'}
               >
-                {showAllActivities ? 'Show Less' : 'View All'}
+                View All
               </button>
             </div>
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {(showAllActivities ? liveActivity : liveActivity.slice(0, 5)).map((activity, index) => (
+              {liveActivity.slice(0, 8).map((activity, index) => (
                 <div key={index} className="flex items-center justify-between py-2">
                   <div className="flex items-center space-x-3">
                     <div className={`w-10 h-10 rounded-full ${activity.badgeColor} flex items-center justify-center text-white text-sm font-medium flex-shrink-0`}>
