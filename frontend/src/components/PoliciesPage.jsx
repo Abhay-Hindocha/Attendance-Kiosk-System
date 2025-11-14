@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit, Trash2, Plus, CheckCircle, Clock, Calendar, Coffee, Copy, XCircle } from 'lucide-react';
+import { Edit, Archive, Plus, CheckCircle, Clock, Calendar, Coffee, Copy, XCircle, Trash2 } from 'lucide-react';
 import apiService from '../services/api';
 
 const PoliciesPage = () => {
@@ -153,6 +153,38 @@ const PoliciesPage = () => {
     }
   };
 
+  const handleCopy = async (policy) => {
+    const copiedPolicyData = {
+      name: `Copy of ${policy.name}`,
+      effective_from: policy.effective_from,
+      effective_to: policy.effective_to,
+      include_break: policy.include_break,
+      break_hours: policy.break_hours,
+      break_minutes: policy.break_minutes,
+      full_day_hours: policy.full_day_hours,
+      full_day_minutes: policy.full_day_minutes,
+      half_day_hours: policy.half_day_hours,
+      half_day_minutes: policy.half_day_minutes,
+      enable_late_tracking: policy.enable_late_tracking,
+      work_start_time: policy.work_start_time ? policy.work_start_time.substring(0, 5) : '09:00',
+      late_grace_period: policy.late_grace_period,
+      enable_early_tracking: policy.enable_early_tracking,
+      work_end_time: policy.work_end_time ? policy.work_end_time.substring(0, 5) : '18:00',
+      early_grace_period: policy.early_grace_period
+    };
+
+    try {
+      const newPolicy = await apiService.createPolicy(copiedPolicyData);
+      setPolicies([...policies, newPolicy]);
+      setNotification({ show: true, type: 'success', message: 'Policy copied successfully!' });
+      setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 3000);
+    } catch (error) {
+      console.error('Failed to copy policy:', error);
+      setNotification({ show: true, type: 'error', message: 'Failed to copy policy. Please try again.' });
+      setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
+    }
+  };
+
   const formatTime = (timeString) => timeString ? timeString.substring(0, 5) : '-';
 
   if (loading) {
@@ -160,7 +192,7 @@ const PoliciesPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50  sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -171,7 +203,7 @@ const PoliciesPage = () => {
             </div>
             <button
               onClick={handleCreate}
-              className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors text-sm md:text-base"
             >
               <Plus className="w-5 h-5" />
               <span>Create Policy</span>
@@ -196,86 +228,66 @@ const PoliciesPage = () => {
         )}
 
         {/* Policies Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {policies.map((policy) => (
-            <div key={policy.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-              {/* Card Header */}
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 pr-2">{policy.name}</h3>
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
-                  policy.status === 'active'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {policy.status === 'active' ? 'Active' : 'Inactive'}
-                </span>
+            <div key={policy.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+              <div className="p-4 md:p-6 border-b border-gray-200">
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="text-lg font-bold text-gray-900">{policy.name}</h3>
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
+                </div>
+                <p className="text-sm text-gray-600">{policy.employees_count || 0} employees assigned</p>
               </div>
-
-              <p className="text-sm text-gray-600 mb-6">{policy.employees_count || 0} employees assigned</p>
-
-              {/* Policy Details */}
-              <div className="space-y-4 mb-6">
-                {/* Work Hours */}
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                    <Clock className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-600 mb-0.5">Work Hours</p>
-                    <p className="text-sm font-semibold text-gray-900">
+              <div className="p-4 md:p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <p className="text-xs text-gray-600">Work Hours</p>
+                    <p className="text-sm font-medium text-gray-900">
                       {formatTime(policy.work_start_time)} - {formatTime(policy.work_end_time)}
                     </p>
                   </div>
                 </div>
-
-                {/* Full Day / Half Day */}
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
-                    <Calendar className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-600 mb-0.5">Full Day / Half Day</p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {policy.full_day_hours} hrs / {policy.half_day_hours} hrs
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-5 h-5 text-green-600" />
+                  <div>
+                    <p className="text-xs text-gray-600">Full Day / Half Day</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {policy.full_day_hours}.{policy.full_day_minutes} hrs / {policy.half_day_hours}.{policy.half_day_minutes} hrs
                     </p>
                   </div>
                 </div>
-
-                {/* Break Duration */}
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-                    <Coffee className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-600 mb-0.5">Break Duration</p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {policy.break_hours} hr {policy.include_break ? '(Included)' : '(Excluded)'}
+                <div className="flex items-center gap-3">
+                  <Coffee className="w-5 h-5 text-orange-600" />
+                  <div>
+                    <p className="text-xs text-gray-600">Break Duration</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {policy.break_hours}.{policy.break_minutes} hr {policy.include_break ? '(Included)' : '(Excluded)'}
                     </p>
                   </div>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2">
+              <div className="p-4 bg-gray-50 border-t border-gray-200 flex gap-2">
                 <button
                   onClick={() => handleEdit(policy)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
                 >
                   <Edit className="w-4 h-4" />
-                  <span>Edit</span>
+                  Edit
                 </button>
                 <button
-                  className="inline-flex items-center justify-center w-10 h-10 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                  title="Duplicate"
+                  onClick={() => handleCopy(policy)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+                  title="Copy"
                 >
                   <Copy className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleDelete(policy)}
-                  className="inline-flex items-center justify-center w-10 h-10 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
                   title="Delete"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Archive className="w-4 h-4" />
                 </button>
               </div>
             </div>

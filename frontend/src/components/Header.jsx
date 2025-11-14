@@ -102,94 +102,90 @@ const Header = () => {
               </div>
             </div>
           ) : (
-            <div className="hidden lg:flex items-center gap-2">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const active = isActivePath(item.href);
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-              <div className="h-6 w-px bg-gray-300 mx-2" />
-              <button
-                onClick={async () => {
-                  try {
-                    await api.logout();
-                  } catch (e) {
-                    console.error('Logout failed:', e);
-                  } finally {
-                    window.location.href = '/login';
-                  }
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
+            <div className="flex items-center gap-2">
+              <div className="hidden lg:flex items-center gap-2">
+                {navigation.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActivePath(item.href);
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+                <div className="h-6 w-px bg-gray-300 mx-2" />
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.logout();
+                    } catch (e) {
+                      console.error('Logout failed:', e);
+                    } finally {
+                      window.location.href = '/login';
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </button>
+              </div>
+              {/* Mobile menu button for non-attendance */}
+              <button className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors ml-auto" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                {isMenuOpen ? <X className="w-6 h-6 " /> : <Menu className="w-6 h-6" />}
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Mobile menu button for non-attendance */}
-      {!isAttendancePage && (
-        <button className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors">
-          <Menu className="w-6 h-6" onClick={() => setIsMenuOpen(!isMenuOpen)} />
-        </button>
-      )}
-
       {/* MOBILE SHEET */}
       {isMenuOpen && !isAttendancePage && (
-        <div className="lg:hidden">
-          <div className="mt-2 rounded-xl">
-            <div className="p-3 grid grid-cols-2 gap-3">
-              {mobileNav.map((item) => {
-                const Icon = item.icon;
-                const active = isActivePath(item.href);
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`inline-flex items-center justify-start gap-2 rounded-lg px-4 py-3 text-sm font-medium transition
-                      ${active
-                        ? 'bg-[#3498DB] text-white border border-[#3498DB]'
-                        : 'bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200'
-                      }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-              {/* Full-width Logout */}
-              <button
-                onClick={async () => {
-                  try {
-                    await api.logout();
-                  } catch (e) {
-                    console.error('Logout failed:', e);
-                  } finally {
-                    window.location.href = '/login';
-                  }
-                }}
-                className="col-span-2 inline-flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium
-                           bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 "
-              >
-                <LogOut className="w-4 h-4  " />
-                <span>Logout</span>
-              </button>
-            </div>
+        <div className="lg:hidden mt-4 space-y-2">
+          <hr className="border-gray-200" />
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {mobileNav.map((item) => {
+              const Icon = item.icon;
+              const active = isActivePath(item.href);
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors
+                    ${active
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
           </div>
+          <button
+            onClick={async () => {
+              try {
+                await api.logout();
+              } catch (e) {
+                console.error('Logout failed:', e);
+              } finally {
+                window.location.href = '/login';
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Logout</span>
+          </button>
         </div>
       )}
     </header>

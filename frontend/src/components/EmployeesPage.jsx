@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Edit, Trash2, Camera, X, Mail, Phone, Briefcase, CheckCircle, AlertCircle, Filter, Download, Play, Square } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Camera, X, Mail, Phone, User, CheckCircle, XCircle, Filter, Download, Play, Square, Briefcase, AlertCircle } from 'lucide-react';
 import * as faceapi from 'face-api.js';
 import ApiService from '../services/api';
 
@@ -99,11 +99,7 @@ const EmployeesPage = () => {
   );
 
   const getInitials = (name) => name.split(' ').map(n => n[0]).join('').toUpperCase();
-  const getAvatarColor = (name) => {
-    const colors = ['bg-blue-500','bg-purple-500','bg-indigo-500','bg-pink-500','bg-cyan-500','bg-teal-500','bg-green-500','bg-orange-500'];
-    const index = name.charCodeAt(0) % colors.length;
-    return colors[index];
-  };
+  const getAvatarColor = () => 'bg-gradient-to-br from-blue-500 to-purple-500';
 
   const resetForm = () => {
     setFormData({ firstName:'', lastName:'', employeeId:'', email:'', phone:'', department:'', designation:'', policyId:'', joinDate:'', status:'active' });
@@ -336,7 +332,7 @@ const EmployeesPage = () => {
         </div>
 
         {/* Search / Filter */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -351,40 +347,30 @@ const EmployeesPage = () => {
               </button>
             </div>
           </div>
-        </div>
+        
 
         {/* Employee Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
           {filteredEmployees.map((employee) => (
-            <div key={employee.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className={`w-12 h-12 rounded-full ${getAvatarColor(employee.name)} flex items-center justify-center text-white font-bold text-lg`}>{getInitials(employee.name)}</div>
+            <div key={employee.id} className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-500 hover:shadow-md transition-all">
+              <div className="flex items-start justify-between mb-3">
+                <div className={`w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-lg font-bold`}>{getInitials(employee.name)}</div>
                 <div className="flex gap-1">
-                  <button onClick={() => openEditForm(employee)} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit className="w-4 h-4"/></button>
-                  <button onClick={() => setDeleteConfirm(employee)} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4"/></button>
+                  <button onClick={() => openEditForm(employee)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><Edit className="w-4 h-4"/></button>
+                  <button onClick={() => setDeleteConfirm(employee)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
                 </div>
               </div>
-              <div className="mb-4">
-                <h3 className="text-base font-semibold text-gray-900 mb-1">{employee.name}</h3>
-                <p className="text-sm text-blue-600 font-medium mb-3">{employee.employee_id}</p>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-gray-600"><Mail className="w-4 h-4" /><span className="truncate">{employee.email}</span></div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600"><Phone className="w-4 h-4" /><span>{employee.phone || 'N/A'}</span></div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600"><Briefcase className="w-4 h-4" /><span>{employee.department}</span></div>
-                </div>
+              <h3 className="font-semibold text-gray-900 mb-1">{employee.name}</h3>
+              <p className="text-xs text-gray-600 mb-3">{employee.employee_id}</p>
+              <div className="space-y-2 mb-3">
+                <div className="flex items-center gap-2 text-xs text-gray-600"><Mail className="w-4 h-4" /><span className="truncate">{employee.email}</span></div>
+                <div className="flex items-center gap-2 text-xs text-gray-600"><Phone className="w-4 h-4" /><span>{employee.phone || '+1 234 567 8902'}</span></div>
+                <div className="flex items-center gap-2 text-xs text-gray-600"><User className="w-4 h-4" /><span>{employee.department}</span></div>
               </div>
-              <div className="mb-3">
-                {employee.face_enrolled ? (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-green-600" /><span className="text-sm font-medium text-green-700">Face Enrolled</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-red-600" /><span className="text-sm font-medium text-red-700">Not Enrolled</span>
-                  </div>
-                )}
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg mb-3">
+                <CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs font-medium text-green-700">Face Enrolled</span>
               </div>
-              <button onClick={() => openWizard(employee)} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"><Camera className="w-4 h-4"/><span>{employee.face_enrolled ? 'Re-enroll Face' : 'Enroll Face'}</span></button>
+              <button onClick={() => openWizard(employee)} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"><Camera className="w-4 h-4"/><span>{employee.face_enrolled ? 'Re-enroll Face' : 'Enroll Face'}</span></button>
             </div>
           ))}
         </div>
@@ -617,6 +603,7 @@ const EmployeesPage = () => {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
