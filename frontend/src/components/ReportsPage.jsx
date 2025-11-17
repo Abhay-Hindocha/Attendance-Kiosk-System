@@ -279,14 +279,14 @@ export default function AttendanceReportsPage() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="p-3 space-y-4">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-800">Attendance Calendar</h1>
-            <p className="text-sm text-gray-500">View attendance records</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Attendance Calendar</h1>
+            <p className="text-md text-gray-500">View attendance records</p>
           </div>
 
           <div className="flex gap-3">

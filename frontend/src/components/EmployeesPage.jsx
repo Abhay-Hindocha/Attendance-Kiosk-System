@@ -316,17 +316,17 @@ const EmployeesPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Employee Management</h1>
-              <p className="text-sm text-gray-600 mt-1">Manage employees and face enrollment</p>
+              <p className="text-md text-gray-600 mt-1">Manage employees and face enrollment</p>
             </div>
-            <button onClick={openAddForm} className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm">
-              <Plus className="w-5 h-5" /><span>Add Employee</span>
+            <button onClick={openAddForm} className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm">
+              <Plus className="w-4 h-4" /><span>Add Employee</span>
             </button>
           </div>
         </div>
@@ -338,12 +338,12 @@ const EmployeesPage = () => {
               <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" placeholder="Search employees..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
             </div>
-            <div className="flex gap-2">
-              <button className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                <Filter className="w-4 h-4" /><span className="hidden sm:inline">Filter</span>
+            <div className="flex flex-col sm:flex-col md:flex-col lg:flex-row gap-2">
+              <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <Filter className="w-4 h-4" /><span className="inline">Filter</span>
               </button>
-              <button onClick={handleExport} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                <Download className="w-4 h-4" /><span className="hidden sm:inline">Export</span>
+              <button onClick={handleExport} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <Download className="w-4 h-4" /><span className="inline">Export</span>
               </button>
             </div>
           </div>

@@ -143,7 +143,7 @@ class AttendanceController extends Controller
                           ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_late_tracking', true)
-                ->whereRaw("TIME(attendances.check_in) > policies.work_start_time")
+                ->whereRaw("TIME(attendances.check_in) > DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE)")
                 ->count(),
             'early_departures' => DB::table('attendances')
                 ->join('employees', 'attendances.employee_id', '=', 'employees.id')
@@ -208,7 +208,7 @@ class AttendanceController extends Controller
                           ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_late_tracking', true)
-                ->whereRaw("DATE_FORMAT(check_in, '%H:%i:%s') > work_start_time")
+                ->whereRaw("DATE_FORMAT(check_in, '%H:%i:%s') > DATE_FORMAT(DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE), '%H:%i:%s')")
                 ->count(),
             'early_departures_yesterday' => DB::table('attendances')
                 ->join('employees', 'attendances.employee_id', '=', 'employees.id')
@@ -487,7 +487,7 @@ class AttendanceController extends Controller
                       ->orWhereNull('policies.effective_from');
             })
             ->where('policies.enable_late_tracking', true)
-            ->whereRaw("TIME(attendances.check_in) > policies.work_start_time")
+            ->whereRaw("TIME(attendances.check_in) > DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE)")
             ->select(
                 'employees.id',
                 'employees.name',
@@ -562,6 +562,7 @@ class AttendanceController extends Controller
                 $existingAttendance->update(['check_out' => $now]);
                 // Calculate total hours and update status if necessary
                 $this->updateAttendanceStatusBasedOnHours($existingAttendance);
+                $this->checkAndUpdateEarlyDeparture($existingAttendance);
                 return response()->json([
                     'message' => 'Check-out marked successfully',
                     'attendance' => $existingAttendance->load('employee')
@@ -571,6 +572,7 @@ class AttendanceController extends Controller
                 $existingAttendance->update(['check_out' => $now]);
                 // Calculate total hours and update status if necessary
                 $this->updateAttendanceStatusBasedOnHours($existingAttendance);
+                $this->checkAndUpdateEarlyDeparture($existingAttendance);
                 return response()->json([
                     'message' => 'Check-out marked successfully',
                     'attendance' => $existingAttendance->load('employee')
@@ -698,8 +700,28 @@ class AttendanceController extends Controller
                 // Determine status based on attendance data
                 $status = $attendance->status;
 
-                // Auto-update status based on hours if not absent
-                if ($status !== 'absent' && $totalMinutesWorked !== null && $employee->policy) {
+                // Check if this is a late arrival based on check-in time and policy
+                if ($attendance->check_in && $employee->policy) {
+                    $policy = $employee->policy;
+                    if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
+                        && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($dateKey)))) {
+                        $workStartTime = Carbon::createFromFormat('H:i:s', $policy->work_start_time);
+                        $gracePeriod = $policy->late_grace_period ?? 0;
+                        $allowedCheckInTime = $workStartTime->addMinutes($gracePeriod);
+                        $checkInTime = Carbon::parse($attendance->check_in);
+
+                        if ($checkInTime->greaterThan($allowedCheckInTime)) {
+                            $status = 'late';
+                            // Update the database record if not already late
+                            if ($attendance->status !== 'late') {
+                                $attendance->update(['status' => 'late']);
+                            }
+                        }
+                    }
+                }
+
+                // Auto-update status based on hours if not absent and not late
+                if ($status !== 'absent' && $status !== 'late' && $totalMinutesWorked !== null && $employee->policy) {
                     $policy = $employee->policy;
                     if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
                         && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($dateKey)))) {
@@ -733,26 +755,25 @@ class AttendanceController extends Controller
                         if ($checkOutTime->lt($workEndTime)) {
                             $minutesEarly = $workEndTime->diffInMinutes($checkOutTime);
                             $gracePeriod = $policy->early_grace_period ?? 0;
-                            if ($minutesEarly > 60) {
-                                $status = 'half_day';
-                                $attendance->update(['status' => 'half_day']);
-                            } elseif ($minutesEarly > $gracePeriod) {
+                            if ($minutesEarly > $gracePeriod) {
                                 $status = 'Early Departure';
-                                $attendance->update(['status' => 'Early Departure']);
+                                // Update the database status to early_departure
+                                $attendance->update(['status' => 'early_departure']);
                             }
-                            // If within grace period, leave status unchanged
                         }
                     }
                 }
 
                 if ($status === 'late') {
-                    $status = 'Late Entry';
+                    $status = 'Late Arrival';
                 } elseif ($status === 'present') {
                     $status = 'Present';
                 } elseif ($status === 'absent') {
                     $status = 'Absent';
                 } elseif ($status === 'half_day') {
                     $status = 'Half Day';
+                } elseif ($status === 'Early Departure') {
+                    $status = 'Early Departure';
                 } else {
                     $status = ucfirst($status);
                 }
@@ -846,6 +867,38 @@ class AttendanceController extends Controller
                 $attendance->update(['status' => 'present']);
             } elseif ($totalMinutes > 0) {
                 $attendance->update(['status' => 'half_day']);
+            }
+        }
+    }
+
+    private function checkAndUpdateEarlyDeparture(Attendance $attendance)
+    {
+        if (!$attendance->check_out) {
+            return;
+        }
+
+        $employee = $attendance->employee;
+        if (!$employee->policy) {
+            return;
+        }
+
+        $policy = $employee->policy;
+        if (!$policy->enable_early_tracking) {
+            return;
+        }
+
+        if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($attendance->date))
+            && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($attendance->date)))) {
+
+            $workEndTime = Carbon::createFromFormat('H:i:s', $policy->work_end_time);
+            $checkOutTime = Carbon::parse($attendance->check_out);
+            $gracePeriod = $policy->early_grace_period ?? 0;
+
+            if ($checkOutTime->lt($workEndTime)) {
+                $minutesEarly = $workEndTime->diffInMinutes($checkOutTime);
+                if ($minutesEarly > $gracePeriod) {
+                    $attendance->update(['status' => 'early_departure']);
+                }
             }
         }
     }
