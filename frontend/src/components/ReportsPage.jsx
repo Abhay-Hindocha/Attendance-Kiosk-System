@@ -453,6 +453,7 @@ export default function AttendanceReportsPage() {
                       <div>
                         <p className="text-lg font-semibold text-gray-900">{new Date(log.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
                         <p className="text-sm text-gray-600">{employees.find(emp => emp.employee_id === selectedEmployee)?.policy?.name || 'No Policy'}</p>
+                          
                       </div>
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${log.status === 'Present' ? 'bg-green-100 text-green-700' :
                         log.status === 'Absent' ? 'bg-red-100 text-red-800' :

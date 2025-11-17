@@ -236,6 +236,9 @@ class AttendanceController extends Controller
             'early_departures' => $stats['early_departures'] - $yesterday_stats['early_departures_yesterday']
         ];
 
+        // Add policy employee counts
+        $stats['policies'] = Policy::select('name')->withCount('employees')->get();
+
         return response()->json($stats);
     }
 
@@ -700,21 +703,35 @@ class AttendanceController extends Controller
                 // Determine status based on attendance data
                 $status = $attendance->status;
 
-                // Check if this is a late arrival based on check-in time and policy
+                // Check late arrival based on policy settings
                 if ($attendance->check_in && $employee->policy) {
                     $policy = $employee->policy;
                     if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
                         && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($dateKey)))) {
-                        $workStartTime = Carbon::createFromFormat('H:i:s', $policy->work_start_time);
-                        $gracePeriod = $policy->late_grace_period ?? 0;
-                        $allowedCheckInTime = $workStartTime->addMinutes($gracePeriod);
-                        $checkInTime = Carbon::parse($attendance->check_in);
+                        if ($policy->enable_late_tracking) {
+                            $workStartTime = Carbon::createFromFormat('H:i:s', $policy->work_start_time);
+                            $gracePeriod = $policy->late_grace_period ?? 0;
+                            $allowedCheckInTime = $workStartTime->addMinutes($gracePeriod);
+                            $checkInTime = Carbon::parse($attendance->check_in);
 
-                        if ($checkInTime->greaterThan($allowedCheckInTime)) {
-                            $status = 'late';
-                            // Update the database record if not already late
-                            if ($attendance->status !== 'late') {
-                                $attendance->update(['status' => 'late']);
+                            if ($checkInTime->greaterThan($allowedCheckInTime)) {
+                                $status = 'late';
+                                // Update the database record if not already late
+                                if ($attendance->status !== 'late') {
+                                    $attendance->update(['status' => 'late']);
+                                }
+                            } else {
+                                // If not late but was previously marked as late, reset to present
+                                if ($attendance->status === 'late') {
+                                    $status = 'present';
+                                    $attendance->update(['status' => 'present']);
+                                }
+                            }
+                        } else {
+                            // Late tracking disabled - reset any late status to present
+                            if ($attendance->status === 'late') {
+                                $status = 'present';
+                                $attendance->update(['status' => 'present']);
                             }
                         }
                     }
@@ -745,20 +762,34 @@ class AttendanceController extends Controller
                     }
                 }
 
-                // Check for early departure
-                if (($status === 'present' || $status === 'late') && $employee->policy && $employee->policy->enable_early_tracking && $attendance->check_out) {
+                // Check for early departure based on policy settings
+                if (($status === 'present' || $status === 'late') && $employee->policy && $attendance->check_out) {
                     $policy = $employee->policy;
                     if (!$policy->effective_to || Carbon::parse($policy->effective_to)->gte(Carbon::parse($dateKey))
                         && (!$policy->effective_from || Carbon::parse($policy->effective_from)->lte(Carbon::parse($dateKey)))) {
-                        $workEndTime = Carbon::createFromFormat('H:i:s', $policy->work_end_time);
-                        $checkOutTime = Carbon::parse($attendance->check_out);
-                        if ($checkOutTime->lt($workEndTime)) {
-                            $minutesEarly = $workEndTime->diffInMinutes($checkOutTime);
-                            $gracePeriod = $policy->early_grace_period ?? 0;
-                            if ($minutesEarly > $gracePeriod) {
-                                $status = 'Early Departure';
-                                // Update the database status to early_departure
-                                $attendance->update(['status' => 'early_departure']);
+                        if ($policy->enable_early_tracking) {
+                            $workEndTime = Carbon::createFromFormat('H:i:s', $policy->work_end_time);
+                            $checkOutTime = Carbon::parse($attendance->check_out);
+                            if ($checkOutTime->lt($workEndTime)) {
+                                $minutesEarly = $workEndTime->diffInMinutes($checkOutTime);
+                                $gracePeriod = $policy->early_grace_period ?? 0;
+                                if ($minutesEarly > $gracePeriod) {
+                                    $status = 'Early Departure';
+                                    // Update the database status to early_departure
+                                    $attendance->update(['status' => 'early_departure']);
+                                }
+                            } else {
+                                // If not early departure but was previously marked as such, reset to present/late
+                                if ($attendance->status === 'early_departure') {
+                                    $status = $attendance->status === 'late' ? 'Late Arrival' : 'Present';
+                                    $attendance->update(['status' => $attendance->status === 'late' ? 'late' : 'present']);
+                                }
+                            }
+                        } else {
+                            // Early tracking disabled - reset any early_departure status to present/late
+                            if ($attendance->status === 'early_departure') {
+                                $status = $attendance->status === 'late' ? 'Late Arrival' : 'Present';
+                                $attendance->update(['status' => $attendance->status === 'late' ? 'late' : 'present']);
                             }
                         }
                     }
@@ -1052,7 +1083,7 @@ class AttendanceController extends Controller
 
         $attendances = Attendance::where('employee_id', $employee->id)
             ->whereBetween('date', [$startDate, $endDate])
-            ->with('employee', 'breaks')
+            ->with('employee.policy', 'breaks')
             ->get()
             ->keyBy(function($item) {
                 return Carbon::parse($item->date)->toDateString();
