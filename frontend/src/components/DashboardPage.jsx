@@ -151,30 +151,7 @@ const DashboardPage = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
-          {/* Policy Employee Counts */}
-          {stats.policies && stats.policies.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 hover:shadow-md hover:border-blue-300 transition-all">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600">Policy Overview</p>
-                  <div className="mt-2 space-y-1">
-                    {stats.policies.slice(0, 3).map((policy, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span className="text-gray-700 truncate mr-2">{policy.name}</span>
-                        <span className="font-semibold text-gray-900">{policy.employees_count}</span>
-                      </div>
-                    ))}
-                    {stats.policies.length > 3 && (
-                      <p className="text-xs text-gray-500 mt-1">+{stats.policies.length - 3} more policies</p>
-                    )}
-                  </div>
-                </div>
-                <div className="bg-purple-500 w-12 h-12 rounded-lg flex items-center justify-center">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </div>
-          )}
+          
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer">
             <div className="flex items-start justify-between">
               <div className="flex-1">

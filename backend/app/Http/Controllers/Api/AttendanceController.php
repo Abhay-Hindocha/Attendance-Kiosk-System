@@ -10,6 +10,7 @@ use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\BreakRecord;
 use App\Models\Holiday;
+use App\Models\Policy;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;

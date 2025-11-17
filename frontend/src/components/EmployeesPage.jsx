@@ -485,69 +485,86 @@ const EmployeesPage = () => {
           </div>
         )}
 
-        {/* Face Enrollment Wizard  */}
+        {/* Face Enrollment Wizard */}
         {showWizard && enrollingEmployee && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
             <div className="bg-[#0f1a2b] text-white rounded-2xl w-full max-w-md overflow-hidden">
-              {/* Header / Stepper */}
-              <div className="p-5 flex items-center justify-between">
-                <h3 className="text-xl font-semibold">Face Enrollment</h3>
-                <button onClick={closeWizard} className="w-9 h-9 grid place-items-center rounded-lg hover:bg-white/10"><X className="w-5 h-5"/></button>
+              {/* Header */}
+              <div className="p-4 sm:p-6 flex items-center justify-between">
+                <h2 className="text-lg sm:text-xl font-bold text-white">Face Enrollment</h2>
+                <button onClick={closeWizard} className="text-white/60 hover:text-white">
+                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
               </div>
-              <div className="pb-2 ">
-                <div className="flex items-center justify-between px-5">
-                  {[0,1,2].map((s,idx)=> (
-                    <div key={idx} className="flex items-center flex-1">
-                      <div className={`w-9 h-9 rounded-full grid place-items-center ${(wizardStep > s || (wizardStep === 2 && s === 2)) ? 'bg-green-500' : wizardStep === s ? 'bg-blue-500' : 'bg-slate-600'}`}>
-                        {idx === 1 ? <Camera className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                      </div>
-                      {idx<2 && <div className={`h-1 flex-1 mx-2 rounded ${wizardStep>idx? 'bg-green-500':'bg-slate-600'}`}></div>}
-                    </div>
-                  ))}
+              {/* Stepper */}
+              <div className="flex items-center justify-between mb-6 sm:mb-8 px-4 sm:px-6">
+                <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-500">
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                </div>
+                <div className="flex-1 h-1 mx-1 sm:mx-2 bg-gray-700"></div>
+                <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${wizardStep >= 1 ? 'bg-green-500' : 'bg-gray-700'}`}>
+                  <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                </div>
+                <div className="flex-1 h-1 mx-1 sm:mx-2 bg-gray-700"></div>
+                <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${wizardStep >= 2 ? 'bg-green-500' : 'bg-gray-700'}`}>
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
               </div>
-
               {/* Body */}
-              <div className="bg-[#0b1220] p-6">
+              <div className="p-4 sm:p-6">
                 {/* Intro Step */}
-                {wizardStep===0 && (
-                  <div>
-                    <div className="w-24 h-24 rounded-full mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-500 grid place-items-center text-3xl font-bold">{getInitials(enrollingEmployee.name)}</div>
-                    <div className="text-center mb-4">
-                      <h4 className="text-2xl font-semibold">{enrollingEmployee.name}</h4>
-                      <p className="text-slate-300">{enrollingEmployee.employee_id}</p>
-                      <p className="text-slate-300">{enrollingEmployee.department}</p>
+                {wizardStep === 0 && (
+                  <div className="text-center">
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl sm:text-3xl font-bold mx-auto mb-4">
+                      {getInitials(enrollingEmployee.name)}
                     </div>
-                    <div className="bg-slate-800/70 rounded-xl p-4 text-slate-100 mb-6">
-                      <p className="font-semibold mb-2">Instructions:</p>
-                      <ul className="space-y-1 text-sm">
-                        <li>• Position your face in the camera frame</li>
-                        <li>• Look directly at the camera</li>
-                        <li>• Ensure good lighting</li>
-                        <li>• 10 images will be captured automatically</li>
+                    <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">{enrollingEmployee.name}</h3>
+                    <p className="text-gray-400 mb-1 text-sm sm:text-base">{enrollingEmployee.employee_id}</p>
+                    <p className="text-gray-400 mb-4 sm:mb-6 text-sm sm:text-base">{enrollingEmployee.department}</p>
+                    <div className="bg-slate-800 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6 text-left">
+                      <h4 className="text-sm font-semibold text-white mb-2 sm:mb-3">Instructions:</h4>
+                      <ul className="space-y-1 sm:space-y-2 text-xs sm:text-sm text-gray-300">
+                        <li className="flex items-start gap-2">
+                          <span className="text-green-400">•</span>
+                          <span>Position your face in the camera frame</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-green-400">•</span>
+                          <span>Look directly at the camera</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-green-400">•</span>
+                          <span>Ensure good lighting</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-green-400">•</span>
+                          <span>10 images will be captured automatically</span>
+                        </li>
                       </ul>
                     </div>
-                    <button onClick={beginCaptureStep} className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl py-3">Start Capture</button>
+                    <button onClick={beginCaptureStep} className="w-full bg-green-600 hover:bg-green-700 text-white py-2 sm:py-3 rounded-lg font-semibold transition-colors text-sm sm:text-base">
+                      Start Capture
+                    </button>
                   </div>
                 )}
 
                 {/* Capture Step */}
-                {wizardStep===1 && (
-                  <div>
+                {wizardStep === 1 && (
+                  <div className="text-center">
                     <div className="relative bg-slate-900 rounded-xl overflow-hidden mb-4">
-                      <video ref={videoRef} autoPlay muted playsInline className="w-full h-64 object-cover" />
-                      <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-64 hidden" />
+                      <video ref={videoRef} autoPlay muted playsInline className="w-full h-48 sm:h-64 object-cover" />
+                      <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-48 sm:h-64 hidden" />
                     </div>
-                    <div className="text-center text-slate-200 mb-2 whitespace-pre-line">{faceStatus || 'Capturing your face...'}</div>
+                    <div className="text-slate-200 mb-2 whitespace-pre-line text-sm sm:text-base">{faceStatus || 'Capturing your face...'}</div>
                     <div className="w-full bg-slate-700 rounded-full h-2 mb-2">
-                      <div className="bg-green-500 h-2 rounded-full transition-all" style={{ width: `${(capturedDescriptors.length/10)*100}%`}} />
+                      <div className="bg-green-500 h-2 rounded-full transition-all" style={{ width: `${(capturedDescriptors.length / 10) * 100}%` }} />
                     </div>
-                    <div className="grid grid-cols-5 gap-2 mb-4">
-                      {capturedImages.map((src, i)=> (
-                        <img key={i} src={src} alt={`sample-${i}`} className="w-full h-16 object-cover rounded border border-slate-700"/>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
+                      {capturedImages.map((src, i) => (
+                        <img key={i} src={src} alt={`sample-${i}`} className="w-full h-12 sm:h-16 object-cover rounded border border-slate-700" />
                       ))}
                     </div>
-                    <p className="text-center text-slate-400 text-sm">Capturing 10 images automatically...</p>
+                    <p className="text-center text-slate-400 text-xs sm:text-sm">Capturing 10 images automatically...</p>
                     {isEnrolling && (
                       <div className="flex items-center justify-center gap-2 text-green-400">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
@@ -558,18 +575,18 @@ const EmployeesPage = () => {
                 )}
 
                 {/* Success Step */}
-                {wizardStep===2 && (
+                {wizardStep === 2 && (
                   <div className="text-center">
-                    
-                    <div className="w-20 h-20 rounded-full bg-green-500 grid place-items-center mx-auto mb-4">
-                      <CheckCircle className="w-10 h-10 text-white"/>
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-green-500 grid place-items-center mx-auto mb-4">
+                      <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                     </div>
-                    <h4 className="text-2xl font-semibold mb-1">Enrollment Successful!</h4>
-                    <p className="text-slate-300 mb-6">Face has been registered successfully</p>
-                    <button onClick={closeWizard} className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl py-3">Continue</button>
+                    <h4 className="text-xl sm:text-2xl font-semibold mb-1">Enrollment Successful!</h4>
+                    <p className="text-slate-300 mb-4 sm:mb-6 text-sm sm:text-base">Face has been registered successfully</p>
+                    <button onClick={closeWizard} className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl py-2 sm:py-3 text-sm sm:text-base">
+                      Continue
+                    </button>
                   </div>
                 )}
-
               </div>
             </div>
           </div>
