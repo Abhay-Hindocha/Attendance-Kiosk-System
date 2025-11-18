@@ -93,8 +93,8 @@ const PoliciesPage = () => {
     e.preventDefault();
     const policyData = {
       name: formData.policyName,
-      effective_from: formData.effectiveFrom || null,
-      effective_to: formData.effectiveTo || null,
+      effective_from: formData.effectiveFrom ? formData.effectiveFrom : null,
+      effective_to: formData.effectiveTo ? formData.effectiveTo : null,
       include_break: formData.includeBreak,
       break_hours: formData.breakHours,
       break_minutes: formData.breakMinutes,
@@ -234,7 +234,13 @@ const PoliciesPage = () => {
               <div className="p-4 md:p-6 border-b border-gray-200">
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="text-lg font-bold text-gray-900">{policy.name}</h3>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    policy.status === 'active'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {policy.status === 'active' ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
                 <p className="text-sm text-gray-600">{policy.employees_count || 0} employees assigned</p>
               </div>
@@ -263,6 +269,15 @@ const PoliciesPage = () => {
                     <p className="text-xs text-gray-600">Break Duration</p>
                     <p className="text-sm font-medium text-gray-900">
                       {policy.break_hours}.{policy.break_minutes} hr {policy.include_break ? '(Included)' : '(Excluded)'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-5 h-5 text-purple-600" />
+                  <div>
+                    <p className="text-xs text-gray-600">Effective Dates</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {policy.effective_from ? new Date(policy.effective_from).toLocaleDateString() : 'N/A'} - {policy.effective_to ? new Date(policy.effective_to).toLocaleDateString() : 'N/A'}
                     </p>
                   </div>
                 </div>

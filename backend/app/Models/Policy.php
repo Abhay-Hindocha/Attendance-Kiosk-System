@@ -56,12 +56,12 @@ class Policy extends Model
     // It checks if the policy is currently active based on effective dates
     public function getStatusAttribute()
     {
-        $today = now()->toDateString(); // Get today's date as a string
+        $today = now(); // Get today's date as Carbon instance
         // Policy is active if:
         // - effective_from is null or today is on/after effective_from, AND
         // - effective_to is null or today is on/before effective_to
-        $isActive = (is_null($this->effective_from) || $today >= $this->effective_from) &&
-                    (is_null($this->effective_to) || $today <= $this->effective_to);
+        $isActive = (is_null($this->effective_from) || $today->gte($this->effective_from)) &&
+                    (is_null($this->effective_to) || $today->lte($this->effective_to));
         return $isActive ? 'active' : 'inactive'; // Return status as string
     }
 }

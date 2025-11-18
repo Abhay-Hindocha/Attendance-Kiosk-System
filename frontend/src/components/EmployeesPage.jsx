@@ -441,7 +441,7 @@ const EmployeesPage = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Attendance Policy <span className="text-red-500">*</span></label>
                     <select value={formData.policyId} onChange={(e)=>setFormData({...formData, policyId:e.target.value})} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="">Select a policy</option>
-                      {policies.map((p)=> (<option key={p.id} value={p.id}>{p.name}</option>))}
+                      {policies.filter(p => p.status === 'active').map((p)=> (<option key={p.id} value={p.id}>{p.name}</option>))}
                     </select>
                     {errors.policyId && <p className="text-red-500 text-sm mt-1">{errors.policyId}</p>}
                   </div>
