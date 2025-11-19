@@ -70,7 +70,7 @@ class AttendanceLogic
         if ($attendance->check_out) {
             $totalMinutesWorked = $this->calculateWorkMinutes($attendance, $policy);
             $durationStatus = $this->classifyByWorkDuration($policy, $totalMinutesWorked, $attendance);
-            
+
             // Only override late status if duration indicates absent or half_day
             // Otherwise, preserve the late status
             if ($durationStatus === 'absent' || $durationStatus === 'half_day') {
@@ -92,7 +92,7 @@ class AttendanceLogic
      * @param Attendance $attendance
      * @return bool True if late, false if on time
      */
-    private function isLateArrival($policy, Attendance $attendance): bool
+    public function isLateArrival($policy, Attendance $attendance): bool
     {
         // Use the attendance date to ensure proper time comparison
         $attendanceDate = Carbon::parse($attendance->date);
@@ -117,7 +117,7 @@ class AttendanceLogic
      * @param \App\Models\Policy $policy
      * @return int Total minutes worked
      */
-    private function calculateWorkMinutes(Attendance $attendance, $policy): int
+    public function calculateWorkMinutes(Attendance $attendance, $policy): int
     {
         if (!$attendance->check_in || !$attendance->check_out) {
             return 0;
@@ -167,7 +167,7 @@ class AttendanceLogic
      * @param Attendance $attendance
      * @return string Status (absent, half_day, present, or early_departure)
      */
-    private function classifyByWorkDuration($policy, int $totalMinutesWorked, Attendance $attendance): string
+    public function classifyByWorkDuration($policy, int $totalMinutesWorked, Attendance $attendance): string
     {
         $halfDayMinutes = ($policy->half_day_hours * 60) + $policy->half_day_minutes;
         $fullDayMinutes = ($policy->full_day_hours * 60) + $policy->full_day_minutes;
@@ -223,7 +223,7 @@ class AttendanceLogic
      * @param mixed $date
      * @return bool
      */
-    private function isPolicyActive($policy, $date): bool
+    public function isPolicyActive($policy, $date): bool
     {
         $date = Carbon::parse($date);
 

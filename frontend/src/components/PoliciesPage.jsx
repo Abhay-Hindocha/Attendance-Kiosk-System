@@ -8,6 +8,7 @@ const PoliciesPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [archiveConfirm, setArchiveConfirm] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [notification, setNotification] = useState({ show: false, type: 'success', message: '' });
   const [formData, setFormData] = useState({
@@ -61,7 +62,8 @@ const PoliciesPage = () => {
       lateGracePeriod: policy.late_grace_period || 15,
       enableEarlyTracking: policy.enable_early_tracking !== undefined ? policy.enable_early_tracking : true,
       workEndTime: policy.work_end_time ? policy.work_end_time.substring(0, 5) : '18:00',
-      earlyGracePeriod: policy.early_grace_period || 15
+      earlyGracePeriod: policy.early_grace_period || 15,
+
     });
     setShowForm(true);
   };
@@ -84,7 +86,8 @@ const PoliciesPage = () => {
       lateGracePeriod: 15,
       enableEarlyTracking: true,
       workEndTime: '18:00',
-      earlyGracePeriod: 15
+      earlyGracePeriod: 15,
+      // enableAbsenceTracking: true // Removed absence tracking
     });
     setShowForm(true);
   };
@@ -107,7 +110,8 @@ const PoliciesPage = () => {
       late_grace_period: formData.lateGracePeriod,
       enable_early_tracking: formData.enableEarlyTracking,
       work_end_time: formData.workEndTime,
-      early_grace_period: formData.earlyGracePeriod
+      early_grace_period: formData.earlyGracePeriod,
+      // enable_absence_tracking: formData.enableAbsenceTracking // Removed absence tracking
     };
 
     try {
@@ -133,7 +137,31 @@ const PoliciesPage = () => {
     setDeleteConfirm(policy);
   };
 
+  const handleArchive = (policy) => {
+    setArchiveConfirm(policy);
+  };
+
+  const confirmArchive = async () => {
+    try {
+      const response = await apiService.togglePolicyStatus(archiveConfirm.id);
+      setPolicies(policies.map(pol => pol.id === archiveConfirm.id ? response.policy : pol));
+      setArchiveConfirm(null);
+      setNotification({ show: true, type: 'success', message: response.message || 'Policy status updated successfully!' });
+      setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 3000);
+    } catch (error) {
+      console.error('Failed to toggle policy status:', error);
+      setNotification({ show: true, type: 'error', message: 'Failed to update policy status. Please try again.' });
+      setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
+    }
+  };
+
   const confirmDelete = async () => {
+    if (!deleteConfirm.id) {
+      setNotification({ show: true, type: 'error', message: 'Invalid policy selected. Please try again.' });
+      setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
+      setDeleteConfirm(null);
+      return;
+    }
     try {
       await apiService.deletePolicy(deleteConfirm.id);
       setPolicies(policies.filter(pol => pol.id !== deleteConfirm.id));
@@ -170,7 +198,8 @@ const PoliciesPage = () => {
       late_grace_period: policy.late_grace_period,
       enable_early_tracking: policy.enable_early_tracking,
       work_end_time: policy.work_end_time ? policy.work_end_time.substring(0, 5) : '18:00',
-      early_grace_period: policy.early_grace_period
+      early_grace_period: policy.early_grace_period,
+      enable_absence_tracking: policy.enable_absence_tracking
     };
 
     try {
@@ -229,8 +258,8 @@ const PoliciesPage = () => {
 
         {/* Policies Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {policies.map((policy) => (
-            <div key={policy.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+          {policies.map((policy, index) => (
+            <div key={policy.id || `policy-${index}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
               <div className="p-4 md:p-6 border-b border-gray-200">
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="text-lg font-bold text-gray-900">{policy.name}</h3>
@@ -298,9 +327,9 @@ const PoliciesPage = () => {
                   <Copy className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleDelete(policy)}
+                  onClick={() => handleArchive(policy)}
                   className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
-                  title="Delete"
+                  title={policy.status === 'active' ? 'Deactivate' : 'Activate'}
                 >
                   <Archive className="w-4 h-4" />
                 </button>
@@ -608,6 +637,41 @@ const PoliciesPage = () => {
                     className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
                   >
                     OK
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Archive Confirmation Modal */}
+        {archiveConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                    <Archive className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {archiveConfirm.status === 'active' ? 'Deactivate Policy' : 'Activate Policy'}
+                  </h2>
+                </div>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to {archiveConfirm.status === 'active' ? 'deactivate' : 'activate'} <strong>{archiveConfirm.name}</strong>?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setArchiveConfirm(null)}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmArchive}
+                    className="flex-1 px-4 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors"
+                  >
+                    {archiveConfirm.status === 'active' ? 'Deactivate' : 'Activate'}
                   </button>
                 </div>
               </div>

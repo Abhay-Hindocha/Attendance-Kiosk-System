@@ -54,16 +54,13 @@ const AttendancePage = () => {
         await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
         await faceapi.nets.faceExpressionNet.loadFromUri('/models');
         setModelsLoaded(true);
-        notify('Face recognition and expression models loaded successfully');
 
         // Pre-acquire camera stream after models are loaded
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
           streamRef.current = stream;
-          notify('Camera stream pre-acquired successfully');
         } catch (cameraError) {
           console.error('Failed to pre-acquire camera stream:', cameraError);
-          notify('Failed to access camera. Please check permissions.');
         }
       } catch (error) {
         console.error('Failed to load face-api models:', error);
@@ -90,11 +87,9 @@ const AttendancePage = () => {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        notify('Camera accessed successfully');
       } catch (error) {
         console.error('Camera error:', error);
         setStatus('Camera access denied');
-        notify('Camera access denied. Please check permissions.');
       }
     }
   };
@@ -141,7 +136,6 @@ const AttendancePage = () => {
             clearInterval(recognitionInterval);
             setIsScanning(false);
             setStatus("Face not recognized");
-            notify('Face not recognized after multiple attempts');
             stopVideo();
             setTimeout(() => {
               setStatus("ready");
@@ -296,7 +290,6 @@ const AttendancePage = () => {
         clearInterval(recognitionInterval);
         setIsScanning(false);
         setStatus("Face not recognized");
-        notify('Face not recognized after multiple attempts');
         stopVideo();
 
         // Reset to ready state after 2 seconds
@@ -527,16 +520,6 @@ const AttendancePage = () => {
                 <span>Confirmation will appear on screen</span>
               </li>
             </ul>
-          </div>
-
-          {/* Notifications */}
-          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-4 backdrop-blur-md flex-shrink-0">
-            <h2 className="text-sm font-semibold text-white mb-2">
-              Notifications
-            </h2>
-            <div id="attendance-notifications" className="text-xs text-gray-300 space-y-1 max-h-16 overflow-y-auto">
-              {/* Notifications will be inserted here */}
-            </div>
           </div>
         </div>
         </div>

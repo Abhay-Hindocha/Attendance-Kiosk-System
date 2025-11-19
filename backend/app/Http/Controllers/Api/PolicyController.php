@@ -82,4 +82,15 @@ class PolicyController extends Controller
         $policy->delete();
         return response()->json(['message' => 'Policy deleted successfully']);
     }
+
+    public function toggleStatus(Policy $policy)
+    {
+        $policy->status = $policy->status === 'active' ? 'inactive' : 'active';
+        $policy->save();
+
+        return response()->json([
+            'policy' => $policy,
+            'message' => 'Policy status updated successfully'
+        ]);
+    }
 }

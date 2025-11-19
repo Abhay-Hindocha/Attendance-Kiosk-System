@@ -16,6 +16,7 @@ class Policy extends Model
     // Mass assignment allows setting multiple attributes at once for convenience and security
     protected $fillable = [
         'name',                  // Name of the policy (e.g., "Standard Office Hours")
+        'status',                // Status of the policy (active/inactive)
         'effective_from',        // Date when this policy becomes effective
         'effective_to',          // Date when this policy expires (optional)
         'include_break',         // Whether to include break time in calculations
@@ -42,26 +43,10 @@ class Policy extends Model
         'enable_early_tracking' => 'boolean', // Cast to boolean
     ];
 
-    // These attributes will be appended to the model's JSON representation
-    protected $appends = ['status']; // Adds a 'status' attribute to show if policy is active
-
     // Relationship: A policy can be assigned to many employees
     // This allows us to get all employees following a specific policy
     public function employees()
     {
         return $this->hasMany(Employee::class);
-    }
-
-    // Accessor: This method computes the 'status' attribute dynamically
-    // It checks if the policy is currently active based on effective dates
-    public function getStatusAttribute()
-    {
-        $today = now(); // Get today's date as Carbon instance
-        // Policy is active if:
-        // - effective_from is null or today is on/after effective_from, AND
-        // - effective_to is null or today is on/before effective_to
-        $isActive = (is_null($this->effective_from) || $today->gte($this->effective_from)) &&
-                    (is_null($this->effective_to) || $today->lte($this->effective_to));
-        return $isActive ? 'active' : 'inactive'; // Return status as string
     }
 }

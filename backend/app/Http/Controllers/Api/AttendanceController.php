@@ -968,24 +968,12 @@ class AttendanceController extends Controller
                 $checkIn = $attendance->check_in ? $attendance->check_in->toISOString() : null;
                 $checkOut = $attendance->check_out ? $attendance->check_out->toISOString() : null;
 
-                // Calculate total work minutes and format
+                // Calculate total work minutes and format using AttendanceLogic
                 $totalMinutesWorked = null;
                 $totalHours = null;
-                
+
                 if ($attendance->check_in && $attendance->check_out) {
-                    $totalMinutes = $attendance->check_out->diffInMinutes($attendance->check_in, true);
-
-                    // Subtract break durations if policy doesn't include breaks
-                    $breakMinutes = 0;
-                    if (!$employee->policy || !$employee->policy->include_break) {
-                        foreach ($attendance->breaks as $br) {
-                            if ($br->break_start && $br->break_end) {
-                                $breakMinutes += $br->break_end->diffInMinutes($br->break_start, true);
-                            }
-                        }
-                    }
-
-                    $totalMinutesWorked = max(0, $totalMinutes - $breakMinutes);
+                    $totalMinutesWorked = $this->attendanceLogic->calculateWorkMinutes($attendance, $employee->policy);
                     $totalHours = $this->attendanceLogic->formatWorkDuration($totalMinutesWorked);
                 }
 

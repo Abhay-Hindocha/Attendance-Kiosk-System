@@ -118,6 +118,8 @@ export default function AttendanceReportsPage() {
 
 
       setAttendanceRecords(recordMap);
+      // Refetch employees to get updated policy status
+      fetchEmployees();
     } catch (err) {
       console.error(err);
       if (err?.response?.status === 401) navigate('/login');
@@ -452,7 +454,16 @@ export default function AttendanceReportsPage() {
                     <>
                       <div>
                         <p className="text-lg font-semibold text-gray-900">{new Date(log.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
-                        <p className="text-sm text-gray-600">{employees.find(emp => emp.employee_id === selectedEmployee)?.policy?.name || 'No Policy'}</p>
+                        <p className="text-sm text-gray-600">
+                          {(() => {
+                            const employee = employees.find(emp => emp.employee_id === selectedEmployee);
+                            const policy = employee?.policy;
+                            if (policy) {
+                              return `${policy.name} (${policy.status === 'active' ? 'Active' : 'Inactive'})`;
+                            }
+                            return 'No Policy';
+                          })()}
+                        </p>
                           
                       </div>
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${log.status === 'Present' ? 'bg-green-100 text-green-700' :

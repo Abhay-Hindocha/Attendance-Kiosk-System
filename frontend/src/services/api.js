@@ -151,6 +151,12 @@ class ApiService {
     });
   }
 
+  async togglePolicyStatus(id) {
+    return this.request(`/policies/${id}/toggle-status`, {
+      method: 'PATCH',
+    });
+  }
+
   // Attendance endpoints
   async getAttendances(params = {}) {
     const queryString = new URLSearchParams(params).toString();

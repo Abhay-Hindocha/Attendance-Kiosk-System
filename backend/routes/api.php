@@ -28,7 +28,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('employees', EmployeeController::class); // Standard RESTful routes for employees (index, store, show, update, destroy)
 
     // Policy routes - CRUD operations for managing attendance policies
-    Route::apiResource('policies', PolicyController::class); // Standard RESTful routes for policies
+Route::apiResource('policies', PolicyController::class);
+Route::patch('policies/{policy}/toggle-status', [PolicyController::class, 'toggleStatus']);
 
 
 
