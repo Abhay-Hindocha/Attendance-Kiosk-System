@@ -469,6 +469,8 @@ class AttendanceController extends Controller
             ->select(
                 'employees.id',
                 'employees.name',
+                'employees.email',
+                'employees.phone',
                 'employees.department',
                 'employees.employee_id'
             )
