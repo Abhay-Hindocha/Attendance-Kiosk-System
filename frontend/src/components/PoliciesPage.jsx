@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit, Archive, Plus, CheckCircle, Clock, Calendar, Coffee, Copy, XCircle, Trash2 } from 'lucide-react';
+import { Edit, Archive, Plus, CheckCircle, Clock, Calendar, Coffee, Copy, XCircle, Trash2, X, AlertCircle } from 'lucide-react';
 import apiService from '../services/api';
 
 const PoliciesPage = () => {
@@ -45,11 +45,38 @@ const PoliciesPage = () => {
   }, []);
 
   const handleEdit = (policy) => {
+    const parseDate = (dateString) => {
+      if (!dateString) return '';
+      try {
+        // Handle different date formats
+        let date;
+        if (dateString.includes('T')) {
+          // Already has time component, parse directly
+          date = new Date(dateString);
+        } else {
+          // Date only, assume local time
+          date = new Date(dateString + 'T00:00:00');
+        }
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+          return '';
+        }
+        // Format to YYYY-MM-DD
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      } catch (error) {
+        console.error('Error parsing date:', dateString, error);
+        return '';
+      }
+    };
+
     setEditingPolicy(policy);
     setFormData({
       policyName: policy.name || '',
-      effectiveFrom: policy.effective_from || '',
-      effectiveTo: policy.effective_to || '',
+      effectiveFrom: parseDate(policy.effective_from),
+      effectiveTo: parseDate(policy.effective_to),
       includeBreak: policy.include_break || false,
       breakHours: policy.break_hours || 1,
       breakMinutes: policy.break_minutes || 0,
@@ -86,8 +113,7 @@ const PoliciesPage = () => {
       lateGracePeriod: 15,
       enableEarlyTracking: true,
       workEndTime: '18:00',
-      earlyGracePeriod: 15,
-      // enableAbsenceTracking: true // Removed absence tracking
+      earlyGracePeriod: 15
     });
     setShowForm(true);
   };
@@ -301,15 +327,6 @@ const PoliciesPage = () => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-purple-600" />
-                  <div>
-                    <p className="text-xs text-gray-600">Effective Dates</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      {policy.effective_from ? new Date(policy.effective_from).toLocaleDateString() : 'N/A'} - {policy.effective_to ? new Date(policy.effective_to).toLocaleDateString() : 'N/A'}
-                    </p>
-                  </div>
-                </div>
               </div>
               <div className="p-4 bg-gray-50 border-t border-gray-200 flex gap-2">
                 <button
@@ -349,15 +366,21 @@ const PoliciesPage = () => {
         {/* Form Modal */}
         {showForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                  {editingPolicy ? 'Edit Policy' : 'Create Policy'}
-                </h2>
-                <form onSubmit={handleSubmit}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 md:p-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-900">{editingPolicy ? 'Edit Policy' : 'Create Policy'}</h2>
+                  <p className="text-sm md:text-base text-gray-600 mt-1">{editingPolicy ? editingPolicy.name : 'New Policy'}</p>
+                </div>
+                <button onClick={() => setShowForm(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="overflow-y-auto max-h-[60vh] p-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Policy Name */}
-                  <div className="mb-5">
-                    <label htmlFor="policyName" className="block text-sm font-semibold text-gray-700 mb-2">
+                  <div>
+                    <label htmlFor="policyName" className="block text-sm font-medium text-gray-700 mb-2">
                       Policy Name
                     </label>
                     <input
@@ -366,209 +389,231 @@ const PoliciesPage = () => {
                       placeholder="e.g., Standard Office Policy"
                       value={formData.policyName}
                       onChange={(e) => setFormData({ ...formData, policyName: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
                   </div>
 
                   {/* Effective Dates */}
-                  <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="effectiveFrom" className="block text-sm font-semibold text-gray-700 mb-2">
-                        Effective From
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Effective From</label>
                       <input
-                        id="effectiveFrom"
                         type="date"
                         value={formData.effectiveFrom}
                         onChange={(e) => setFormData({ ...formData, effectiveFrom: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                     <div>
-                      <label htmlFor="effectiveTo" className="block text-sm font-semibold text-gray-700 mb-2">
-                        Effective To
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Effective To</label>
                       <input
-                        id="effectiveTo"
                         type="date"
                         value={formData.effectiveTo}
                         onChange={(e) => setFormData({ ...formData, effectiveTo: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                   </div>
 
                   {/* Work Duration Settings */}
-                  <div className="mb-5 p-4 bg-gray-50 rounded-lg">
-                    <h3 className="text-base font-semibold text-gray-900 mb-3">Work Duration Settings</h3>
-                    <div className="mb-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
+                  <div className="border border-gray-200 rounded-lg p-4 md:p-6 bg-gray-50">
+                    <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-blue-600" />
+                      Work Duration Settings
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
                         <input
                           type="checkbox"
+                          id="breakHandlingEdit"
                           checked={formData.includeBreak}
                           onChange={(e) => setFormData({ ...formData, includeBreak: e.target.checked })}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-blue-600"
                         />
-                        <span className="text-sm text-gray-700">Include break time in work duration calculation</span>
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Break Hours</label>
-                        <input
-                          type="number"
-                          value={formData.breakHours}
-                          onChange={(e) => setFormData({ ...formData, breakHours: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
+                        <label htmlFor="breakHandlingEdit" className="text-sm font-medium text-gray-700">
+                          Include break time in work duration calculation
+                        </label>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Break Minutes</label>
-                        <input
-                          type="number"
-                          value={formData.breakMinutes}
-                          onChange={(e) => setFormData({ ...formData, breakMinutes: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Break Duration (Hours)</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            placeholder="1.0"
+                            value={formData.breakHours}
+                            onChange={(e) => setFormData({ ...formData, breakHours: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Break Duration (Minutes)</label>
+                          <input
+                            type="number"
+                            step="15"
+                            placeholder="0"
+                            value={formData.breakMinutes}
+                            onChange={(e) => setFormData({ ...formData, breakMinutes: parseInt(e.target.value) || 0 })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Attendance Classification */}
-                  <div className="mb-5 p-4 bg-gray-50 rounded-lg">
-                    <h3 className="text-base font-semibold text-gray-900 mb-3">Attendance Classification</h3>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="border border-gray-200 rounded-lg p-4 md:p-6 bg-gray-50">
+                    <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-green-600" />
+                      Attendance Classification
+                    </h3>
+                    <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Full Day Hours</label>
-                        <input
-                          type="number"
-                          value={formData.fullDayHours}
-                          onChange={(e) => setFormData({ ...formData, fullDayHours: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Full Day Minimum Hours</label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <input
+                            type="number"
+                            placeholder="8"
+                            value={formData.fullDayHours}
+                            onChange={(e) => setFormData({ ...formData, fullDayHours: parseInt(e.target.value) || 0 })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <input
+                            type="number"
+                            placeholder="30"
+                            value={formData.fullDayMinutes}
+                            onChange={(e) => setFormData({ ...formData, fullDayMinutes: parseInt(e.target.value) || 0 })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Hours and Minutes</p>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Full Day Minutes</label>
-                        <input
-                          type="number"
-                          value={formData.fullDayMinutes}
-                          onChange={(e) => setFormData({ ...formData, fullDayMinutes: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Half Day Hours</label>
-                        <input
-                          type="number"
-                          value={formData.halfDayHours}
-                          onChange={(e) => setFormData({ ...formData, halfDayHours: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Half Day Minutes</label>
-                        <input
-                          type="number"
-                          value={formData.halfDayMinutes}
-                          onChange={(e) => setFormData({ ...formData, halfDayMinutes: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Half Day Minimum Hours</label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <input
+                            type="number"
+                            placeholder="4"
+                            value={formData.halfDayHours}
+                            onChange={(e) => setFormData({ ...formData, halfDayHours: parseInt(e.target.value) || 0 })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <input
+                            type="number"
+                            placeholder="30"
+                            value={formData.halfDayMinutes}
+                            onChange={(e) => setFormData({ ...formData, halfDayMinutes: parseInt(e.target.value) || 0 })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Hours and Minutes</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Late Arrival Tracking */}
-                  <div className="mb-5 p-4 bg-gray-50 rounded-lg">
-                    <h3 className="text-base font-semibold text-gray-900 mb-3">Late Arrival Tracking</h3>
-                    <div className="mb-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
+                  <div className="border border-gray-200 rounded-lg p-4 md:p-6 bg-gray-50">
+                    <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-orange-600" />
+                      Late Arrival Tracking
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
                         <input
                           type="checkbox"
+                          id="enableLateEdit"
                           checked={formData.enableLateTracking}
                           onChange={(e) => setFormData({ ...formData, enableLateTracking: e.target.checked })}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-blue-600"
                         />
-                        <span className="text-sm text-gray-700">Enable late arrival tracking</span>
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Work Start Time</label>
-                        <input
-                          type="time"
-                          value={formData.workStartTime}
-                          onChange={(e) => setFormData({ ...formData, workStartTime: e.target.value })}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
+                        <label htmlFor="enableLateEdit" className="text-sm font-medium text-gray-700">
+                          Enable late arrival tracking
+                        </label>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Grace Period (min)</label>
-                        <input
-                          type="number"
-                          value={formData.lateGracePeriod}
-                          onChange={(e) => setFormData({ ...formData, lateGracePeriod: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Work Start Time</label>
+                          <input
+                            type="time"
+                            value={formData.workStartTime}
+                            onChange={(e) => setFormData({ ...formData, workStartTime: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Grace Period (minutes)</label>
+                          <input
+                            type="number"
+                            placeholder="15"
+                            value={formData.lateGracePeriod}
+                            onChange={(e) => setFormData({ ...formData, lateGracePeriod: parseInt(e.target.value) || 0 })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Early Departure Tracking */}
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <h3 className="text-base font-semibold text-gray-900 mb-3">Early Departure Tracking</h3>
-                    <div className="mb-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
+                  <div className="border border-gray-200 rounded-lg p-4 md:p-6 bg-gray-50">
+                    <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-600" />
+                      Early Departure Tracking
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
                         <input
                           type="checkbox"
+                          id="enableEarlyEdit"
                           checked={formData.enableEarlyTracking}
                           onChange={(e) => setFormData({ ...formData, enableEarlyTracking: e.target.checked })}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-blue-600"
                         />
-                        <span className="text-sm text-gray-700">Enable early departure tracking</span>
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Work End Time</label>
-                        <input
-                          type="time"
-                          value={formData.workEndTime}
-                          onChange={(e) => setFormData({ ...formData, workEndTime: e.target.value })}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
+                        <label htmlFor="enableEarlyEdit" className="text-sm font-medium text-gray-700">
+                          Enable early departure tracking
+                        </label>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Grace Period (min)</label>
-                        <input
-                          type="number"
-                          value={formData.earlyGracePeriod}
-                          onChange={(e) => setFormData({ ...formData, earlyGracePeriod: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Work End Time</label>
+                          <input
+                            type="time"
+                            value={formData.workEndTime}
+                            onChange={(e) => setFormData({ ...formData, workEndTime: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Grace Period (minutes)</label>
+                          <input
+                            type="number"
+                            placeholder="15"
+                            value={formData.earlyGracePeriod}
+                            onChange={(e) => setFormData({ ...formData, earlyGracePeriod: parseInt(e.target.value) || 0 })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Form Actions */}
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowForm(false)}
-                      className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                    >
-                      {editingPolicy ? 'Update Policy' : 'Create Policy'}
-                    </button>
                   </div>
                 </form>
+              </div>
+              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 md:p-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  onClick={handleSubmit}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  {editingPolicy ? 'Update Policy' : 'Create Policy'}
+                </button>
               </div>
             </div>
           </div>

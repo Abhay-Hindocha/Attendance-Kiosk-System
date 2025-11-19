@@ -338,7 +338,7 @@ const EmployeesPage = () => {
               <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" placeholder="Search employees..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
             </div>
-            <div className="flex flex-col sm:flex-col md:flex-col lg:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row md:flex-row lg:flex-row gap-2">
               <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                 <Filter className="w-4 h-4" /><span className="inline">Filter</span>
               </button>
@@ -350,7 +350,7 @@ const EmployeesPage = () => {
         
 
         {/* Employee Cards Grid */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
           {filteredEmployees.map((employee) => (
             <div key={employee.id} className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-500 hover:shadow-md transition-all">
               <div className="flex items-start justify-between mb-3">
