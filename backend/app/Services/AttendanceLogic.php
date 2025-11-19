@@ -44,8 +44,9 @@ class AttendanceLogic
     {
         $policy = $employee->policy;
 
-        // If no policy or policy is inactive, return present as default
-        if (!$policy || !$this->isPolicyActive($policy, $attendance->date)) {
+        // If no policy or policy is inactive today, return present as default
+        // Use today's date to apply current active policy to all historical records
+        if (!$policy || !$this->isPolicyActive($policy, Carbon::today())) {
             return 'present';
         }
 
