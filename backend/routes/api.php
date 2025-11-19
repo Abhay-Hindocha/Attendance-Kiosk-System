@@ -34,10 +34,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Attendance routes - CRUD operations and additional statistics/reporting endpoints
     Route::apiResource('attendances', AttendanceController::class); // Standard RESTful routes for attendances
-    Route::get('attendance/stats', [AttendanceController::class, 'getStats']); // Get overall attendance statistics
-    Route::get('attendance/departments', [AttendanceController::class, 'getDepartmentStats']); // Get attendance stats by department
-    Route::get('attendance/trends', [AttendanceController::class, 'getAttendanceTrends']); // Get attendance trends over time
-    Route::get('attendance/live', [AttendanceController::class, 'getLiveActivity']); // Get live attendance activity
+    Route::get('attendance/dashboard', [AttendanceController::class, 'getDashboardData']); // Get combined dashboard data
+    // Route::get('attendance/stats', [AttendanceController::class, 'getStats']); // Get overall attendance statistics
+    // Route::get('attendance/departments', [AttendanceController::class, 'getDepartmentStats']); // Get attendance stats by department
+    // Route::get('attendance/trends', [AttendanceController::class, 'getAttendanceTrends']); // Get attendance trends over time
+    // Route::get('attendance/live', [AttendanceController::class, 'getLiveActivity']); // Get live attendance activity
     Route::get('attendance/present-today', [AttendanceController::class, 'getPresentToday']); // Get employees present today
     Route::get('attendance/absent-today', [AttendanceController::class, 'getAbsentToday']); // Get employees absent today
     Route::get('attendance/on-leave-today', [AttendanceController::class, 'getOnLeaveToday']); // Get employees on leave today

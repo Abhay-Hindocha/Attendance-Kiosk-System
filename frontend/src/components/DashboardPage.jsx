@@ -38,18 +38,13 @@ const DashboardPage = () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Fetch all data in parallel
-        const [statsData, deptData, trendsData, activityData] = await Promise.all([
-          ApiService.getAttendanceStats(),
-          ApiService.getDepartmentStats(),
-          ApiService.getAttendanceTrends(),
-          ApiService.getLiveActivity()
-        ]);
+        // Fetch combined dashboard data
+        const dashboardData = await ApiService.getDashboardData();
 
-        setStats(statsData);
-        setDepartmentStats(deptData);
-        setTrends(trendsData);
-        setLiveActivity(activityData);
+        setStats(dashboardData.stats);
+        setDepartmentStats(dashboardData.departments);
+        setTrends(dashboardData.trends);
+        setLiveActivity(dashboardData.live_activity);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         setError(error.message || 'Failed to load dashboard data');
@@ -60,10 +55,10 @@ const DashboardPage = () => {
 
     fetchData();
 
-    // Set up polling interval for live data
+    // Set up polling interval for live data (increased to 60 seconds for better performance)
     const intervalId = setInterval(() => {
       fetchData();
-    }, 30000); // Update every 30 seconds
+    }, 60000); // Update every 60 seconds
 
     return () => clearInterval(intervalId);
   }, [refreshKey]); // Add refreshKey to dependencies to trigger refresh

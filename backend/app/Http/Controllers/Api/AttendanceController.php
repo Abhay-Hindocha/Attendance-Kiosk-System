@@ -415,6 +415,289 @@ class AttendanceController extends Controller
         return response()->json($activities);
     }
 
+    public function getDashboardData()
+    {
+        $today = Carbon::today();
+        $yesterday = Carbon::yesterday();
+        $lastWeek = Carbon::today()->subDays(7);
+
+        // Cache key for dashboard data
+        $cacheKey = 'dashboard_data_' . $today->toDateString();
+        $cachedData = \Cache::get($cacheKey);
+
+        if ($cachedData) {
+            return response()->json($cachedData);
+        }
+
+        // Get stats data
+        $stats = [
+            'total_employees' => Employee::count(),
+            'present_today' => DB::table('attendances')
+                ->where('date', $today)
+                ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
+                ->whereNotNull('check_in')
+                ->count(),
+            'absent_today' => DB::table('employees')
+                ->join('policies', 'employees.policy_id', '=', 'policies.id')
+                ->leftJoin('attendances', function($join) use ($today) {
+                    $join->on('employees.id', '=', 'attendances.employee_id')
+                         ->where('attendances.date', $today);
+                })
+                ->where(function($query) use ($today) {
+                    $query->where('policies.effective_to', '>=', $today)
+                          ->orWhereNull('policies.effective_to');
+                })
+                ->where(function($query) use ($today) {
+                    $query->where('policies.effective_from', '<=', $today)
+                          ->orWhereNull('policies.effective_from');
+                })
+                ->where('policies.enable_absence_tracking', true)
+                ->where(function($query) {
+                    $query->whereNull('attendances.id')
+                        ->orWhere(function($q) {
+                            $q->whereNull('attendances.check_in')
+                              ->whereNull('attendances.check_out')
+                              ->orWhere('attendances.status', 'absent');
+                        });
+                })
+                ->count(),
+            'on_leave' => Employee::where('status', 'on_leave')->count(),
+            'late_arrivals' => DB::table('attendances')
+                ->join('employees', 'attendances.employee_id', '=', 'employees.id')
+                ->join('policies', 'employees.policy_id', '=', 'policies.id')
+                ->where('attendances.date', $today)
+                ->whereNotNull('attendances.check_in')
+                ->where(function($query) use ($today) {
+                    $query->where('policies.effective_to', '>=', $today)
+                          ->orWhereNull('policies.effective_to');
+                })
+                ->where(function($query) use ($today) {
+                    $query->where('policies.effective_from', '<=', $today)
+                          ->orWhereNull('policies.effective_from');
+                })
+                ->where('policies.enable_late_tracking', true)
+                ->whereRaw("TIME(attendances.check_in) > DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE)")
+                ->count(),
+            'early_departures' => DB::table('attendances')
+                ->join('employees', 'attendances.employee_id', '=', 'employees.id')
+                ->join('policies', 'employees.policy_id', '=', 'policies.id')
+                ->where('attendances.date', $today)
+                ->whereNotNull('attendances.check_out')
+                ->where(function($query) use ($today) {
+                    $query->where('policies.effective_to', '>=', $today)
+                          ->orWhereNull('policies.effective_to');
+                })
+                ->where(function($query) use ($today) {
+                    $query->where('policies.effective_from', '<=', $today)
+                          ->orWhereNull('policies.effective_from');
+                })
+                ->where('policies.enable_early_tracking', true)
+                ->whereRaw("TIME(attendances.check_out) < DATE_SUB(policies.work_end_time, INTERVAL COALESCE(policies.early_grace_period, 0) MINUTE)")
+                ->count(),
+        ];
+
+        // Calculate changes from yesterday
+        $yesterday_stats = [
+            'present_yesterday' => DB::table('attendances')
+                ->where('date', $yesterday)
+                ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
+                ->whereNotNull('check_in')
+                ->count(),
+            'absent_yesterday' => DB::table('employees')
+                ->join('policies', 'employees.policy_id', '=', 'policies.id')
+                ->leftJoin('attendances', function($join) use ($yesterday) {
+                    $join->on('employees.id', '=', 'attendances.employee_id')
+                         ->where('attendances.date', $yesterday);
+                })
+                ->where(function($query) use ($yesterday) {
+                    $query->where('policies.effective_to', '>=', $yesterday)
+                          ->orWhereNull('policies.effective_to');
+                })
+                ->where(function($query) use ($yesterday) {
+                    $query->where('policies.effective_from', '<=', $yesterday)
+                          ->orWhereNull('policies.effective_from');
+                })
+                ->where('policies.enable_absence_tracking', true)
+                ->where(function($query) {
+                    $query->whereNull('attendances.id')
+                        ->orWhere(function($q) {
+                            $q->whereNull('attendances.check_in')
+                              ->whereNull('attendances.check_out');
+                        });
+                })
+                ->count(),
+            'on_leave_yesterday' => Employee::where('status', 'on_leave')->count(),
+            'late_arrivals_yesterday' => DB::table('attendances')
+                ->join('employees', 'attendances.employee_id', '=', 'employees.id')
+                ->join('policies', 'employees.policy_id', '=', 'policies.id')
+                ->where('attendances.date', $yesterday)
+                ->whereNotNull('attendances.check_in')
+                ->where(function($query) use ($yesterday) {
+                    $query->where('policies.effective_to', '>=', $yesterday)
+                          ->orWhereNull('policies.effective_to');
+                })
+                ->where(function($query) use ($yesterday) {
+                    $query->where('policies.effective_from', '<=', $yesterday)
+                          ->orWhereNull('policies.effective_from');
+                })
+                ->where('policies.enable_late_tracking', true)
+                ->whereRaw("DATE_FORMAT(check_in, '%H:%i:%s') > DATE_FORMAT(DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE), '%H:%i:%s')")
+                ->count(),
+            'early_departures_yesterday' => DB::table('attendances')
+                ->join('employees', 'attendances.employee_id', '=', 'employees.id')
+                ->join('policies', 'employees.policy_id', '=', 'policies.id')
+                ->where('attendances.date', $yesterday)
+                ->whereNotNull('attendances.check_out')
+                ->where(function($query) use ($yesterday) {
+                    $query->where('policies.effective_to', '>=', $yesterday)
+                          ->orWhereNull('policies.effective_to');
+                })
+                ->where(function($query) use ($yesterday) {
+                    $query->where('policies.effective_from', '<=', $yesterday)
+                          ->orWhereNull('policies.effective_from');
+                })
+                ->where('policies.enable_early_tracking', true)
+                ->whereRaw("TIME(attendances.check_out) < DATE_SUB(policies.work_end_time, INTERVAL COALESCE(policies.early_grace_period, 0) MINUTE)")
+                ->count()
+        ];
+
+        $stats['changes'] = [
+            'present' => $stats['present_today'] - $yesterday_stats['present_yesterday'],
+            'absent' => $stats['absent_today'] - $yesterday_stats['absent_yesterday'],
+            'on_leave' => $stats['on_leave'] - $yesterday_stats['on_leave_yesterday'],
+            'late_arrivals' => $stats['late_arrivals'] - $yesterday_stats['late_arrivals_yesterday'],
+            'early_departures' => $stats['early_departures'] - $yesterday_stats['early_departures_yesterday']
+        ];
+
+        // Get department stats
+        $departmentStats = DB::table('employees')
+            ->select(
+                'department',
+                DB::raw('COUNT(DISTINCT employees.id) as total_employees'),
+                DB::raw("COUNT(DISTINCT CASE WHEN attendances.status IN ('present', 'late', 'half_day', 'early_departure') THEN employees.id END) as present_employees")
+            )
+            ->leftJoin('attendances', function($join) use ($today) {
+                $join->on('employees.id', '=', 'attendances.employee_id')
+                    ->where('attendances.date', '=', $today);
+            })
+            ->groupBy('department')
+            ->get();
+
+        $departments = [];
+        foreach ($departmentStats as $dept) {
+            $departments[] = [
+                'department' => $dept->department,
+                'total' => $dept->total_employees,
+                'present' => $dept->present_employees,
+                'percentage' => $dept->total_employees > 0
+                    ? round(($dept->present_employees / $dept->total_employees) * 100)
+                    : 0
+            ];
+        }
+
+        // Get trends data
+        $avgCheckInResult = DB::select("
+            SELECT SEC_TO_TIME(AVG(TIME_TO_SEC(TIME(check_in)))) as avg_time
+            FROM attendances
+            WHERE date BETWEEN ? AND ?
+            AND check_in IS NOT NULL
+            AND status IN ('present', 'late', 'half_day', 'early_departure')
+        ", [$lastWeek->toDateString(), $today->toDateString()]);
+
+        $avgCheckIn = $avgCheckInResult[0]->avg_time ?? null;
+
+        $trends = [
+            'average_check_in' => $avgCheckIn ? Carbon::parse($avgCheckIn)->format('H:i:s') : '00:00:00',
+            'average_work_hours' => Attendance::whereBetween('date', [$lastWeek, $today])
+                ->whereNotNull('check_in')
+                ->whereNotNull('check_out')
+                ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
+                ->avg(DB::raw('TIMESTAMPDIFF(HOUR, check_in, check_out)')),
+            'punctuality_rate' => Attendance::whereBetween('date', [$lastWeek, $today])
+                ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
+                ->count() > 0
+                    ? round(
+                        (Attendance::whereBetween('date', [$lastWeek, $today])
+                            ->where('status', 'present')
+                            ->count() * 100.0) /
+                        Attendance::whereBetween('date', [$lastWeek, $today])
+                            ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
+                            ->count()
+                    )
+                    : 0
+        ];
+
+        // Get live activity (simplified version for dashboard)
+        $attendances = Attendance::with(['employee:id,name,department', 'breaks'])
+            ->where('date', $today)
+            ->where(function ($query) {
+                $query->whereNotNull('check_in')
+                      ->orWhereNotNull('check_out');
+            })
+            ->orderBy('check_in', 'desc')
+            ->limit(20) // Limit for dashboard performance
+            ->get();
+
+        $activities = [];
+
+        foreach ($attendances as $attendance) {
+            if ($attendance->check_in) {
+                $action = $attendance->status === 'late' ? 'Late Entry' : 'Check-In';
+                $activities[] = [
+                    'name' => $attendance->employee->name,
+                    'action' => $action,
+                    'time' => Carbon::parse($attendance->check_in)->format('H:i'),
+                    'date' => Carbon::parse($attendance->check_in)->format('M d'),
+                    'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
+                    'badgeColor' => 'bg-blue-500'
+                ];
+            }
+
+            if ($attendance->check_out) {
+                $action = 'Check-Out';
+                if ($attendance->employee->policy
+                    && $attendance->employee->policy->enable_early_tracking
+                    && (!$attendance->employee->policy->effective_to || Carbon::parse($attendance->employee->policy->effective_to)->gte(Carbon::today()))
+                    && (!$attendance->employee->policy->effective_from || Carbon::parse($attendance->employee->policy->effective_from)->lte(Carbon::today()))) {
+                    $workEndTime = Carbon::createFromFormat('H:i:s', $attendance->employee->policy->work_end_time);
+                    $gracePeriod = $attendance->employee->policy->early_grace_period ?? 0;
+                    $allowedEndTime = $workEndTime->subMinutes($gracePeriod);
+                    if (Carbon::parse($attendance->check_out)->lt($allowedEndTime)) {
+                        $action = 'Early Departure';
+                    }
+                }
+                $activities[] = [
+                    'name' => $attendance->employee->name,
+                    'action' => $action,
+                    'time' => Carbon::parse($attendance->check_out)->format('H:i'),
+                    'date' => Carbon::parse($attendance->check_out)->format('M d'),
+                    'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
+                    'badgeColor' => 'bg-blue-500'
+                ];
+            }
+        }
+
+        // Sort activities by time ascending
+        usort($activities, function ($a, $b) {
+            $timeA = Carbon::createFromFormat('M d H:i', $a['date'] . ' ' . $a['time']);
+            $timeB = Carbon::createFromFormat('M d H:i', $b['date'] . ' ' . $b['time']);
+            return $timeA->timestamp - $timeB->timestamp;
+        });
+
+        // Combine all data
+        $dashboardData = [
+            'stats' => $stats,
+            'departments' => $departments,
+            'trends' => $trends,
+            'live_activity' => array_slice($activities, -8) // Last 8 activities for dashboard
+        ];
+
+        // Cache for 5 minutes
+        \Cache::put($cacheKey, $dashboardData, 300);
+
+        return response()->json($dashboardData);
+    }
+
     public function getPresentToday()
     {
         $today = Carbon::today()->toDateString();

@@ -83,7 +83,6 @@ class ApiService {
     const data = await this.post('/login', credentials);
     // Store the token
     localStorage.setItem('authToken', data.token);
-    localStorage.setItem('userRole', data.admin.role);
     return data;
   }
 
@@ -209,6 +208,10 @@ class ApiService {
   }
 
   // Dashboard endpoints
+  async getDashboardData() {
+    return this.request('/attendance/dashboard');
+  }
+
   async getAttendanceStats() {
     return this.request('/attendance/stats');
   }
