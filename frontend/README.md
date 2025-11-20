@@ -73,6 +73,3 @@ Key dependencies include:
 - Check browser console for errors.
 - Ensure the backend API is accessible.
 
-## License
-
-This project is licensed under the MIT License.

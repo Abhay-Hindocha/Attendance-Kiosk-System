@@ -49,7 +49,7 @@ Before you begin, ensure you have the following installed on your system:
    php artisan migrate
    ```
 
-6. **Seed the database** (optional, for sample data):
+6. **Seed the database** :
    ```
    php artisan db:seed
    ```
@@ -97,6 +97,3 @@ To contribute to the backend:
 - Ensure PHP extensions required by Laravel are installed.
 - For face recognition features, ensure proper permissions and dependencies.
 
-## License
-
-This project is licensed under the MIT License.
