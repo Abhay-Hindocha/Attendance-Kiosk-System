@@ -258,7 +258,7 @@ const DashboardPage = () => {
               <button onClick={() => navigate('/reports')} className="text-sm text-blue-600 hover:text-blue-700 font-medium">View All</button>
             </div>
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {liveActivity.slice(0, 8).map((activity, index) => (
+              {liveActivity.map((activity, index) => (
                 <div key={index} className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                     {activity.name.split(' ').map(n => n[0]).join('').toUpperCase()}

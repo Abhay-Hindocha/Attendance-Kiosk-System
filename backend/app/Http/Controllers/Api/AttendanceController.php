@@ -635,12 +635,12 @@ class AttendanceController extends Controller
                       ->orWhereNotNull('check_out');
             })
             ->orderBy('check_in', 'desc')
-            ->limit(20) // Limit for dashboard performance
             ->get();
 
         $activities = [];
 
         foreach ($attendances as $attendance) {
+            // Add Check-In activity if exists
             if ($attendance->check_in) {
                 $action = $attendance->status === 'late' ? 'Late Entry' : 'Check-In';
                 $activities[] = [
@@ -653,6 +653,32 @@ class AttendanceController extends Controller
                 ];
             }
 
+            // Add break activities
+            foreach ($attendance->breaks as $break) {
+                // Break start activity
+                $activities[] = [
+                    'name' => $attendance->employee->name,
+                    'action' => 'Break Start',
+                    'time' => Carbon::parse($break->break_start)->format('H:i'),
+                    'date' => Carbon::parse($break->break_start)->format('M d'),
+                    'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
+                    'badgeColor' => 'bg-yellow-500'
+                ];
+
+                // Break end activity if exists
+                if ($break->break_end) {
+                    $activities[] = [
+                        'name' => $attendance->employee->name,
+                        'action' => 'Break End',
+                        'time' => Carbon::parse($break->break_end)->format('H:i'),
+                        'date' => Carbon::parse($break->break_end)->format('M d'),
+                        'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
+                        'badgeColor' => 'bg-green-500'
+                    ];
+                }
+            }
+
+            // Add Check-Out activity if exists
             if ($attendance->check_out) {
                 $action = 'Check-Out';
                 if ($attendance->employee->policy
@@ -677,7 +703,7 @@ class AttendanceController extends Controller
             }
         }
 
-        // Sort activities by time ascending
+        // Sort activities by time ascending (chronological order)
         usort($activities, function ($a, $b) {
             $timeA = Carbon::createFromFormat('M d H:i', $a['date'] . ' ' . $a['time']);
             $timeB = Carbon::createFromFormat('M d H:i', $b['date'] . ' ' . $b['time']);
@@ -689,11 +715,11 @@ class AttendanceController extends Controller
             'stats' => $stats,
             'departments' => $departments,
             'trends' => $trends,
-            'live_activity' => array_slice($activities, -8) // Last 8 activities for dashboard
+            'live_activity' => $activities // All activities for dashboard
         ];
 
-        // Cache for 5 minutes
-        \Cache::put($cacheKey, $dashboardData, 300);
+        // Cache for 1 minute
+        \Cache::put($cacheKey, $dashboardData, 60);
 
         return response()->json($dashboardData);
     }
@@ -865,12 +891,19 @@ class AttendanceController extends Controller
             $scanTimes[] = $now->toDateTimeString();
             $existingAttendance->update(['scan_count' => $scanCount, 'scan_times' => $scanTimes]);
 
+            // Invalidate dashboard cache
+            \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
             if ($scanCount == 2) {
                 // 2nd scan: Check-out
                 $existingAttendance->update(['check_out' => $now]);
                 // Calculate and update status using new logic
                 $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
                 $existingAttendance->update(['status' => $status]);
+
+                // Invalidate dashboard cache
+                \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
                 return response()->json([
                     'message' => 'Check-out marked successfully',
                     'attendance' => $existingAttendance->load('employee')
@@ -881,6 +914,10 @@ class AttendanceController extends Controller
                 // Calculate and update status using new logic
                 $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
                 $existingAttendance->update(['status' => $status]);
+
+                // Invalidate dashboard cache
+                \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
                 return response()->json([
                     'message' => 'Check-out marked successfully',
                     'attendance' => $existingAttendance->load('employee')
@@ -895,6 +932,10 @@ class AttendanceController extends Controller
                     'break_start' => $breakStartTime,
                     'break_end' => $now,
                 ]);
+
+                // Invalidate dashboard cache
+                \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
                 return response()->json([
                     'message' => 'Break end marked successfully',
                     'attendance' => $existingAttendance->load('employee')
@@ -916,6 +957,9 @@ class AttendanceController extends Controller
         $attendance->refresh();
         $status = $this->attendanceLogic->calculateStatus($employee, $attendance);
         $attendance->update(['status' => $status]);
+
+        // Invalidate dashboard cache
+        \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
 
         return response()->json([
             'message' => 'Check-in marked successfully',

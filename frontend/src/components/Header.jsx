@@ -68,7 +68,7 @@ const Header = () => {
             {isAttendancePage ? (
               <div className="flex items-center gap-3 md:gap-4">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-xl flex items-center justify-center">
-                  <Camera className=" md:w-3 md:h-3 lg:w-6 lg:h-6 text-slate-900" />
+                  <Camera className=" md:w-6 md:h-6 lg:w-6 lg:h-6 text-slate-900" />
                 </div>
                 <div>
                   <h1 className="text-lg md:text-2xl font-bold text-white">Attendance system</h1>
