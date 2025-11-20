@@ -456,14 +456,14 @@ const AttendancePage = () => {
           {/* Right Panel */}
         <div className="flex flex-col h-full space-y-6">
           {/* Recent Activity */}
-          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex-1 flex flex-col">
+          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md h-64 flex flex-col">
             <div className="flex items-center mb-4 gap-2">
               <div className={`w-2 h-2 bg-green-500 rounded-full ${recentActivities.length > 0 ? 'blink' : ''}`}></div>
               <h2 className="text-lg font-semibold text-white">
                 Recent Activity
               </h2>
             </div>
-            <div className="overflow-y-scroll custom-scrollbar max-h-48">
+            <div className="overflow-y-scroll custom-scrollbar h-full">
               <div className="space-y-3">
                 {recentActivities.map((a, index) => (
                   <div
