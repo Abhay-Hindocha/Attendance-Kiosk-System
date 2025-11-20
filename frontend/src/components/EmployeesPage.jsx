@@ -325,7 +325,7 @@ const EmployeesPage = () => {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Employee Management</h1>
               <p className="text-md text-gray-600 mt-1">Manage employees and face enrollment</p>
             </div>
-            <button onClick={openAddForm} className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm">
+            <button onClick={openAddForm} className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-3 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm">
               <Plus className="w-4 h-4" /><span>Add Employee</span>
             </button>
           </div>

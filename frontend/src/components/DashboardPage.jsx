@@ -148,7 +148,7 @@ const DashboardPage = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
-          
+
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" onClick={() => handleStatClick('total_employees', stats.total_employees)}>
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -175,9 +175,7 @@ const DashboardPage = () => {
                   </span>
                 </div>
               </div>
-              <div className="bg-green-500 w-12 h-12 rounded-lg flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-white" />
-              </div>
+              <div class="bg-green-500 w-12 h-12 rounded-lg flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-check text-white"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg></div>
             </div>
           </div>
 
@@ -192,9 +190,7 @@ const DashboardPage = () => {
                   </span>
                 </div>
               </div>
-              <div className="bg-red-500 w-12 h-12 rounded-lg flex items-center justify-center">
-                <XCircle className="w-6 h-6 text-white" />
-              </div>
+              <div class="bg-red-500 w-12 h-12 rounded-lg flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-x text-white"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="17" x2="22" y1="8" y2="13"></line><line x1="22" x2="17" y1="8" y2="13"></line></svg></div>
             </div>
           </div>
 
@@ -210,7 +206,7 @@ const DashboardPage = () => {
                 </div>
               </div>
               <div className="bg-yellow-500 w-12 h-12 rounded-lg flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-white" />
+                <div class="bg-yellow-500 w-12 h-12 rounded-lg flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-activity text-white"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg></div>
               </div>
             </div>
           </div>
@@ -330,7 +326,7 @@ const DashboardPage = () => {
                   <p className="text-sm text-gray-600">Punctuality Rate</p>
                   <p className="text-2xl font-bold text-gray-900">{trends.punctuality_rate}%</p>
                 </div>
-                <TrendingUp className="w-8 h-8 text-purple-500" />
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-activity text-purple-500"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
               </div>
             </div>
           </div>

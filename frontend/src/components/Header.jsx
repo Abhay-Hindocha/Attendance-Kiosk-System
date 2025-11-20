@@ -58,7 +58,7 @@ const Header = () => {
   return (
     <header
       className={`${
-        isAttendancePage ? 'bg-gray-700 backdrop-blur-sm border-b border-white/20 px-4 md:px-8 py-4 md:py-6' : 'bg-white border-b border-gray-200 px-4 py-3 shadow-sm sticky top-0 z-50'
+        isAttendancePage ? 'bg-gray-800 backdrop-blur-sm border-b border-white/20 px-4 md:px-8 py-4 md:py-6' : 'bg-white border-b border-gray-200 px-4 py-3 shadow-sm sticky top-0 z-50'
       }`}
     >
       <div className="max-w-7xl mx-auto">
