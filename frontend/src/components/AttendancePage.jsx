@@ -196,10 +196,16 @@ const AttendancePage = () => {
             // Mark attendance
             try {
               const response = await ApiService.markAttendance(result.employee_id);
+              console.log('markAttendance response:', response);
               const now = new Date();
               setMarkedTime(now);
-              setStatus("Attendance marked successfully!");
               notify('Attendance marked successfully!');
+
+              // Update recognized employee with department from markAttendance response
+              setRecognizedEmployee(prev => ({ ...prev, department: response?.attendance?.employee?.department }));
+
+              // Set status after updating employee data
+              setStatus("Attendance marked successfully!");
 
               // Determine action based on response message
               let action = "Check-In";
@@ -339,7 +345,7 @@ const AttendancePage = () => {
               <div className="m-3 absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full blink"></div>
               {/* Status Label */}
               <div className="flex justify-start">
-                <div className={`bg-[#0e1629] px-4 py-2 rounded-full text-sm font-medium text-white ${
+                <div className={`bg-[#0e1629] px-2 py-2 rounded-full text-sm font-medium text-white ${
                   status === "success" || status.includes("successfully") ? "bg-green-600" :
                   status === "Face not recognized" || status === "No face detected" || status.includes("failed") ? "bg-red-600" :
                   "bg-[#0e1629]"
@@ -352,43 +358,50 @@ const AttendancePage = () => {
               <div className="flex-1 flex flex-col items-center justify-center text-center">
                 {status === "Attendance marked successfully!" && recognizedEmployee && markedTime ? (
                   <>
-                    <div className="relative mb-6">
-                      <div className="w-32 h-32 bg-green-500 rounded-full flex items-center justify-center">
-                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-4xl font-bold text-green-500">
-                          {recognizedEmployee.employee_name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </div>
+                    {/* Check Icon */}
+                    <div className="flex justify-center mb-4">
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center">
+                        <CheckCircle className="h-14 w-14 sm:w-10 sm:h-10 text-green-500" />
                       </div>
                     </div>
-                    <div className="mb-4 p-4 bg-green-500/20 rounded-lg border border-green-500/30">
-                      <div className="flex items-center gap-2 text-green-400 mb-2">
-                        <CheckCircle className="w-5 h-5" />
-                        <span className="font-medium">Attendance Marked Successfully!</span>
-                      </div>
-                      <p className="text-white font-medium">{recognizedEmployee.employee_name}</p>
-                      <p className="text-gray-300 text-sm">Employee ID: {recognizedEmployee.employee_id}</p>
-                      <p className="text-gray-300 text-sm">Status: {currentAction || "Checked In"}</p>
-                      <p className="text-gray-300 text-sm">Time: {markedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+
+                    {/* Avatar */}
+                    <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto flex items-center justify-center mb-3">
+                      <span className="text-3xl font-bold text-white">{recognizedEmployee.employee_name.split(" ").map((n) => n[0]).join("")}</span>
                     </div>
+
+                    {/* Name */}
+                    <h2 className="text-white text-2xl font-semibold">{recognizedEmployee.employee_name}</h2>
+
+                    {/* Employee ID */}
+                    <p className="text-gray-300 text-sm mt-1">{recognizedEmployee.employee_id}</p>
+                    {/* Employee Department */}
+                    <p className="text-gray-300 text-sm mt-1">{recognizedEmployee?.department}</p>
+                    {/* Green Button */}
+                    <button className="mt-5 p-5 w-400 bg-green-500 hover:bg-green-600 transition text-white font-semibold py-2.5 rounded-full">
+                      {currentAction || "Check-In"} Successful
+                    </button>
                   </>
                 ) : status === "Face not recognized" ? (
                   <>
-                    <div className="relative mb-6">
-                      <div className="w-32 h-32 bg-red-500 rounded-full flex items-center justify-center">
-                        <XCircle className="w-16 h-16 text-white" />
+                    {/* X Icon */}
+                    <div className="flex justify-center mb-4">
+                      <div className="w-14 h-14  rounded-full flex items-center justify-center">
+                        <XCircle className="h-14 w-14 sm:w-10 sm:h-10 text-red-500" />
                       </div>
                     </div>
-                    <div className="mb-4 p-4 bg-red-500/20 rounded-lg border border-red-500/30">
-                      <div className="flex items-center gap-2 text-red-400 mb-2">
-                        <XCircle className="w-5 h-5" />
-                        <span className="font-medium">Face Not Recognized</span>
-                      </div>
-                      <p className="text-gray-300 text-sm">
-                        Please try again or contact support
-                      </p>
-                    </div>
+
+
+                    {/* Message */}
+                    <h2 className="text-white text-2xl font-semibold">Face Not Recognized</h2>
+
+                    {/* Sub Message */}
+                    <p className="text-gray-300 text-sm mt-1">Please try again or contact support</p>
+
+                    {/* Red Button */}
+                    <button className="mt-5 p-5 w-350 bg-red-500 hover:bg-red-600 transition text-white font-semibold py-2.5 rounded-full">
+                      Try Again
+                    </button>
                   </>
                 ) : !isScanning ? (
                   <>

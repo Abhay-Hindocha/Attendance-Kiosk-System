@@ -176,8 +176,10 @@ const PoliciesPage = () => {
       setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 3000);
     } catch (error) {
       console.error('Failed to toggle policy status:', error);
-      setNotification({ show: true, type: 'error', message: 'Failed to update policy status. Please try again.' });
+      const errorMessage = error.error || 'Failed to update policy status. Please try again.';
+      setNotification({ show: true, type: 'error', message: errorMessage });
       setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
+      setArchiveConfirm(null); // Close the modal on error
     }
   };
 

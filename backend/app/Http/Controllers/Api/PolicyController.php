@@ -5,12 +5,35 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Policy;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class PolicyController extends Controller
 {
     public function index()
     {
-        return response()->json(Policy::withCount('employees')->get());
+        $policies = Policy::withCount('employees')->get();
+
+        $today = Carbon::today();
+
+        foreach ($policies as $policy) {
+            $effectiveFrom = $policy->effective_from ? Carbon::parse($policy->effective_from) : null;
+            $effectiveTo = $policy->effective_to ? Carbon::parse($policy->effective_to) : null;
+
+            $isActive = true;
+
+            if ($effectiveFrom && $today->lt($effectiveFrom)) {
+                $isActive = false;
+            }
+
+            if ($effectiveTo && $today->gt($effectiveTo)) {
+                $isActive = false;
+            }
+
+            // Compute status based on dates, overriding stored status if necessary
+            $policy->status = $isActive ? 'active' : 'inactive';
+        }
+
+        return response()->json($policies);
     }
 
     public function store(Request $request)
@@ -85,7 +108,19 @@ class PolicyController extends Controller
 
     public function toggleStatus(Policy $policy)
     {
-        $policy->status = $policy->status === 'active' ? 'inactive' : 'active';
+        $newStatus = $policy->status === 'active' ? 'inactive' : 'active';
+
+        if ($newStatus === 'active') {
+            $today = Carbon::today();
+            $effectiveFrom = $policy->effective_from ? Carbon::parse($policy->effective_from) : null;
+            $effectiveTo = $policy->effective_to ? Carbon::parse($policy->effective_to) : null;
+
+            if (($effectiveFrom && $today->lt($effectiveFrom)) || ($effectiveTo && $today->gt($effectiveTo))) {
+                return response()->json(['error' => 'Policy cannot be active due today\'s date don\'t fall between effective dates.'], 422);
+            }
+        }
+
+        $policy->status = $newStatus;
         $policy->save();
 
         return response()->json([
