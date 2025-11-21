@@ -83,7 +83,7 @@ export default function AttendanceReportsPage() {
       const uniqueDepts = [...new Set((data || []).map(emp => emp.department).filter(Boolean))];
       setDepartments(uniqueDepts);
       setFilteredEmployees(data || []);
-      if (data && data.length > 0) {
+      if (data && data.length > 0 && !selectedEmployee) {
         setSelectedEmployee(data[0].employee_id);
       }
     } catch (err) {
@@ -118,8 +118,6 @@ export default function AttendanceReportsPage() {
 
 
       setAttendanceRecords(recordMap);
-      // Refetch employees to get updated policy status
-      fetchEmployees();
     } catch (err) {
       console.error(err);
       if (err?.response?.status === 401) navigate('/login');
@@ -139,10 +137,11 @@ export default function AttendanceReportsPage() {
 
   // Filter employees based on selected department
   useEffect(() => {
-    if (selectedDepartment) {
-      setFilteredEmployees(employees.filter(emp => emp.department === selectedDepartment));
-    } else {
-      setFilteredEmployees(employees);
+    const newFiltered = selectedDepartment ? employees.filter(emp => emp.department === selectedDepartment) : employees;
+    setFilteredEmployees(newFiltered);
+    // Reset selectedEmployee if not in new filtered list
+    if (selectedEmployee && !newFiltered.some(emp => emp.employee_id === selectedEmployee)) {
+      setSelectedEmployee(newFiltered.length > 0 ? newFiltered[0].employee_id : null);
     }
   }, [selectedDepartment, employees]);
 

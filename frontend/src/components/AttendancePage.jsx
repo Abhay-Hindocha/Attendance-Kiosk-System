@@ -3,7 +3,8 @@
 // The component integrates with face-api.js for face recognition and communicates with the backend API.
 
 import React, { useState, useRef, useEffect } from "react";
-import { Camera, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Camera, CheckCircle, XCircle, AlertCircle, Lock, Wifi } from "lucide-react";
 import * as faceapi from 'face-api.js';
 import ApiService from '../services/api';
 import Header from './Header';
@@ -28,6 +29,7 @@ const updateNotifications = () => {
 };
 
 const AttendancePage = () => {
+  const navigate = useNavigate();
   const [isScanning, setIsScanning] = useState(false);
   const [status, setStatus] = useState("ready");
   const [recognizedEmployee, setRecognizedEmployee] = useState(null);
@@ -309,131 +311,144 @@ const AttendancePage = () => {
 
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col">
+      <style>
+        {`
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 2px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 1px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+          }
+        `}
+      </style>
       <Header />
-      <main className="flex-1 bg-gradient-to-br from-[#0a1123] via-[#111c35] to-[#0c1229] flex items-center justify-center p-6 overflow-hidden">
-        <style>
-          {`
-            .custom-scrollbar::-webkit-scrollbar {
-              width: 8px;
-            }
-            .custom-scrollbar::-webkit-scrollbar-track {
-              background: #1b233c;
-              border-radius: 4px;
-            }
-            .custom-scrollbar::-webkit-scrollbar-thumb {
-              background: #4a5568;
-              border-radius: 4px;
-            }
-            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-              background: #718096;
-            }
-            @keyframes blink {
-              0%, 100% { opacity: 1; }
-              50% { opacity: 0.3; }
-            }
-            .blink {
-              animation: blink 4s infinite;
-            }
-          `}
-        </style>
-        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-          {/* Camera Section */}
-          <div className="lg:col-span-2 bg-[#1b233c]/70 border border-gray-500 rounded-2xl backdrop-blur-md grid " style={{ gridTemplateRows: '4fr .5fr' }}>
-            <div className="p-6 flex flex-col rounded-t-2xl overflow-hidden relative" style={{ background: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.2))' }}>
-              {/* Red Blinking Dot */}
-              <div className="m-3 absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full blink"></div>
-              {/* Status Label */}
-              <div className="flex justify-start">
-                <div className={`bg-[#0e1629] px-2 py-2 rounded-full text-sm font-medium text-white ${
+
+      <main className="flex-1 flex flex-col lg:flex-row gap-4 md:gap-6 p-4 md:p-8 max-w-7xl mx-auto w-full">
+        <div className="flex-1 flex flex-col">
+          <div className="bg-white/5 backdrop-blur-sm rounded-2xl border-2 border-white/20 overflow-hidden flex-1 flex flex-col">
+            <div className="aspect-[16/9] bg-slate-800 relative flex flex-col">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20" />
+
+              <div className="flex justify-between p-4 z-20">
+                <div className={`bg-black/50 px-4 py-2 rounded-full text-sm font-medium text-white ${
                   status === "success" || status.includes("successfully") ? "bg-green-600" :
                   status === "Face not recognized" || status === "No face detected" || status.includes("failed") ? "bg-red-600" :
-                  "bg-[#0e1629]"
+                  "bg-black/50"
                 }`}>
                   {status === "ready" ? "Ready" : status}
                 </div>
+
+                <div className="bg-red-500 w-3 h-3 rounded-full animate-pulse"></div>
               </div>
 
-              {/* Main Area */}
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
+              <div className="flex-1 relative z-10 text-center px-4 flex items-center justify-center">
                 {status === "Attendance marked successfully!" && recognizedEmployee && markedTime ? (
-                  <>
-                    {/* Check Icon */}
-                    <div className="flex justify-center mb-4">
-                      <div className="w-14 h-14 rounded-full flex items-center justify-center">
-                        <CheckCircle className="h-14 w-14 sm:w-10 sm:h-10 text-green-500" />
+                  <div className="flex flex-col items-center justify-center space-y-6 mb-2">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+                        <CheckCircle className="w-8 h-8 text-white" />
+                      </div>
+
+                      <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                        <span className="text-2xl font-bold text-white">{recognizedEmployee.employee_name.split(" ").map((n) => n[0]).join("")}</span>
+                      </div>
+
+                      <div className="text-center space-y-1">
+                        <h2 className="text-white text-xl font-semibold">{recognizedEmployee.employee_name}</h2>
+                        <p className="text-gray-300 text-sm">ID: {recognizedEmployee.employee_id}</p>
+                        {recognizedEmployee?.department && (
+                          <p className="text-gray-400 text-xs">{recognizedEmployee.department}</p>
+                        )}
                       </div>
                     </div>
 
-                    {/* Avatar */}
-                    <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto flex items-center justify-center mb-3">
-                      <span className="text-3xl font-bold text-white">{recognizedEmployee.employee_name.split(" ").map((n) => n[0]).join("")}</span>
-                    </div>
-
-                    {/* Name */}
-                    <h2 className="text-white text-2xl font-semibold">{recognizedEmployee.employee_name}</h2>
-
-                    {/* Employee ID */}
-                    <p className="text-gray-300 text-sm mt-1">{recognizedEmployee.employee_id}</p>
-                    {/* Employee Department */}
-                    <p className="text-gray-300 text-sm mt-1">{recognizedEmployee?.department}</p>
-                    {/* Green Button */}
-                    <button className="mt-5 p-5 w-400 bg-green-500 hover:bg-green-600 transition text-white font-semibold py-2.5 rounded-full">
+                    <button className="px-6 py-3 bg-green-500 hover:bg-green-600 transition-colors text-white font-semibold rounded-full text-sm">
                       {currentAction || "Check-In"} Successful
                     </button>
-                  </>
+                  </div>
                 ) : status === "Face not recognized" ? (
-                  <>
-                    {/* X Icon */}
-                    <div className="flex justify-center mb-4">
-                      <div className="w-14 h-14  rounded-full flex items-center justify-center">
-                        <XCircle className="h-14 w-14 sm:w-10 sm:h-10 text-red-500" />
+                  <div className="flex flex-col items-center justify-center space-y-6 mb-2">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center">
+                        <XCircle className="w-8 h-8 text-white" />
+                      </div>
+
+                      <div className="text-center space-y-1">
+                        <h2 className="text-white text-xl font-semibold">Face Not Recognized</h2>
+                        <p className="text-gray-300 text-sm">Please try again or contact support</p>
                       </div>
                     </div>
 
-
-                    {/* Message */}
-                    <h2 className="text-white text-2xl font-semibold">Face Not Recognized</h2>
-
-                    {/* Sub Message */}
-                    <p className="text-gray-300 text-sm mt-1">Please try again or contact support</p>
-
-                    {/* Red Button */}
-                    <button className="mt-5 p-5 w-350 bg-red-500 hover:bg-red-600 transition text-white font-semibold py-2.5 rounded-full">
+                    <button className="px-6 py-3 bg-red-500 hover:bg-red-600 transition-colors text-white font-semibold rounded-full text-sm">
                       Try Again
                     </button>
-                  </>
+                  </div>
                 ) : !isScanning ? (
-                  <>
-                    <Camera className="w-16 h-16 text-white/70 mb-4" />
-                    <p className="text-lg text-white font-medium mb-1">
-                      Position your face in the frame
-                    </p>
-                    <p className="text-sm text-gray-400">
-                      Camera is active and scanning
-                    </p>
-                  </>
+                  <div className="flex flex-col items-center justify-center space-y-4 mb-4">
+                    <Camera className="w-16 h-16 text-white/70" />
+                    <div className="text-center">
+                      <p className="text-lg text-white font-medium mb-1">Position your face in the frame</p>
+                      <p className="text-sm text-gray-400">Camera is active and scanning</p>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <div className="relative mb-6">
+                  <div className="flex flex-col items-center justify-center space-y-6 mb-2">
+                    <div className="relative py-4 px-2 w-full flex justify-center">
+                      {/* CAMERA FEED */}
                       <video
                         ref={videoRef}
                         autoPlay
                         muted
                         playsInline
-                        className="w-96 h-96 border-4 border-blue-400/40 rounded-lg object-cover"
+                        className="
+                          w-full
+                          max-w-[280px]       /* Perfect for phones */
+                          sm:max-w-[320px]    /* Tablet small */
+                          md:max-w-[380px]    /* Desktop */
+                          aspect-square        /* Always square, never stretched */
+                          border-4 border-blue-400/40
+                          rounded-xl
+                          object-cover
+                          bg-black
+                        "
                       />
+
+                      {/* CANVAS OVERLAY */}
                       <canvas
                         ref={canvasRef}
-                        className="absolute top-0 left-0 w-96 h-96"
-                        style={{ display: 'none' }}
+                        className="
+                          absolute
+                          top-16
+                          inset-x-0
+                          bottom-0
+                          w-full
+                          max-w-[280px]
+                          sm:max-w-[320px]
+                          md:max-w-[380px]
+                          aspect-square
+                        "
+                        style={{ display: "none" }}
                       />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-16 h-16 border-4 border-blue-500 rounded-full animate-spin border-t-transparent" />
+                    </div>
+
+                    {/*TEXT STACKED */}
+                    <div className="flex flex-col items-center space-y-1">
+                      <div className="text-center">
+                        <p className="text-lg text-white font-medium">Analyzing face... ({countdown}s)</p>
+                        <p className="text-sm text-gray-400">Please keep your face in the frame</p>
                       </div>
                     </div>
+
                     {recognizedEmployee && (
-                      <div className="mb-4 p-4 bg-green-500/20 rounded-lg border border-green-500/30">
+                      <div className="p-4 rounded-lg border border-green-500/30 max-w-sm">
                         <div className="flex items-center gap-2 text-green-400 mb-2">
                           <CheckCircle className="w-5 h-5" />
                           <span className="font-medium">Recognized!</span>
@@ -443,100 +458,56 @@ const AttendancePage = () => {
                         <p className="text-gray-300 text-sm">Mood: {recognizedEmployee.mood}</p>
                       </div>
                     )}
-                    <p className="text-lg text-white font-medium mb-1">
-                      Analyzing face... ({countdown}s)
-                    </p>
-                    <p className="text-sm text-gray-400">
-                      Please keep your face in the frame
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="bg-grey-900 p-6 flex justify-center items-center">
-              {/* Scan Button */}
-              <button
-                onClick={handleScan}
-                disabled={isScanning || !modelsLoaded}
-                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Camera className="w-5 h-5" />
-                {isScanning ? "Scanning..." : "Scan Face"}
-              </button>
-            </div>
-          </div>
-
-          {/* Right Panel */}
-        <div className="flex flex-col h-full space-y-6">
-          {/* Recent Activity */}
-          <div className="bg-[#1b233c]/70 border border-white/10 rounded-2xl p-6 backdrop-blur-md h-64 flex flex-col">
-            <div className="flex items-center mb-4 gap-2">
-              <div className={`w-2 h-2 bg-green-500 rounded-full ${recentActivities.length > 0 ? 'blink' : ''}`}></div>
-              <h2 className="text-lg font-semibold text-white">
-                Recent Activity
-              </h2>
-            </div>
-            <div className="overflow-y-scroll custom-scrollbar h-full">
-              <div className="space-y-3">
-                {recentActivities.map((a, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between bg-[#222b4a]/60 hover:bg-[#2b3560]/60 transition rounded-xl px-4 py-3"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white">
-                        {a.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </div>
-                      <div>
-                        <p className="text-white font-medium text-sm">
-                          {a.name}
-                        </p>
-                        <p className="text-gray-400 text-xs">{a.action}</p>
-                        {a.mood && (
-                          <p className="text-gray-500 text-xs">Mood: {a.mood}</p>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-gray-400 text-xs">{a.time}</p>
-                  </div>
-                ))}
-                {recentActivities.length === 0 && (
-                  <div className="text-center text-gray-400 text-sm py-8">
-                    No recent activities yet
                   </div>
                 )}
               </div>
             </div>
+            <div className="p-4 md:p-6 text-center">
+              <button onClick={handleScan} className="bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-2 md:py-3 rounded-lg font-semibold transition-colors text-sm md:text-base">Simulate Face Recognition</button>
+            </div>
           </div>
 
-          {/* Instructions */}
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/20 p-6 flex-shrink-0">
+          <div className="w-full lg:w-96 flex flex-col gap-4 md:gap-6">
+            {/* Right Panel moved below on small screens */}
+          </div>
+        </div>
+
+        <div className="w-full lg:w-96 flex flex-col gap-4 md:gap-6">
+          <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
+            <h2 className="text-white text-lg font-semibold mb-4 flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              Recent Activity
+            </h2>
+
+            <div className="space-y-3 h-60 overflow-y-auto scrollbar-w-1 scrollbar-thumb-white/20 scrollbar-track-transparent">
+              {recentActivities.map((a, index) => (
+                <div key={index} className="bg-white/5 rounded-lg p-3 flex items-center gap-3 hover:bg-white/10 transition-colors">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    {a.name.split(" ").map((n) => n[0]).join("")}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{a.name}</p>
+                    <p className="text-slate-400 text-xs">{a.action}</p>
+                  </div>
+                  <div className="text-slate-300 text-xs">{a.time}</div>
+                </div>
+              ))}
+              {recentActivities.length === 0 && (
+                <div className="text-center text-gray-400 text-sm py-8">No recent activities yet</div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
             <h3 className="text-white text-lg font-semibold mb-4">Instructions</h3>
             <ul className="space-y-3 text-slate-300 text-sm">
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold">1.</span>
-                <span>Stand 2-3 feet away from the screen</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold">2.</span>
-                <span>Look directly at the camera</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold">3.</span>
-                <span>Wait for automatic recognition</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold">4.</span>
-                <span>Confirmation will appear on screen</span>
-              </li>
+              <li className="flex items-start gap-2"><span className="text-blue-400 font-bold">1.</span> Stand 2-3 feet away from the screen</li>
+              <li className="flex items-start gap-2"><span className="text-blue-400 font-bold">2.</span> Look directly at the camera</li>
+              <li className="flex items-start gap-2"><span className="text-blue-400 font-bold">3.</span> Wait for automatic recognition</li>
+              <li className="flex items-start gap-2"><span className="text-blue-400 font-bold">4.</span> Confirmation will appear on screen</li>
             </ul>
           </div>
         </div>
-        </div>
-
       </main>
       <Footer />
     </div>
