@@ -9,6 +9,7 @@ const PoliciesPage = () => {
   const [editingPolicy, setEditingPolicy] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [archiveConfirm, setArchiveConfirm] = useState(null);
+  const [copyConfirm, setCopyConfirm] = useState(null); // Added state for copy confirmation
   const [deleteError, setDeleteError] = useState(null);
   const [notification, setNotification] = useState({ show: false, type: 'success', message: '' });
   const [formData, setFormData] = useState({
@@ -209,7 +210,20 @@ const PoliciesPage = () => {
     }
   };
 
-  const handleCopy = async (policy) => {
+  // Changed handleCopy to only set copyConfirm state for showing confirmation modal
+  const handleCopy = (policy) => {
+    setCopyConfirm(policy);
+  };
+
+  // Added confirmCopy to perform the actual copy on user confirmation
+  const confirmCopy = async () => {
+    if (!copyConfirm) {
+      setNotification({ show: true, type: 'error', message: 'Invalid policy selected. Please try again.' });
+      setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
+      setCopyConfirm(null);
+      return;
+    }
+    const policy = copyConfirm;
     const copiedPolicyData = {
       name: `Copy of ${policy.name}`,
       effective_from: policy.effective_from,
@@ -235,10 +249,12 @@ const PoliciesPage = () => {
       setPolicies([...policies, newPolicy]);
       setNotification({ show: true, type: 'success', message: 'Policy copied successfully!' });
       setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 3000);
+      setCopyConfirm(null);
     } catch (error) {
       console.error('Failed to copy policy:', error);
       setNotification({ show: true, type: 'error', message: 'Failed to copy policy. Please try again.' });
       setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
+      setCopyConfirm(null);
     }
   };
 
@@ -338,13 +354,13 @@ const PoliciesPage = () => {
                   <Edit className="w-4 h-4" />
                   Edit
                 </button>
-                <button
-                  onClick={() => handleCopy(policy)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
-                  title="Copy"
-                >
-                  <Copy className="w-4 h-4" />
-                </button>
+      <button
+        onClick={() => handleCopy(policy)}
+        className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+        title="Copy"
+      >
+        <Copy className="w-4 h-4" />
+      </button>
                 <button
                   onClick={() => handleArchive(policy)}
                   className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
@@ -691,40 +707,73 @@ const PoliciesPage = () => {
           </div>
         )}
 
-        {/* Archive Confirmation Modal */}
-        {archiveConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-                    <Archive className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {archiveConfirm.status === 'active' ? 'Deactivate Policy' : 'Activate Policy'}
-                  </h2>
+      {/* Archive Confirmation Modal */}
+      {archiveConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Archive className="w-6 h-6 text-orange-600" />
                 </div>
-                <p className="text-gray-600 mb-6">
-                  Are you sure you want to {archiveConfirm.status === 'active' ? 'deactivate' : 'activate'} <strong>{archiveConfirm.name}</strong>?
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setArchiveConfirm(null)}
-                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmArchive}
-                    className="flex-1 px-4 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors"
-                  >
-                    {archiveConfirm.status === 'active' ? 'Deactivate' : 'Activate'}
-                  </button>
-                </div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {archiveConfirm.status === 'active' ? 'Deactivate Policy' : 'Activate Policy'}
+                </h2>
+              </div>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to {archiveConfirm.status === 'active' ? 'deactivate' : 'activate'} <strong>{archiveConfirm.name}</strong>?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setArchiveConfirm(null)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmArchive}
+                  className="flex-1 px-4 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors"
+                >
+                  {archiveConfirm.status === 'active' ? 'Deactivate' : 'Activate'}
+                </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Copy Confirmation Modal */}
+      {copyConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Copy className="w-6 h-6 text-blue-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">Copy Policy</h2>
+              </div>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to copy <strong>{copyConfirm.name}</strong>?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setCopyConfirm(null)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmCopy}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

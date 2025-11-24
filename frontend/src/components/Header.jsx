@@ -35,7 +35,7 @@ const Header = () => {
     { name: 'Attendance', href: '/reports', icon: Calendar },
   ];
 
-  // mobile nav (matches screenshot)
+  // mobile nav 
   const mobileNav = [
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
     { name: 'Policies', href: '/policies', icon: Settings },
