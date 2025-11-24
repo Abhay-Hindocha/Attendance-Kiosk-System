@@ -50,6 +50,17 @@ Before you begin, ensure you have the following installed:
 3. Allow camera access for face recognition.
 4. Follow on-screen instructions to check in/out.
 
+## Backend Base URL Configuration
+
+The frontend connects to the backend API using a base URL defined in the file `frontend/src/services/api.js`. To change the backend server URL, update the `API_BASE_URL` constant in that file.
+
+Example:
+```js
+const API_BASE_URL = 'http://localhost:8000/api';
+```
+
+Replace `'http://localhost:8000/api'` with your backend server URL as needed.
+
 ## Development
 
 To contribute to the frontend:
@@ -71,5 +82,4 @@ Key dependencies include:
 
 - If face recognition doesn't work, ensure camera permissions are granted.
 - Check browser console for errors.
-- Ensure the backend API is accessible.
 

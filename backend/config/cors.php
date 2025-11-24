@@ -25,6 +25,7 @@ return [
         'http://localhost:8000',
         'http://127.0.0.1:8000',
         'https://attendance-kiosk-system.vercel.app',
+        'https://kiosk-front.quriousclick.es',
     ],
 
     'allowed_origins_patterns' => [],
