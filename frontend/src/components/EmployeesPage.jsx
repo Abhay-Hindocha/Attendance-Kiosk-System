@@ -356,7 +356,7 @@ const EmployeesPage = () => {
               <div className="flex items-start justify-between mb-3">
                 <div className={`w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-lg font-bold`}>{getInitials(employee.name)}</div>
                 <div className="flex gap-1">
-                  <button onClick={() => openEditForm(employee)} class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pen text-gray-600"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg></button>
+<button onClick={() => openEditForm(employee)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pen text-gray-600"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg></button>
                   {/* <button  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><Edit className="w-4 h-4"/></button> */}
                   <button onClick={() => setDeleteConfirm(employee)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
                 </div>
@@ -494,19 +494,20 @@ const EmployeesPage = () => {
                     >
                       <option value="">Select a policy</option>
                       {policies.filter(p => p.status === 'active').map((p) => (
-                        <option key={p.id} value={p.id} selected={formData.policyId === p.id.toString()}>{p.name}</option>
+                        <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Join Date</label>
-                    <input
-                      type="date"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value="2021-07-20"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Join Date</label>
+                  <input
+                    type="date"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.joinDate}
+                    onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
+                  />
+                </div>
                 </div>
 
                 <div>
@@ -516,9 +517,9 @@ const EmployeesPage = () => {
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   >
-                    <option value="active" selected={formData.status === 'active'}>Active</option>
-                    <option value="inactive" selected={formData.status === 'inactive'}>Inactive</option>
-                    <option value="on_leave" selected={formData.status === 'on_leave'}>On Leave</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="on_leave">On Leave</option>
                   </select>
                 </div>
               </div>
