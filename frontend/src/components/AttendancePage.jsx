@@ -28,7 +28,7 @@ const updateNotifications = () => {
   }
 };
 
-const AttendancePage = () => {
+const AttendancePage = ({registerCleanup}) => {
   const navigate = useNavigate();
   const [isScanning, setIsScanning] = useState(false);
   const [status, setStatus] = useState("ready");
@@ -70,6 +70,16 @@ const AttendancePage = () => {
       }
     };
     loadModelsAndCamera();
+
+    // Register cleanup for route changes
+    if (registerCleanup) {
+      registerCleanup(() => {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+      });
+    }
 
     // Cleanup function to stop camera stream on unmount
     return () => {

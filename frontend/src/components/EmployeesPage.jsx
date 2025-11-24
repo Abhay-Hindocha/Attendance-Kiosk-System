@@ -7,7 +7,7 @@ import ApiService from '../services/api';
  * Employees Page with post-create "Employee Added" prompt and
  * a 3-step Face Enrollment Wizard that matches the provided screenshots.
  */
-const EmployeesPage = () => {
+const EmployeesPage = ({registerCleanup}) => {
   const [employees, setEmployees] = useState([]);
   const [policies, setPolicies] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,6 +75,17 @@ const EmployeesPage = () => {
       }
     };
     loadData();
+
+    // Register cleanup function on unmount or route change
+    if (registerCleanup) {
+      registerCleanup(() => {
+        stopVideo();
+      });
+    }
+
+    return () => {
+      stopVideo();
+    };
   }, []);
 
   // lazy model loader (call when opening the wizard)
