@@ -10,6 +10,14 @@ import ApiService from '../services/api';
 import Header from './Header';
 import Footer from './Footer';
 
+// Simple Loader component for loading spinner
+const Loader = () => (
+  <div className="flex items-center justify-center space-x-2">
+    <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" />
+    <span className="text-white text-lg font-medium">Loading...</span>
+  </div>
+);
+
 // Notification system for displaying real-time messages to the user
 const notifications = [];
 const notify = (text) => {
@@ -360,7 +368,9 @@ const AttendancePage = ({registerCleanup}) => {
               </div>
 
               <div className="flex-1 relative z-10 text-center px-4 flex items-center justify-center">
-                {status === "Attendance marked successfully!" && recognizedEmployee && markedTime ? (
+                {!modelsLoaded ? (
+                  <Loader />
+                ) : status === "Attendance marked successfully!" && recognizedEmployee && markedTime ? (
                   <div className="flex flex-col items-center justify-center space-y-6 mb-2">
                     <div className="flex flex-col items-center space-y-4">
                       <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
@@ -473,7 +483,13 @@ const AttendancePage = ({registerCleanup}) => {
               </div>
             </div>
             <div className="p-4 md:p-6 text-center">
-              <button onClick={handleScan} className="bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-2 md:py-3 rounded-lg font-semibold transition-colors text-sm md:text-base">Simulate Face Recognition</button>
+              <button
+                onClick={handleScan}
+                className={`bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-2 md:py-3 rounded-lg font-semibold transition-colors text-sm md:text-base ${
+                  !modelsLoaded ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                disabled={!modelsLoaded}
+              >Simulate Face Recognition</button>
             </div>
           </div>
 

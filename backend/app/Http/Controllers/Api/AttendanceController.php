@@ -869,103 +869,109 @@ class AttendanceController extends Controller
         return response()->json($earlyDepartures);
     }
 
-    public function markAttendance(Request $request)
-    {
-        $request->validate([
-            'employee_id' => 'required|string|exists:employees,employee_id',
-        ]);
+public function markAttendance(Request $request)
+{
+    $request->validate([
+        'employee_id' => 'required|string|exists:employees,employee_id',
+    ]);
 
-        $employee = Employee::with('policy')->where('employee_id', $request->employee_id)->first();
-        $today = Carbon::today()->toDateString();
-        $now = Carbon::now();
+    $employee = Employee::with('policy')->where('employee_id', $request->employee_id)->first();
 
-        // Check if attendance already exists for today
-        $existingAttendance = Attendance::where('employee_id', $employee->id)
-            ->where('date', $today)
-            ->first();
+    // Added check to disallow inactive employees to mark attendance
+    if ($employee->status !== 'active') {
+        return response()->json(['message' => 'Inactive employees are not allowed to mark attendance.'], 403);
+    }
 
-        if ($existingAttendance) {
-            // Increment scan count
-            $scanCount = $existingAttendance->scan_count + 1;
-            $scanTimes = $existingAttendance->scan_times ?? [];
-            $scanTimes[] = $now->toDateTimeString();
-            $existingAttendance->update(['scan_count' => $scanCount, 'scan_times' => $scanTimes]);
+    $today = Carbon::today()->toDateString();
+    $now = Carbon::now();
 
-            // Invalidate dashboard cache
-            \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+    // Check if attendance already exists for today
+    $existingAttendance = Attendance::where('employee_id', $employee->id)
+        ->where('date', $today)
+        ->first();
 
-            if ($scanCount == 2) {
-                // 2nd scan: Check-out
-                $existingAttendance->update(['check_out' => $now]);
-                // Calculate and update status using new logic
-                $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
-                $existingAttendance->update(['status' => $status]);
-
-                // Invalidate dashboard cache
-                \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
-
-                return response()->json([
-                    'message' => 'Check-out marked successfully',
-                    'attendance' => $existingAttendance->load('employee')
-                ]);
-            } elseif ($scanCount % 2 == 0) {
-                // Even scans >2: Check-out (initially)
-                $existingAttendance->update(['check_out' => $now]);
-                // Calculate and update status using new logic
-                $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
-                $existingAttendance->update(['status' => $status]);
-
-                // Invalidate dashboard cache
-                \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
-
-                return response()->json([
-                    'message' => 'Check-out marked successfully',
-                    'attendance' => $existingAttendance->load('employee')
-                ]);
-            } elseif ($scanCount % 2 == 1 && $scanCount > 2) {
-                // Odd scans >2: Break end, retroactively change previous even to break start
-                $existingAttendance->update(['check_out' => null]);
-                $breakStartIndex = $scanCount - 2;
-                $breakStartTime = Carbon::parse($scanTimes[$breakStartIndex]);
-                BreakRecord::create([
-                    'attendance_id' => $existingAttendance->id,
-                    'break_start' => $breakStartTime,
-                    'break_end' => $now,
-                ]);
-
-                // Invalidate dashboard cache
-                \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
-
-                return response()->json([
-                    'message' => 'Break end marked successfully',
-                    'attendance' => $existingAttendance->load('employee')
-                ]);
-            }
-        }
-
-        // Create new attendance record with check-in status
-        $attendance = Attendance::create([
-            'employee_id' => $employee->id,
-            'check_in' => $now,
-            'date' => $today,
-            'status' => 'present', // Default status at check-in
-            'scan_count' => 1,
-            'scan_times' => [$now->toDateTimeString()],
-        ]);
-
-        // Refresh and calculate proper status based on policy
-        $attendance->refresh();
-        $status = $this->attendanceLogic->calculateStatus($employee, $attendance);
-        $attendance->update(['status' => $status]);
+    if ($existingAttendance) {
+        // Increment scan count
+        $scanCount = $existingAttendance->scan_count + 1;
+        $scanTimes = $existingAttendance->scan_times ?? [];
+        $scanTimes[] = $now->toDateTimeString();
+        $existingAttendance->update(['scan_count' => $scanCount, 'scan_times' => $scanTimes]);
 
         // Invalidate dashboard cache
         \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
 
-        return response()->json([
-            'message' => 'Check-in marked successfully',
-            'attendance' => $attendance->load('employee')
-        ], 201);
+        if ($scanCount == 2) {
+            // 2nd scan: Check-out
+            $existingAttendance->update(['check_out' => $now]);
+            // Calculate and update status using new logic
+            $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
+            $existingAttendance->update(['status' => $status]);
+
+            // Invalidate dashboard cache
+            \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
+            return response()->json([
+                'message' => 'Check-out marked successfully',
+                'attendance' => $existingAttendance->load('employee')
+            ]);
+        } elseif ($scanCount % 2 == 0) {
+            // Even scans >2: Check-out (initially)
+            $existingAttendance->update(['check_out' => $now]);
+            // Calculate and update status using new logic
+            $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
+            $existingAttendance->update(['status' => $status]);
+
+            // Invalidate dashboard cache
+            \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
+            return response()->json([
+                'message' => 'Check-out marked successfully',
+                'attendance' => $existingAttendance->load('employee')
+            ]);
+        } elseif ($scanCount % 2 == 1 && $scanCount > 2) {
+            // Odd scans >2: Break end, retroactively change previous even to break start
+            $existingAttendance->update(['check_out' => null]);
+            $breakStartIndex = $scanCount - 2;
+            $breakStartTime = Carbon::parse($scanTimes[$breakStartIndex]);
+            BreakRecord::create([
+                'attendance_id' => $existingAttendance->id,
+                'break_start' => $breakStartTime,
+                'break_end' => $now,
+            ]);
+
+            // Invalidate dashboard cache
+            \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
+            return response()->json([
+                'message' => 'Break end marked successfully',
+                'attendance' => $existingAttendance->load('employee')
+            ]);
+        }
     }
+
+    // Create new attendance record with check-in status
+    $attendance = Attendance::create([
+        'employee_id' => $employee->id,
+        'check_in' => $now,
+        'date' => $today,
+        'status' => 'present', // Default status at check-in
+        'scan_count' => 1,
+        'scan_times' => [$now->toDateTimeString()],
+    ]);
+
+    // Refresh and calculate proper status based on policy
+    $attendance->refresh();
+    $status = $this->attendanceLogic->calculateStatus($employee, $attendance);
+    $attendance->update(['status' => $status]);
+
+    // Invalidate dashboard cache
+    \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
+    return response()->json([
+        'message' => 'Check-in marked successfully',
+        'attendance' => $attendance->load('employee')
+    ], 201);
+}
 
     public function getEmployeeMonthlyAttendance($employeeId, $year, $month)
     {
