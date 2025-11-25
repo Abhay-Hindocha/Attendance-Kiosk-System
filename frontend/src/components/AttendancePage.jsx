@@ -210,7 +210,7 @@ const AttendancePage = ({registerCleanup}) => {
             stopVideo();
 
             setRecognizedEmployee({ ...result, mood: dominantExpression });
-            setStatus("success");
+setStatus("Face recognized");
             notify(`Recognized ${result.employee_name} (ID: ${result.employee_id}) - Mood: ${dominantExpression}`);
 
             // Mark attendance
@@ -258,38 +258,97 @@ const AttendancePage = ({registerCleanup}) => {
                 setRecognizedEmployee(null);
                 setMarkedTime(null);
               }, 2000);
-            } catch (attendanceError) {
-              if (attendanceError.message && attendanceError.message.includes('already marked')) {
-                const now = new Date();
-                setMarkedTime(now);
-                setStatus("Attendance marked successfully!");
-                notify('Attendance already marked for today');
+} catch (attendanceError) {
+  console.log('Attendance marking error response:', attendanceError.response);
+  const response = attendanceError.response;
 
-                // Still add to recent activities for already marked
-                const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const newActivity = {
-                  name: result.employee_name,
-                  action: "Already Checked-In",
-                  time: timeString,
-                  employee_id: result.employee_id,
-                  mood: dominantExpression
-                };
-                setRecentActivities(prev => [newActivity, ...prev.slice(0, 9)]);
+  if (response && response.status === 403 && response.data && typeof response.data.message === 'string') {
+    const msg = response.data.message.toLowerCase();
+    if (msg.includes('inactive employee') || msg.includes('inactive employees') || (msg.includes('inactive') && msg.includes('not allowed'))) {
+      const now = new Date();
+      setMarkedTime(now);
+      setStatus("Inactive employees cannot mark attendance");
+      notify('Inactive employees cannot mark attendance');
 
-                // Reset to ready state after 2 seconds
-                setTimeout(() => {
-                  setStatus("ready");
-                  setRecognizedEmployee(null);
-                  setMarkedTime(null);
-                }, 2000);
-              } else {
-                console.error('Attendance marking error:', attendanceError);
-                setStatus("Face recognized but attendance marking failed");
-                notify('Face recognized but attendance marking failed');
-              }
-            } finally {
-              isMarkingAttendance = false;
-            }
+      // Reset to ready state after 2 seconds
+      setTimeout(() => {
+        setStatus("ready");
+        setRecognizedEmployee(null);
+        setMarkedTime(null);
+      }, 2000);
+    } else if (attendanceError.message && attendanceError.message.includes('already marked')) {
+      const now = new Date();
+      setMarkedTime(now);
+      setStatus("Attendance marked successfully!");
+      notify('Attendance already marked for today');
+
+      // Still add to recent activities for already marked
+      const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const newActivity = {
+        name: result.employee_name,
+        action: "Already Checked-In",
+        time: timeString,
+        employee_id: result.employee_id,
+        mood: dominantExpression
+      };
+      setRecentActivities(prev => [newActivity, ...prev.slice(0, 9)]);
+
+      // Reset to ready state after 2 seconds
+      setTimeout(() => {
+        setStatus("ready");
+        setRecognizedEmployee(null);
+        setMarkedTime(null);
+      }, 2000);
+    } else {
+      console.error('Attendance marking error:', attendanceError);
+      setStatus("Face recognized but attendance marking failed");
+      notify('Face recognized but attendance marking failed');
+
+      // Reset to ready state after 2 seconds for general errors
+      setTimeout(() => {
+        setStatus("ready");
+        setRecognizedEmployee(null);
+        setMarkedTime(null);
+      }, 2000);
+    }
+  } else if (attendanceError.message && attendanceError.message.includes('already marked')) {
+    const now = new Date();
+    setMarkedTime(now);
+    setStatus("Attendance marked successfully!");
+    notify('Attendance already marked for today');
+
+    // Still add to recent activities for already marked
+    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const newActivity = {
+      name: result.employee_name,
+      action: "Already Checked-In",
+      time: timeString,
+      employee_id: result.employee_id,
+      mood: dominantExpression
+    };
+    setRecentActivities(prev => [newActivity, ...prev.slice(0, 9)]);
+
+    // Reset to ready state after 2 seconds
+    setTimeout(() => {
+      setStatus("ready");
+      setRecognizedEmployee(null);
+      setMarkedTime(null);
+    }, 2000);
+  } else {
+    console.error('Attendance marking error:', attendanceError);
+    setStatus("Face recognized but attendance marking failed");
+    notify('Face recognized but attendance marking failed');
+
+    // Reset to ready state after 2 seconds for general errors
+    setTimeout(() => {
+      setStatus("ready");
+      setRecognizedEmployee(null);
+      setMarkedTime(null);
+    }, 2000);
+  }
+} finally {
+  isMarkingAttendance = false;
+}
           } else if (!result.match) {
             notify('Face detected but not recognized, trying again...');
           }
@@ -410,6 +469,19 @@ const AttendancePage = ({registerCleanup}) => {
                     <button className="px-6 py-3 bg-red-500 hover:bg-red-600 transition-colors text-white font-semibold rounded-full text-sm">
                       Try Again
                     </button>
+                  </div>
+                ) : status === "Inactive employees cannot mark attendance" ? (
+                  <div className="flex flex-col items-center justify-center space-y-6 mb-2">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center">
+                        <AlertCircle className="w-8 h-8 text-white" />
+                      </div>
+
+                      <div className="text-center space-y-1">
+                        <h2 className="text-white text-xl font-semibold">Attendance Denied</h2>
+                        <p className="text-gray-300 text-sm">Inactive employees are not allowed to mark attendance.</p>
+                      </div>
+                    </div>
                   </div>
                 ) : !isScanning ? (
                   <div className="flex flex-col items-center justify-center space-y-4 mb-4">
