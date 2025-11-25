@@ -2,7 +2,7 @@
 // It provides a centralized way to make API calls, handle authentication, and manage responses.
 // The service uses the Fetch API and includes automatic token handling and error management.
 
-const API_BASE_URL = import.meta.env.REACT_APP_API_BASE_URL; // Base URL for the Laravel backend API
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL; // Base URL for the Laravel backend API
 
 class ApiService {
   constructor() {
