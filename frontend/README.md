@@ -52,13 +52,17 @@ Before you begin, ensure you have the following installed:
 
 ## Backend Base URL Configuration
 
-The frontend connects to the backend API using a base URL defined in the file `frontend/src/services/api.js`. To change the backend server URL, update the `API_BASE_URL` constant in that file.
+The frontend connects to the backend API using a base URL defined in the file `frontend/src/services/api.js`. To change the backend server URL, update the `API_BASE_URL` constant in that file. 
 
 Example:
 ```js
 const API_BASE_URL = 'http://localhost:8000/api';
 ```
 
+Replace `'http://localhost:8000/api'` with your backend server URL as needed.
+
+or else now create a new .env file for the frontend with the variable 
+VITE_APP_API_BASE_URL=http://localhost:8000/api 
 Replace `'http://localhost:8000/api'` with your backend server URL as needed.
 
 ## Development
