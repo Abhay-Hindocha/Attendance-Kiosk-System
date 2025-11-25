@@ -77,9 +77,11 @@ class FaceController extends Controller
             }
         }
 
-        if ($bestMatch && $bestDistance <= $threshold) {
+        if ($bestMatch) {
+            $isApproximate = $bestDistance > $threshold; // True if above threshold meaning approximate match
             return response()->json([
-                'match' => true,
+                'match' => !$isApproximate,
+                'approximate_match' => $isApproximate,
                 'employee_id' => $bestMatch->employee->employee_id,
                 'employee_name' => $bestMatch->employee->name,
                 'distance' => $bestDistance

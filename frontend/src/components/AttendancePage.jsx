@@ -210,8 +210,8 @@ const AttendancePage = ({registerCleanup}) => {
             stopVideo();
 
             setRecognizedEmployee({ ...result, mood: dominantExpression });
-setStatus("Face recognized");
-            notify(`Recognized ${result.employee_name} (ID: ${result.employee_id}) - Mood: ${dominantExpression}`);
+            setStatus(result.approximate_match ? "Face approximately recognized" : "Face recognized");
+            notify(`${result.approximate_match ? 'Approximate match for' : 'Recognized'} ${result.employee_name} (ID: ${result.employee_id}) - Mood: ${dominantExpression}`);
 
             // Mark attendance
             try {
@@ -258,7 +258,7 @@ setStatus("Face recognized");
                 setRecognizedEmployee(null);
                 setMarkedTime(null);
               }, 2000);
-} catch (attendanceError) {
+            } catch (attendanceError) {
   console.log('Attendance marking error response:', attendanceError.response);
   const response = attendanceError.response;
 
