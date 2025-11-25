@@ -169,7 +169,9 @@ const EmployeesPage = ({registerCleanup}) => {
     try {
       if (editingEmployee) {
         const updatedEmployee = await ApiService.updateEmployee(editingEmployee.id, employeeData);
-        setEmployees(employees.map(emp => emp.id === editingEmployee.id ? { id: editingEmployee.id, ...employeeData } : emp));
+        // Re-fetch employees list after update to refresh page data
+        const refreshedEmployees = await ApiService.getEmployees(); 
+        setEmployees(refreshedEmployees);
         setUpdatedEmployee(updatedEmployee);
         setShowUpdatedModal(true);
         closeForm();
