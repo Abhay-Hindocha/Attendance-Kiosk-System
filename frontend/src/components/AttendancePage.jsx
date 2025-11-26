@@ -477,8 +477,8 @@ const AttendancePage = ({ registerCleanup }) => {
                   markedTime ? (
                   <div className="flex flex-col items-center justify-center space-y-6 mb-2">
                     <div className="flex flex-col items-center space-y-4">
-                      <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
-                        <CheckCircle className="w-8 h-8 text-white" />
+                      <div className="w-16 h-16 rounded-full flex items-center justify-center">
+                        <CheckCircle className="w-12 h-12 text-green-500" />
                       </div>
 
                       <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -512,8 +512,8 @@ const AttendancePage = ({ registerCleanup }) => {
                 ) : status === "Face not recognized" ? (
                   <div className="flex flex-col items-center justify-center space-y-6 mb-2">
                     <div className="flex flex-col items-center space-y-4">
-                      <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center">
-                        <XCircle className="w-8 h-8 text-white" />
+                      <div className="w-16 h-16 rounded-full flex items-center justify-center">
+                        <XCircle className="w-14 h-14 text-red-500" />
                       </div>
 
                       <div className="text-center space-y-1">
