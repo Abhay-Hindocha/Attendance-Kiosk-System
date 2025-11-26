@@ -193,7 +193,8 @@ const AttendancePage = ({registerCleanup}) => {
           const expressions = detection.expressions;
           const dominantExpression = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
           notify('Recognizing face...');
-          const result = await ApiService.recognizeFace(descriptor, 0.6); // Lower threshold for better matching
+          // Lower threshold to 0.4 for stricter matching, aligned with backend default
+const result = await ApiService.recognizeFace(descriptor, 0.4);
 
           if (result.match && !attendanceMarked && !isMarkingAttendance) {
             recognitionAttempted = true;
@@ -210,8 +211,8 @@ const AttendancePage = ({registerCleanup}) => {
             stopVideo();
 
             setRecognizedEmployee({ ...result, mood: dominantExpression });
-            setStatus(result.approximate_match ? "Face approximately recognized" : "Face recognized");
-            notify(`${result.approximate_match ? 'Approximate match for' : 'Recognized'} ${result.employee_name} (ID: ${result.employee_id}) - Mood: ${dominantExpression}`);
+            setStatus("Face recognized");
+            notify(`Recognized ${result.employee_name} (ID: ${result.employee_id}) - Mood: ${dominantExpression}`);
 
             // Mark attendance
             try {
@@ -518,9 +519,7 @@ const AttendancePage = ({registerCleanup}) => {
                         ref={canvasRef}
                         className="
                           absolute
-                          top-16
-                          inset-x-0
-                          bottom-0
+                          inset-0
                           w-full
                           max-w-[280px]
                           sm:max-w-[320px]

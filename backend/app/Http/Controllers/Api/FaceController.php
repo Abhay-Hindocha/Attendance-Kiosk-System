@@ -51,7 +51,7 @@ class FaceController extends Controller
         ], 201);
     }
 
-    public function recognize(Request $request)
+public function recognize(Request $request)
     {
         $request->validate([
             'descriptor' => 'required|array',
@@ -59,7 +59,7 @@ class FaceController extends Controller
         ]);
 
         $descriptor = $request->descriptor;
-        $threshold = $request->threshold ?? 0.6;
+        $threshold = $request->threshold ?? 0.4;
 
         $faces = Face::with('employee')->get();
 
@@ -70,6 +70,10 @@ class FaceController extends Controller
             // Compare against all stored descriptors for this face
             foreach ($face->descriptors as $storedDescriptor) {
                 $distance = $this->euclideanDistance($descriptor, $storedDescriptor);
+
+                // Logging each comparison for debug
+                \Log::info("Comparing with face for employee ID {$face->employee_id}, distance: {$distance}");
+
                 if ($distance < $bestDistance) {
                     $bestDistance = $distance;
                     $bestMatch = $face;
@@ -78,14 +82,25 @@ class FaceController extends Controller
         }
 
         if ($bestMatch) {
-            $isApproximate = $bestDistance > $threshold; // True if above threshold meaning approximate match
-            return response()->json([
-                'match' => !$isApproximate,
-                'approximate_match' => $isApproximate,
-                'employee_id' => $bestMatch->employee->employee_id,
-                'employee_name' => $bestMatch->employee->name,
-                'distance' => $bestDistance
-            ]);
+            // Removed approximate logic, only check for threshold for match or no match
+
+            \Log::info("Best match employee ID: {$bestMatch->employee_id}, distance: {$bestDistance}, threshold: {$threshold}, face enrolled: " . ($bestMatch->employee->face_enrolled ? 'true' : 'false'));
+
+            // Only proceed if distance is less than or equal to threshold
+            if ($bestDistance <= $threshold && $bestMatch->employee->face_enrolled) {
+                return response()->json([
+                    'match' => true,
+                    'employee_id' => $bestMatch->employee->employee_id,
+                    'employee_name' => $bestMatch->employee->name,
+                    'distance' => $bestDistance
+                ]);
+            } else {
+                // Not matched or face not enrolled
+                return response()->json([
+                    'match' => false,
+                    'distance' => $bestDistance
+                ]);
+            }
         }
 
         return response()->json([
