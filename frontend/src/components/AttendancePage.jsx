@@ -10,6 +10,39 @@ import ApiService from "../services/api";
 import Header from "./Header";
 import Footer from "./Footer";
 
+// Helper to format time with AM/PM
+const formatTime = (date) =>
+  date.toLocaleString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+// Try to normalize any kind of time value coming from backend into AM/PM string
+const normalizeActivityTime = (activity) => {
+  // Guess possible fields where time/date might be stored
+  const possible =
+    activity.time ||
+    activity.timestamp ||
+    activity.created_at ||
+    activity.createdAt ||
+    activity.date;
+
+  if (!possible) return activity;
+
+  const parsed = new Date(possible);
+
+  if (isNaN(parsed.getTime())) {
+    // If it's not a valid Date, keep original
+    return activity;
+  }
+
+  return {
+    ...activity,
+    time: formatTime(parsed),
+  };
+};
+
 // Simple Loader component for loading spinner
 const Loader = () => (
   <div className="flex items-center justify-center space-x-2">
@@ -22,7 +55,7 @@ const Loader = () => (
 const notifications = [];
 const notify = (text) => {
   const el = document.createElement("div");
-  el.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
+  el.innerText = `[${formatTime(new Date())}] ${text}`;
   notifications.unshift(el);
   if (notifications.length > 10) notifications.pop(); // Keep only last 10 notifications
   updateNotifications();
@@ -81,8 +114,11 @@ const AttendancePage = ({ registerCleanup }) => {
     const fetchLiveActivity = async () => {
       try {
         const activities = await ApiService.getLiveActivity();
-        // Reverse to show latest first, matching the UI behavior
-        setRecentActivities(activities.reverse());
+        // Reverse to show latest first, then normalize time to AM/PM
+        const normalized = activities
+          .reverse()
+          .map((a) => normalizeActivityTime(a));
+        setRecentActivities(normalized);
       } catch (error) {
         console.error("Failed to fetch live activity:", error);
       }
@@ -268,10 +304,8 @@ const AttendancePage = ({ registerCleanup }) => {
               setCurrentAction(action);
 
               // Add to recent activities
-              const timeString = now.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
+              const timeString = formatTime(now);
+
               const newActivity = {
                 name: result.employee_name,
                 action: action,
@@ -324,10 +358,7 @@ const AttendancePage = ({ registerCleanup }) => {
                   notify("Attendance already marked for today");
 
                   // Still add to recent activities for already marked
-                  const timeString = now.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+                  const timeString = formatTime(now);
                   const newActivity = {
                     name: result.employee_name,
                     action: "Already Checked-In",
@@ -365,10 +396,7 @@ const AttendancePage = ({ registerCleanup }) => {
                 notify("Attendance already marked for today");
 
                 // Still add to recent activities for already marked
-                const timeString = now.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
+                const timeString = formatTime(now);
                 const newActivity = {
                   name: result.employee_name,
                   action: "Already Checked-In",
@@ -447,7 +475,7 @@ const AttendancePage = ({ registerCleanup }) => {
             border-radius: 1px;
           }
           .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
+            background: transparent.
           }
           .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.25);
@@ -674,7 +702,7 @@ const AttendancePage = ({ registerCleanup }) => {
               Recent Activity
             </h2>
 
-            <div className="space-y-3 h-60 overflow-y-auto scrollbar-w-1 scrollbar-thumb-white/20 scrollbar-track-transparent">
+          <div className="space-y-3 h-60 overflow-y-auto scrollbar-w-1 scrollbar-thumb-white/20 scrollbar-track-transparent">
               {recentActivities.map((a, index) => (
                 <div
                   key={index}
@@ -690,7 +718,9 @@ const AttendancePage = ({ registerCleanup }) => {
                     <p className="text-white text-sm font-medium truncate">{a.name}</p>
                     <p className="text-slate-400 text-xs">{a.action}</p>
                   </div>
-                  <div className="text-slate-300 text-xs">{a.time}</div>
+                  <div className="text-slate-300 text-xs">
+                    {a.time}
+                  </div>
                 </div>
               ))}
               {recentActivities.length === 0 && (
