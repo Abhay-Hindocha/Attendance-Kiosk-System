@@ -9,7 +9,8 @@ import ApiService from '../services/api';
  */
 const EmployeesPage = ({registerCleanup}) => {
   const [employees, setEmployees] = useState([]);
-  const [policies, setPolicies] = useState([]);
+  const [attendancePolicies, setAttendancePolicies] = useState([]);
+  const [leavePolicies, setLeavePolicies] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
@@ -23,7 +24,9 @@ const EmployeesPage = ({registerCleanup}) => {
     designation: '',
     policyId: '',
     joinDate: '',
-    status: 'active'
+    status: 'active',
+    leavePolicyIds: [],
+    password: '',
   });
   const [errors, setErrors] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -62,12 +65,14 @@ const EmployeesPage = ({registerCleanup}) => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [employeesData, policiesData] = await Promise.all([
+        const [employeesData, attendancePoliciesData, leavePoliciesData] = await Promise.all([
           ApiService.getEmployees(),
-          ApiService.getPolicies()
+          ApiService.getPolicies(),
+          ApiService.getLeavePolicies(),
         ]);
         setEmployees(employeesData);
-        setPolicies(policiesData);
+        setAttendancePolicies(attendancePoliciesData);
+        setLeavePolicies(leavePoliciesData);
       } catch (error) {
         console.error('Failed to load data:', error);
       } finally {
@@ -113,7 +118,20 @@ const EmployeesPage = ({registerCleanup}) => {
   const getAvatarColor = () => 'bg-gradient-to-br from-blue-500 to-purple-500';
 
   const resetForm = () => {
-    setFormData({ firstName:'', lastName:'', employeeId:'', email:'', phone:'', department:'', designation:'', policyId:'', joinDate:'', status:'active' });
+    setFormData({
+      firstName: '',
+      lastName: '',
+      employeeId: '',
+      email: '',
+      phone: '',
+      department: '',
+      designation: '',
+      policyId: '',
+      joinDate: '',
+      status: 'active',
+      leavePolicyIds: [],
+      password: '',
+    });
     setErrors({});
     setEditingEmployee(null);
   };
@@ -131,7 +149,9 @@ const EmployeesPage = ({registerCleanup}) => {
       designation: employee.designation,
       policyId: employee.policy ? employee.policy.id.toString() : '',
       joinDate: employee.join_date,
-      status: employee.status || 'active'
+      status: employee.status || 'active',
+      leavePolicyIds: (employee.leave_policies || []).map((lp) => lp.id.toString()),
+      password: '',
     });
     setEditingEmployee(employee); setShowForm(true);
   };
@@ -164,8 +184,12 @@ const EmployeesPage = ({registerCleanup}) => {
       join_date: formData.joinDate,
       status: formData.status,
       face_enrolled: editingEmployee ? editingEmployee.face_enrolled : false,
-      policy_id: parseInt(formData.policyId)
+      policy_id: parseInt(formData.policyId, 10),
+      leave_policy_ids: formData.leavePolicyIds.map((id) => parseInt(id, 10)),
     };
+    if (formData.password.trim()) {
+      employeeData.password = formData.password.trim();
+    }
     try {
       if (editingEmployee) {
         const updatedEmployee = await ApiService.updateEmployee(editingEmployee.id, employeeData);
@@ -187,6 +211,16 @@ const EmployeesPage = ({registerCleanup}) => {
       console.error('Failed to save employee:', error);
       alert('Failed to save employee. Please try again.');
     }
+  };
+
+  const handleLeavePolicyToggle = (policyId) => {
+    setFormData((prev) => {
+      const exists = prev.leavePolicyIds.includes(policyId);
+      const updated = exists
+        ? prev.leavePolicyIds.filter((id) => id !== policyId)
+        : [...prev.leavePolicyIds, policyId];
+      return { ...prev, leavePolicyIds: updated };
+    });
   };
 
   const handleDelete = (employee) => setDeleteConfirm(employee);
@@ -506,34 +540,90 @@ const EmployeesPage = ({registerCleanup}) => {
                       onChange={(e) => setFormData({ ...formData, policyId: e.target.value })}
                     >
                       <option value="">Select a policy</option>
-                      {policies.filter(p => p.status === 'active').map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
+                      {attendancePolicies
+                        .filter((p) => p.status === 'active')
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
                     </select>
                   </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Join Date</label>
-                  <input
-                    type="date"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={formData.joinDate}
-                    onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
-                  />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Join Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={formData.joinDate}
+                      onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="on_leave">On Leave</option>
-                  </select>
+                <div className="border border-dashed border-gray-300 rounded-xl p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">Leave Policies</p>
+                      <p className="text-xs text-gray-500">Select the leave types this employee can access.</p>
+                    </div>
+                    <span className="text-xs text-gray-500">{formData.leavePolicyIds.length} selected</span>
+                  </div>
+                  {leavePolicies.length === 0 ? (
+                    <p className="text-xs text-gray-500">No leave policies found. Create leave policies first.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {leavePolicies.map((policy) => {
+                        const isSelected = formData.leavePolicyIds.includes(policy.id.toString());
+                        return (
+                          <label
+                            key={policy.id}
+                            className={`px-3 py-2 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-blue-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="hidden"
+                              checked={isSelected}
+                              onChange={() => handleLeavePolicyToggle(policy.id.toString())}
+                            />
+                            {policy.name} · {policy.yearly_quota} days
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="on_leave">On Leave</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Portal Password (optional)</label>
+                    <input
+                      type="password"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={editingEmployee ? 'Leave blank to keep current password' : 'Set initial password'}
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Employees use this password to access their portal.
+                    </p>
+                  </div>
                 </div>
               </div>
 

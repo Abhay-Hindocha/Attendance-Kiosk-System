@@ -14,14 +14,17 @@ class ApiService {
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`; // Construct the full URL
     const token = localStorage.getItem('authToken'); // Get auth token from local storage
+    const { headers: extraHeaders = {}, ...restOptions } = options;
+    const isFormData = restOptions.body instanceof FormData;
+
     const config = {
       headers: {
-        'Content-Type': 'application/json', // Default content type
-        'Accept': 'application/json',       // Expect JSON responses
-        ...(token && { 'Authorization': `Bearer ${token}` }), // Add auth header if token exists
-        ...options.headers, // Allow overriding headers
+        'Accept': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
+        ...extraHeaders,
       },
-      ...options, // Include other options like method, body, etc.
+      ...restOptions,
     };
 
     try {
@@ -63,11 +66,13 @@ class ApiService {
   }
 
   async post(endpoint, data, options = {}) {
-    return this.request(endpoint, { method: 'POST', body: JSON.stringify(data), ...options });
+    const body = data instanceof FormData ? data : JSON.stringify(data);
+    return this.request(endpoint, { method: 'POST', body, ...options });
   }
 
   async put(endpoint, data, options = {}) {
-    return this.request(endpoint, { method: 'PUT', body: JSON.stringify(data), ...options });
+    const body = data instanceof FormData ? data : JSON.stringify(data);
+    return this.request(endpoint, { method: 'PUT', body, ...options });
   }
 
   async delete(endpoint, options = {}) {
@@ -154,6 +159,121 @@ class ApiService {
   async togglePolicyStatus(id) {
     return this.request(`/policies/${id}/toggle-status`, {
       method: 'PATCH',
+    });
+  }
+
+  // Leave policy endpoints
+  async getLeavePolicies(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = queryString ? `/leave-policies?${queryString}` : '/leave-policies';
+    return this.request(endpoint);
+  }
+
+  async createLeavePolicy(payload) {
+    return this.request('/leave-policies', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateLeavePolicy(id, payload) {
+    return this.request(`/leave-policies/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async copyLeavePolicy(id) {
+    return this.request(`/leave-policies/${id}/copy`, {
+      method: 'POST',
+    });
+  }
+
+  async toggleLeavePolicyStatus(id) {
+    return this.request(`/leave-policies/${id}/toggle-status`, {
+      method: 'PATCH',
+    });
+  }
+
+  async deleteLeavePolicy(id) {
+    return this.request(`/leave-policies/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Leave assignments
+  async getEmployeeLeavePolicies(employeeId) {
+    return this.request(`/employees/${employeeId}/leave-policies`);
+  }
+
+  async assignLeavePolicies(employeeId, policyIds) {
+    return this.request(`/employees/${employeeId}/leave-policies`, {
+      method: 'POST',
+      body: JSON.stringify({ policy_ids: policyIds }),
+    });
+  }
+
+  async detachLeavePolicy(employeeId, policyId) {
+    return this.request(`/employees/${employeeId}/leave-policies/${policyId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Leave requests
+  async getLeaveRequests(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = queryString ? `/leave/requests?${queryString}` : '/leave/requests';
+    return this.request(endpoint);
+  }
+
+  async getLeaveRequest(id) {
+    return this.request(`/leave/requests/${id}`);
+  }
+
+  async getLeaveApprovals(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = queryString ? `/leave/approvals?${queryString}` : '/leave/approvals';
+    return this.request(endpoint);
+  }
+
+  async createLeaveRequest(formData) {
+    return this.request('/leave/requests', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  async cancelLeaveRequest(id) {
+    return this.request(`/leave/requests/${id}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  async approveLeaveRequest(id, payload = {}) {
+    return this.request(`/leave/requests/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async rejectLeaveRequest(id, payload = {}) {
+    return this.request(`/leave/requests/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async requestLeaveClarification(id, payload) {
+    return this.request(`/leave/requests/${id}/clarify`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async overwriteLeaveRequestDates(id, payload) {
+    return this.request(`/leave/requests/${id}/overwrite-dates`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   }
 

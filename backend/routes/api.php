@@ -8,15 +8,26 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\EmployeeController; // Controller for employee CRUD operations
 use App\Http\Controllers\Api\PolicyController;   // Controller for attendance policy management
+use App\Http\Controllers\Api\LeavePolicyController;
+use App\Http\Controllers\Api\LeaveAssignmentController;
+use App\Http\Controllers\Api\LeaveRequestController;
+use App\Http\Controllers\Api\LeaveApprovalController;
 use App\Http\Controllers\Api\AttendanceController; // Controller for attendance records and statistics
 use App\Http\Controllers\Api\FaceController;     // Controller for face recognition features
 use App\Http\Controllers\Api\AuthController;     // Controller for authentication (login/logout)
+use App\Http\Controllers\Api\EmployeeAuthController;
+use App\Http\Controllers\Api\EmployeePortalController;
 
 
 // Authentication routes - These handle user login and session management
 Route::post('/login', [AuthController::class, 'login']); // Endpoint for user login
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum'); // Endpoint for user logout (requires authentication)
 Route::get('/user', [AuthController::class, 'user'])->middleware('auth:sanctum'); // Get current authenticated user info
+
+// Employee portal auth
+Route::post('employee/login', [EmployeeAuthController::class, 'login']);
+Route::post('employee/password/otp', [EmployeeAuthController::class, 'requestPasswordOtp']);
+Route::post('employee/password/reset', [EmployeeAuthController::class, 'resetPassword']);
 
 // Public routes - These don't require authentication and are used by the attendance kiosk
 Route::post('faces/recognize', [FaceController::class, 'recognize']); // Recognize faces for attendance (used by kiosk)
@@ -29,8 +40,30 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('employees', EmployeeController::class); // Standard RESTful routes for employees (index, store, show, update, destroy)
 
     // Policy routes - CRUD operations for managing attendance policies
-Route::apiResource('policies', PolicyController::class);
-Route::patch('policies/{policy}/toggle-status', [PolicyController::class, 'toggleStatus']);
+    Route::apiResource('policies', PolicyController::class);
+    Route::patch('policies/{policy}/toggle-status', [PolicyController::class, 'toggleStatus']);
+
+    // Leave policies & assignments
+    Route::apiResource('leave-policies', LeavePolicyController::class);
+    Route::post('leave-policies/{leave_policy}/copy', [LeavePolicyController::class, 'copy']);
+    Route::patch('leave-policies/{leave_policy}/toggle-status', [LeavePolicyController::class, 'toggleStatus']);
+
+    Route::get('employees/{employee}/leave-policies', [LeaveAssignmentController::class, 'index']);
+    Route::post('employees/{employee}/leave-policies', [LeaveAssignmentController::class, 'store']);
+    Route::delete('employees/{employee}/leave-policies/{leave_policy}', [LeaveAssignmentController::class, 'destroy']);
+
+    // Employee leave requests
+    Route::get('leave/requests', [LeaveRequestController::class, 'index']);
+    Route::post('leave/requests', [LeaveRequestController::class, 'store']);
+    Route::get('leave/requests/{leave_request}', [LeaveRequestController::class, 'show']);
+    Route::post('leave/requests/{leave_request}/cancel', [LeaveRequestController::class, 'cancel']);
+
+    // Admin approvals
+    Route::get('leave/approvals', [LeaveApprovalController::class, 'index']);
+    Route::post('leave/requests/{leave_request}/approve', [LeaveApprovalController::class, 'approve']);
+    Route::post('leave/requests/{leave_request}/reject', [LeaveApprovalController::class, 'reject']);
+    Route::post('leave/requests/{leave_request}/clarify', [LeaveApprovalController::class, 'requestClarification']);
+    Route::post('leave/requests/{leave_request}/overwrite-dates', [LeaveApprovalController::class, 'overwriteDates']);
 
 
 
@@ -55,4 +88,14 @@ Route::patch('policies/{policy}/toggle-status', [PolicyController::class, 'toggl
     // Face recognition routes - Enrollment and unenrollment require authentication
     Route::post('faces/enroll', [FaceController::class, 'enroll']); // Enroll a new face for recognition
     Route::post('faces/unenroll', [FaceController::class, 'unenroll']); // Remove a face from recognition system
+
+    // Employee portal protected routes
+    Route::post('employee/logout', [EmployeeAuthController::class, 'logout']);
+    Route::get('employee/profile', [EmployeeAuthController::class, 'profile']);
+
+    Route::prefix('employee/portal')->group(function () {
+        Route::get('dashboard', [EmployeePortalController::class, 'dashboard']);
+        Route::get('leave-balances', [EmployeePortalController::class, 'leaveBalances']);
+        Route::get('attendance', [EmployeePortalController::class, 'attendanceReport']);
+    });
 });

@@ -5,17 +5,18 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class EmployeeController extends Controller
 {
     public function index()
     {
-        return response()->json(Employee::with('policy')->get());
+        return response()->json(Employee::with(['policy', 'leavePolicies'])->get());
     }
 
     public function store(Request $request)
     {
-        $request->validate([
+        $data = $request->validate([
             'employee_id' => 'required|string|unique:employees',
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:employees',
@@ -26,20 +27,38 @@ class EmployeeController extends Controller
             'face_enrolled' => 'boolean',
             'policy_id' => 'required|exists:policies,id',
             'status' => 'required|in:active,inactive,on_leave',
+            'leave_reason' => 'nullable|string',
+            'password' => 'nullable|string|min:6',
+            'leave_policy_ids' => 'nullable|array',
+            'leave_policy_ids.*' => 'integer|exists:leave_policies,id',
         ]);
 
-        $employee = Employee::create($request->all());
-        return response()->json($employee->load('policy'), 201);
+        if (!empty($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        }
+
+        $leavePolicyIds = collect($request->input('leave_policy_ids', []))
+            ->filter()
+            ->unique()
+            ->toArray();
+
+        $employee = Employee::create($data);
+
+        if (!empty($leavePolicyIds)) {
+            $employee->leavePolicies()->syncWithPivotValues($leavePolicyIds, ['assigned_at' => now()]);
+        }
+
+        return response()->json($employee->load(['policy', 'leavePolicies']), 201);
     }
 
     public function show(Employee $employee)
     {
-        return response()->json($employee->load('policy'));
+        return response()->json($employee->load(['policy', 'leavePolicies']));
     }
 
     public function update(Request $request, Employee $employee)
     {
-        $request->validate([
+        $data = $request->validate([
             'employee_id' => 'required|string|unique:employees,employee_id,' . $employee->id,
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:employees,email,' . $employee->id,
@@ -50,10 +69,30 @@ class EmployeeController extends Controller
             'face_enrolled' => 'boolean',
             'policy_id' => 'required|exists:policies,id',
             'status' => 'required|in:active,inactive,on_leave',
+            'leave_reason' => 'nullable|string',
+            'password' => 'nullable|string|min:6',
+            'leave_policy_ids' => 'nullable|array',
+            'leave_policy_ids.*' => 'integer|exists:leave_policies,id',
         ]);
 
-        $employee->update($request->all());
-        return response()->json($employee->load('policy'));
+        if (!empty($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        } else {
+            unset($data['password']);
+        }
+
+        $leavePolicyIds = collect($request->input('leave_policy_ids', []))
+            ->filter()
+            ->unique()
+            ->toArray();
+
+        $employee->update($data);
+
+        if ($request->has('leave_policy_ids')) {
+            $employee->leavePolicies()->syncWithPivotValues($leavePolicyIds, ['assigned_at' => now()]);
+        }
+
+        return response()->json($employee->load(['policy', 'leavePolicies']));
     }
 
     public function destroy(Employee $employee)

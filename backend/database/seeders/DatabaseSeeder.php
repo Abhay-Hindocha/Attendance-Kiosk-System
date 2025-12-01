@@ -25,7 +25,11 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // Seed holidays
-        $this->call(HolidaySeeder::class);
+        // Seed base configuration
+        $this->call([
+            PolicySeeder::class,
+            LeavePolicySeeder::class,
+            HolidaySeeder::class,
+        ]);
     }
 }

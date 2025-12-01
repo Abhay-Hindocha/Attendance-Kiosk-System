@@ -6,11 +6,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Employee extends Model
+class Employee extends Authenticatable
 {
-    use HasFactory; // Enables the use of model factories for testing and seeding
+    use HasApiTokens, HasFactory, Notifiable;
 
     // These are the fields that can be mass-assigned when creating or updating an employee
     // Mass assignment allows setting multiple attributes at once for convenience and security
@@ -25,7 +27,21 @@ class Employee extends Model
         'face_enrolled',  // Boolean flag indicating if face recognition is set up
         'policy_id',      // Foreign key linking to the attendance policy
         'status',         // Current status (active, inactive, on_leave, etc.)
-        'leave_reason'    // Reason for leave when status is on_leave
+        'leave_reason',   // Reason for leave when status is on_leave
+        'password',
+        'portal_role',
+        'last_login_at',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected $casts = [
+        'join_date' => 'date',
+        'face_enrolled' => 'boolean',
+        'last_login_at' => 'datetime',
     ];
 
     // Relationship: An employee belongs to one policy
@@ -33,6 +49,23 @@ class Employee extends Model
     public function policy()
     {
         return $this->belongsTo(Policy::class);
+    }
+
+    public function leavePolicies()
+    {
+        return $this->belongsToMany(LeavePolicy::class, 'leave_policy_assignments')
+            ->withTimestamps()
+            ->withPivot('assigned_at');
+    }
+
+    public function leaveBalances()
+    {
+        return $this->hasMany(LeaveBalance::class);
+    }
+
+    public function leaveRequests()
+    {
+        return $this->hasMany(LeaveRequest::class);
     }
 
     // Relationship: An employee can have many attendance records

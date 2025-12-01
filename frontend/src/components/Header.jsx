@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Menu, X, Camera, LayoutDashboard, FileText, Calendar, BarChart3, Settings, Clock, Users, Lock, LogOut, Wifi, WifiOff
+  Menu, X, Camera, LayoutDashboard, FileText, Calendar, BarChart3, Settings, Clock, Users, Lock, LogOut, Wifi, WifiOff, ClipboardCheck
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -30,15 +30,19 @@ const Header = () => {
   // desktop nav
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Policies', href: '/policies', icon: FileText },
+    { name: 'Attendance Policies', href: '/policies', icon: FileText },
+    { name: 'Leave Policies', href: '/leave/policies', icon: Calendar },
+    { name: 'Leave Approvals', href: '/leave/approvals', icon: ClipboardCheck },
     { name: 'Employees', href: '/employees', icon: Users },
-    { name: 'Attendance', href: '/reports', icon: Calendar },
+    { name: 'Reports', href: '/reports', icon: BarChart3 },
   ];
 
   // mobile nav 
   const mobileNav = [
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
-    { name: 'Policies', href: '/policies', icon: Settings },
+    { name: 'Attendance Policies', href: '/policies', icon: Settings },
+    { name: 'Leave Policies', href: '/leave/policies', icon: Calendar },
+    { name: 'Leave Approvals', href: '/leave/approvals', icon: ClipboardCheck },
     { name: 'Employees', href: '/employees', icon: Users },
     { name: 'Reports', href: '/reports', icon: BarChart3 }, // fixed route
   ];
