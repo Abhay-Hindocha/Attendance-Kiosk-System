@@ -77,7 +77,19 @@ const AttendancePage = ({ registerCleanup }) => {
         notify("Failed to load face recognition models");
       }
     };
+
+    const fetchLiveActivity = async () => {
+      try {
+        const activities = await ApiService.getLiveActivity();
+        // Reverse to show latest first, matching the UI behavior
+        setRecentActivities(activities.reverse());
+      } catch (error) {
+        console.error("Failed to fetch live activity:", error);
+      }
+    };
+
     loadModelsAndCamera();
+    fetchLiveActivity();
 
     // Register cleanup for route changes
     if (registerCleanup) {

@@ -21,6 +21,7 @@ Route::get('/user', [AuthController::class, 'user'])->middleware('auth:sanctum')
 // Public routes - These don't require authentication and are used by the attendance kiosk
 Route::post('faces/recognize', [FaceController::class, 'recognize']); // Recognize faces for attendance (used by kiosk)
 Route::post('attendances/mark', [AttendanceController::class, 'markAttendance']); // Mark attendance (check in/out) - public for kiosk use
+Route::get('attendance/live', [AttendanceController::class, 'getLiveActivity']); // Get live attendance activity - public for kiosk
 
 // Protected routes - These require authentication and are used by admin users for management
 Route::middleware('auth:sanctum')->group(function () {

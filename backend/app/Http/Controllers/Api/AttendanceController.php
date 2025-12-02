@@ -351,7 +351,9 @@ class AttendanceController extends Controller
                     'time' => Carbon::parse($attendance->check_in)->format('H:i'),
                     'date' => Carbon::parse($attendance->check_in)->format('M d'),
                     'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
-                    'badgeColor' => 'bg-blue-500'
+                    'badgeColor' => 'bg-blue-500',
+                    'employee_id' => $attendance->employee->employee_id,
+                    'mood' => 'neutral' // Default mood since not stored
                 ];
             }
 
