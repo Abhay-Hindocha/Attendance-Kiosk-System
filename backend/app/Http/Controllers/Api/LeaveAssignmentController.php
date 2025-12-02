@@ -6,65 +6,58 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeavePolicy;
+use App\Services\LeaveService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class LeaveAssignmentController extends Controller
 {
-    public function index(Employee $employee)
-    {
-        $assignments = $employee->leavePolicies()
-            ->withPivot('assigned_at')
-            ->get();
-
-        return response()->json($assignments);
-    }
-
-    public function store(Request $request, Employee $employee)
+    public function store(Request $request)
     {
         $data = $request->validate([
-            'policy_ids' => ['required', 'array', 'min:1'],
-            'policy_ids.*' => [
-                'integer',
-                Rule::exists('leave_policies', 'id')->where(fn ($q) => $q->where('status', '!=', 'archived')),
-            ],
+            'employee_id' => ['required', 'exists:employees,id'],
+            'leave_policy_id' => ['required', 'exists:leave_policies,id'],
+            'effective_date' => ['nullable', 'date'],
         ]);
 
-        $policyIds = collect($data['policy_ids'])->unique()->values();
-        $employee->leavePolicies()->syncWithPivotValues($policyIds, ['assigned_at' => now()]);
+        $employee = Employee::findOrFail($data['employee_id']);
+        $policy = LeavePolicy::findOrFail($data['leave_policy_id']);
+        $effectiveDate = $data['effective_date'] ? Carbon::parse($data['effective_date']) : now();
 
-        // Update leave balances for assigned policies
-        foreach ($policyIds as $policyId) {
-            $policy = LeavePolicy::find($policyId);
-            LeaveBalance::updateOrCreate(
-                [
-                    'employee_id' => $employee->id,
-                    'leave_policy_id' => $policyId,
-                ],
-                [
-                    'balance' => $policy->yearly_quota,
-                    'accrued_this_year' => $policy->yearly_quota,
-                    'last_accrual_date' => now(),
-                ]
-            );
+        // Check if assignment already exists
+        $existing = LeaveBalance::where('employee_id', $employee->id)
+            ->where('leave_policy_id', $policy->id)
+            ->first();
+
+        if ($existing) {
+            return response()->json(['error' => 'Employee is already assigned to this leave policy.'], 422);
         }
 
-        return response()->json([
-            'employee' => $employee->load('leavePolicies'),
-            'message' => 'Leave policies updated for employee.',
+        $leaveService = new LeaveService();
+        $initialBalance = $leaveService->calculateProratedBalance($policy, $employee->join_date ?? $effectiveDate);
+
+        LeaveBalance::create([
+            'employee_id' => $employee->id,
+            'leave_policy_id' => $policy->id,
+            'year' => date('Y'),
+            'balance' => $initialBalance,
+            'carry_forward_balance' => 0,
+            'pending_deduction' => 0,
+            'accrued_this_year' => 0,
         ]);
+
+        return response()->json(['message' => 'Leave policy assigned successfully.'], 201);
     }
 
-    public function destroy(Employee $employee, LeavePolicy $leavePolicy)
+    public function destroy(Request $request, LeaveBalance $balance)
     {
-        $employee->leavePolicies()->detach($leavePolicy->id);
+        // Only allow deletion if no pending requests
+        if ($balance->pending_deduction > 0) {
+            return response()->json(['error' => 'Cannot remove policy with pending leave requests.'], 422);
+        }
 
-        // Reset leave balance for detached policy
-        LeaveBalance::where('employee_id', $employee->id)
-            ->where('leave_policy_id', $leavePolicy->id)
-            ->update(['balance' => 0]);
+        $balance->delete();
 
-        return response()->json(['message' => 'Leave policy detached successfully.']);
+        return response()->json(['message' => 'Leave policy assignment removed successfully.']);
     }
 }
-

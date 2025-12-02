@@ -1044,6 +1044,7 @@ public function markAttendance(Request $request)
                     'absent' => 'Absent',
                     'half_day' => 'Half Day',
                     'early_departure' => 'Early Departure',
+                    'leave' => 'On Leave',
                 ];
                 $displayStatus = $displayStatusMap[$status] ?? ucfirst($status);
 

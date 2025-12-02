@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\LeavePolicy;
+use App\Services\PolicyAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class LeavePolicyController extends Controller
 {
@@ -26,13 +28,11 @@ class LeavePolicyController extends Controller
             $data['code'] = Str::upper(Str::slug($data['name'], '_'));
         }
 
-        $data['sandwich_examples'] = $this->normalizeExamples($request->input('sandwich_examples'));
-        $data['eligibility_departments'] = $request->input('eligibility_departments');
-        $data['eligibility_designations'] = $request->input('eligibility_designations');
-        $data['eligibility_employee_ids'] = $request->input('eligibility_employee_ids');
-        $data['last_updated_at'] = now();
+        $data['eligible_departments'] = $request->input('eligible_departments');
+        $data['eligible_designations'] = $request->input('eligible_designations');
 
-        $policy = LeavePolicy::create($data);
+        $adminId = auth()->id();
+        $policy = app(LeavePolicyService::class)->createPolicy($data, $adminId);
 
         return response()->json($policy, 201);
     }
@@ -78,8 +78,8 @@ class LeavePolicyController extends Controller
 
     public function toggleStatus(LeavePolicy $leavePolicy)
     {
-        $leavePolicy->status = $leavePolicy->status === 'active' ? 'inactive' : 'active';
-        $leavePolicy->last_updated_at = now();
+        $leavePolicy->is_active = !$leavePolicy->is_active;
+        $leavePolicy->updated_at = now();
         $leavePolicy->save();
 
         return response()->json([
@@ -115,23 +115,25 @@ class LeavePolicyController extends Controller
             'code' => ['nullable', 'string', 'max:50', $uniqueCodeRule],
             'description' => ['nullable', 'string'],
             'yearly_quota' => ['required', 'integer', 'min:0', 'max:365'],
-            'monthly_accrual' => ['required', 'numeric', 'min:0', 'max:31'],
-            'accrual_day' => ['required', 'integer', 'min:1', 'max:28'],
-            'join_date_proration' => ['boolean'],
-            'carry_forward_enabled' => ['boolean'],
-            'carry_forward_quarter_cap' => ['required', 'integer', 'min:0', 'max:31'],
-            'carry_forward_reset_mode' => ['required', 'in:quarterly,annual,custom'],
-            'auto_reset_quarter_end' => ['boolean'],
+            'annual_maximum' => ['required', 'integer', 'min:0', 'max:365'],
+            'monthly_accrual_enabled' => ['boolean'],
+            'monthly_accrual_value' => ['required', 'numeric', 'min:0', 'max:31'],
+            'accrual_day_of_month' => ['required', 'integer', 'min:1', 'max:28'],
+            'join_date_proration_rule' => ['required', 'in:ACCRUE_FROM_NEXT_MONTH,FULL_MONTH'],
+            'carry_forward_allowed' => ['boolean'],
+            'carry_forward_max_per_quarter' => ['required', 'integer', 'min:0', 'max:31'],
+            'carry_forward_reset_frequency' => ['required', 'in:QUARTERLY,ANNUAL,CUSTOM'],
+            'carry_forward_auto_reset_enabled' => ['boolean'],
             'reset_notice_days' => ['required', 'integer', 'min:0', 'max:30'],
             'sandwich_rule_enabled' => ['boolean'],
-            'max_balance' => ['required', 'integer', 'min:0', 'max:365'],
-            'status' => ['nullable', 'in:active,inactive,archived'],
+            'is_active' => ['boolean'],
+            'archived' => ['boolean'],
             'sandwich_examples' => ['nullable', 'array'],
             'sandwich_examples.*' => ['string'],
-            'eligibility_departments' => ['nullable', 'array'],
-            'eligibility_departments.*' => ['string'],
-            'eligibility_designations' => ['nullable', 'array'],
-            'eligibility_designations.*' => ['string'],
+            'eligible_departments' => ['nullable', 'array'],
+            'eligible_departments.*' => ['string'],
+            'eligible_designations' => ['nullable', 'array'],
+            'eligible_designations.*' => ['string'],
             'eligibility_employee_ids' => ['nullable', 'array'],
             'eligibility_employee_ids.*' => ['string'],
         ]);

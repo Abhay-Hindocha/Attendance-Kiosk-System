@@ -65,7 +65,7 @@ const EmployeeLeavesPage = () => {
               <p className="text-sm text-gray-500 mt-2">
                 Available:{' '}
                 <span className="font-semibold text-gray-900">
-                  {(balance.balance + balance.carry_forward_balance - balance.pending_deduction).toFixed(1)}
+                  {(balance.balance + balance.carry_forward_balance + balance.accrued_this_year - balance.pending_deduction).toFixed(1)}
                 </span>
               </p>
               <p className="text-xs text-gray-400">
@@ -83,20 +83,52 @@ const EmployeeLeavesPage = () => {
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Pending requests</h3>
         <div className="space-y-3">
           {data?.pending_requests?.map((req) => (
-            <div key={req.id} className="border border-gray-100 rounded-xl p-3 text-sm flex items-center justify-between">
-              <div>
+            <div key={req.id} className="border border-gray-100 rounded-xl p-3 text-sm">
+              <div className="flex items-center justify-between mb-2">
                 <p className="font-semibold text-gray-900">
                   {req.from_date} → {req.to_date}
                 </p>
-                <p className="text-xs text-gray-500">{req.reason || 'No reason provided'}</p>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusBadge[req.status] || statusBadge.pending}`}>
+                  {req.status}
+                </span>
               </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusBadge[req.status] || statusBadge.pending}`}>
-                {req.status}
-              </span>
+              <p className="text-xs text-gray-500">{req.reason || 'No reason provided'}</p>
+              {req.estimated_days && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Estimated days: {req.estimated_days} {req.sandwich_applied_days > 0 && `(including ${req.sandwich_applied_days} sandwich days)`}
+                </p>
+              )}
             </div>
           ))}
           {(!data?.pending_requests || data.pending_requests.length === 0) && (
             <p className="text-xs text-gray-500">Great! You have no pending approvals.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow p-6">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">Approved leaves</h3>
+        <div className="space-y-3">
+          {data?.approved_leaves?.map((req) => (
+            <div key={req.id} className="border border-gray-100 rounded-xl p-3 text-sm">
+              <div className="flex items-center justify-between mb-2">
+                <p className="font-semibold text-gray-900">
+                  {req.from_date} → {req.to_date}
+                </p>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusBadge[req.status] || statusBadge.approved}`}>
+                  {req.status}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500">{req.reason || 'No reason provided'}</p>
+              {req.estimated_days && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Estimated days: {req.estimated_days} {req.sandwich_applied_days > 0 && `(including ${req.sandwich_applied_days} sandwich days)`}
+                </p>
+              )}
+            </div>
+          ))}
+          {(!data?.approved_leaves || data.approved_leaves.length === 0) && (
+            <p className="text-xs text-gray-500">No approved leaves yet.</p>
           )}
         </div>
       </div>
@@ -120,6 +152,11 @@ const EmployeeLeavesPage = () => {
                 </span>
               </div>
               <p className="text-xs text-gray-500 mt-1">{req.reason || 'No reason provided'}</p>
+              {req.estimated_days && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Estimated days: {req.estimated_days} {req.sandwich_applied_days > 0 && `(including ${req.sandwich_applied_days} sandwich days)`}
+                </p>
+              )}
             </div>
           ))}
           {(!data?.history || data.history.length === 0) && (

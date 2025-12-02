@@ -5,14 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class LeaveRequest extends Model
+class LeaveTransaction extends Model
 {
     use HasFactory;
+
+    protected $table = 'leave_requests';
 
     protected $fillable = [
         'employee_id',
         'leave_policy_id',
-        'leave_type',
         'from_date',
         'to_date',
         'partial_day',
@@ -20,9 +21,9 @@ class LeaveRequest extends Model
         'reason',
         'status',
         'estimated_days',
+        'days_counted',
         'sandwich_applied_days',
         'sandwich_rule_applied',
-        'total_days',
         'requires_document',
         'attachment_path',
         'documents',
@@ -35,13 +36,14 @@ class LeaveRequest extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'days_applied' => 'decimal:2',
+        'from_date' => 'date',
+        'to_date' => 'date',
+        'estimated_days' => 'decimal:2',
         'days_counted' => 'decimal:2',
-        'total_days' => 'decimal:2',
+        'sandwich_applied_days' => 'decimal:2',
         'approved_at' => 'datetime',
-        'partial_day' => 'string',
+        'partial_day' => 'boolean',
+        'sandwich_rule_applied' => 'boolean',
         'requires_document' => 'boolean',
         'documents' => 'array',
         'conflict_checks' => 'array',
@@ -63,7 +65,6 @@ class LeaveRequest extends Model
 
     public function timelines()
     {
-        return $this->hasMany(LeaveRequestTimeline::class);
+        return $this->hasMany(LeaveRequestTimeline::class, 'leave_request_id');
     }
 }
-

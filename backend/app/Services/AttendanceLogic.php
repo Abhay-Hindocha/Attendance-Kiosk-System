@@ -42,6 +42,11 @@ class AttendanceLogic
      */
     public function calculateStatus(Employee $employee, Attendance $attendance): string
     {
+        // If status is already 'leave', keep it as is
+        if ($attendance->status === 'leave') {
+            return 'leave';
+        }
+
         $policy = $employee->policy;
 
         // If no policy or policy is inactive today, return present as default

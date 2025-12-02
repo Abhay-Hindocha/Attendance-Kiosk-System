@@ -58,7 +58,7 @@ class LeaveRequestController extends Controller
             'leave_policy_id' => ['required', 'exists:leave_policies,id'],
             'from_date' => ['required', 'date', 'before_or_equal:to_date'],
             'to_date' => ['required', 'date'],
-            'partial_day' => ['boolean'],
+            'partial_day' => ['nullable', Rule::in(['full_day', 'half_day'])],
             'partial_session' => ['nullable', Rule::in(['first_half', 'second_half', 'custom'])],
             'reason' => ['nullable', 'string'],
             'conflict_checks' => ['nullable', 'array'],
@@ -84,8 +84,9 @@ class LeaveRequestController extends Controller
 
         $fromDate = Carbon::parse($data['from_date'])->startOfDay();
         $toDate = Carbon::parse($data['to_date'])->startOfDay();
-        $partialDay = $request->boolean('partial_day', false);
-        $estimatedDays = $this->calculateEstimatedDays($fromDate, $toDate, $partialDay, $data['partial_session'] ?? null);
+        $partialDay = $data['partial_day'] ?? 'full_day';
+        $isPartial = $partialDay === 'half_day';
+        $estimatedDays = $this->calculateEstimatedDays($fromDate, $toDate, $isPartial, $data['partial_session'] ?? null);
         $sandwichDays = $policy->sandwich_rule_enabled
             ? $this->calculateSandwichDays($employee, $fromDate, $toDate)
             : 0;
@@ -157,6 +158,7 @@ class LeaveRequestController extends Controller
             $leaveRequest = LeaveRequest::create([
                 'employee_id' => $employee->id,
                 'leave_policy_id' => $policy->id,
+                'leave_type' => $partialDay,
                 'from_date' => $data['from_date'],
                 'to_date' => $data['to_date'],
                 'partial_day' => $partialDay,
@@ -166,6 +168,7 @@ class LeaveRequestController extends Controller
                 'estimated_days' => $estimatedDays,
                 'sandwich_applied_days' => $sandwichDays,
                 'sandwich_rule_applied' => $sandwichDays > 0,
+                'total_days' => $totalDays,
                 'requires_document' => $requiresDocument,
                 'attachment_path' => $attachmentPath,
                 'conflict_checks' => $data['conflict_checks'] ?? null,

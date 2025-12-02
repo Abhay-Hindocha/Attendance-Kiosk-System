@@ -5,23 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class LeavePolicyAssignment extends Model
+class LeaveAccrualLog extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'employee_id',
         'leave_policy_id',
-        'effective_from',
-        'effective_to',
-        'is_active',
+        'accrual_date',
+        'quantity',
+        'type',
+        'notes',
     ];
 
     protected $casts = [
-        'effective_from' => 'date',
-        'effective_to' => 'date',
-        'is_active' => 'boolean',
-        'assigned_at' => 'datetime',
+        'accrual_date' => 'date',
+        'quantity' => 'decimal:2',
     ];
 
     public function employee()
@@ -34,4 +33,3 @@ class LeavePolicyAssignment extends Model
         return $this->belongsTo(LeavePolicy::class, 'leave_policy_id');
     }
 }
-

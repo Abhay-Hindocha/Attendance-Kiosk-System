@@ -17,6 +17,14 @@ class LeaveBalance extends Model
         'pending_deduction',
         'accrued_this_year',
         'last_accrual_date',
+        'year',
+        'quarter',
+        'opening_balance',
+        'accrued',
+        'used',
+        'carried_forward',
+        'reset',
+        'closing_balance',
     ];
 
     protected $casts = [

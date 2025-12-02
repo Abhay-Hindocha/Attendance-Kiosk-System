@@ -3,10 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attendance;
+use App\Models\Employee;
+use App\Models\Holiday;
 use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestTimeline;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -87,6 +91,15 @@ class LeaveApprovalController extends Controller
                 'performed_by_type' => 'admin',
                 'performed_by_id' => optional($request->user())->id,
             ]);
+
+            // Mark attendance for leave dates
+            $this->markAttendanceForLeave($leaveRequest);
+
+            // Update employee status if they were on leave
+            $employee = Employee::find($leaveRequest->employee_id);
+            if ($employee && $employee->status === 'on_leave') {
+                $employee->update(['status' => 'active', 'leave_reason' => null]);
+            }
         });
 
         return response()->json(['message' => 'Leave request approved successfully.']);
@@ -195,6 +208,42 @@ class LeaveApprovalController extends Controller
         });
 
         return response()->json(['message' => 'Leave request dates updated.']);
+    }
+
+    /**
+     * Mark attendance records for approved leave dates
+     */
+    private function markAttendanceForLeave(LeaveRequest $leaveRequest)
+    {
+        $period = CarbonPeriod::create($leaveRequest->from_date, $leaveRequest->to_date);
+
+        foreach ($period as $date) {
+            // Skip weekends
+            if ($date->isWeekend()) {
+                continue;
+            }
+
+            // Skip holidays
+            $isHoliday = Holiday::where('date', $date->toDateString())->exists();
+            if ($isHoliday) {
+                continue;
+            }
+
+            // Create or update attendance record with leave status
+            Attendance::updateOrCreate(
+                [
+                    'employee_id' => $leaveRequest->employee_id,
+                    'date' => $date->toDateString(),
+                ],
+                [
+                    'status' => 'leave',
+                    'check_in' => null,
+                    'check_out' => null,
+                    'scan_count' => 0,
+                    'scan_times' => [],
+                ]
+            );
+        }
     }
 }
 

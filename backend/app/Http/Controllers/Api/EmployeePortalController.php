@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Services\AttendanceLogic;
+use App\Services\LeaveService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
@@ -108,12 +109,60 @@ class EmployeePortalController extends Controller
     {
         $employee = $request->user();
 
-        $balances = LeaveBalance::with('policy')
-            ->where('employee_id', $employee->id)
-            ->get();
+        $policies = $employee->leavePolicies;
+
+        $balances = [];
+        foreach ($policies as $policy) {
+            $balanceRecord = LeaveBalance::where('employee_id', $employee->id)
+                ->where('leave_policy_id', $policy->id)
+                ->first();
+
+            // Create balance record if it doesn't exist
+            if (!$balanceRecord) {
+                $leaveService = new LeaveService();
+                $initialBalance = $leaveService->calculateProratedBalance($policy, $employee->join_date ?? now());
+
+                $balanceRecord = LeaveBalance::create([
+                    'employee_id' => $employee->id,
+                    'leave_policy_id' => $policy->id,
+                    'year' => date('Y'),
+                    'balance' => $initialBalance,
+                    'carry_forward_balance' => 0,
+                    'pending_deduction' => 0,
+                    'accrued_this_year' => 0,
+                ]);
+            }
+
+            $balances[] = [
+                'id' => $balanceRecord->id,
+                'policy' => $policy,
+                'balance' => $balanceRecord->balance,
+                'carry_forward_balance' => $balanceRecord->carry_forward_balance,
+                'pending_deduction' => $balanceRecord->pending_deduction,
+                'accrued_this_year' => $balanceRecord->accrued_this_year,
+            ];
+        }
+
+        // Update pending deductions
+        $leaveService = new LeaveService();
+        $leaveService->updatePendingDeductions($employee->id);
+
+        // Refresh pending deductions after updating
+        foreach ($balances as &$bal) {
+            if ($bal['id']) {
+                $updated = LeaveBalance::find($bal['id']);
+                $bal['pending_deduction'] = $updated->pending_deduction;
+            }
+        }
 
         $pending = LeaveRequest::where('employee_id', $employee->id)
             ->whereIn('status', ['pending', 'clarification'])
+            ->get();
+
+        $approved = LeaveRequest::where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->orderByDesc('approved_at')
+            ->limit(10)
             ->get();
 
         $history = LeaveRequest::where('employee_id', $employee->id)
@@ -124,6 +173,7 @@ class EmployeePortalController extends Controller
         return response()->json([
             'balances' => $balances,
             'pending_requests' => $pending,
+            'approved_leaves' => $approved,
             'history' => $history,
         ]);
     }

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Paperclip, PlusCircle } from 'lucide-react';
+import { AlertCircle, Paperclip, PlusCircle, Calendar, Clock, FileText, CheckCircle, XCircle } from 'lucide-react';
 import employeeApi from '../../services/employeeApi';
 import { useEmployeePortal } from './EmployeeLayout';
 
@@ -15,7 +15,7 @@ const EmployeeLeaveApplyPage = () => {
     leave_policy_id: '',
     from_date: '',
     to_date: '',
-    partial_day: false,
+    partial_day: 'full_day',
     partial_session: 'first_half',
     reason: '',
     attachment: null,
@@ -35,16 +35,23 @@ const EmployeeLeaveApplyPage = () => {
     loadBalances();
   }, []);
 
+  useEffect(() => {
+    if (balances.length > 0 && !form.leave_policy_id) {
+      setForm(prev => ({ ...prev, leave_policy_id: balances[0].policy.id.toString() }));
+    }
+  }, [balances]);
+
   const selectedPolicy = useMemo(() => {
-    return profile?.leave_policies?.find((p) => p.id.toString() === form.leave_policy_id);
-  }, [profile, form.leave_policy_id]);
+    return balances.find((b) => Number(b.policy?.id) === Number(form.leave_policy_id))?.policy;
+  }, [balances, form.leave_policy_id]);
 
   const availableBalance = useMemo(() => {
-    const record = balances.find((b) => b.leave_policy_id?.toString() === form.leave_policy_id);
+    const record = balances.find((b) => Number(b.policy?.id) === Number(form.leave_policy_id));
     if (!record) return 0;
     return (
       record.balance +
-      record.carry_forward_balance -
+      record.carry_forward_balance +
+      record.accrued_this_year -
       record.pending_deduction
     );
   }, [balances, form.leave_policy_id]);
@@ -55,7 +62,7 @@ const EmployeeLeaveApplyPage = () => {
     const to = new Date(form.to_date);
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) return 0;
     const diff = (to - from) / (1000 * 60 * 60 * 24) + 1;
-    return form.partial_day ? diff - 0.5 : diff;
+    return form.partial_day === 'half_day' ? 0.5 : diff;
   }, [form.from_date, form.to_date, form.partial_day]);
 
   const handleChange = (key, value) => {
@@ -75,6 +82,14 @@ const EmployeeLeaveApplyPage = () => {
       setError('Please choose a leave policy.');
       return;
     }
+    if (!form.reason.trim()) {
+      setError('Please provide a reason for the leave request.');
+      return;
+    }
+    if (selectedPolicy?.code === 'SL' && estimatedDays >= 1 && !form.attachment) {
+      setError('Supporting document is required for medical leave of 1+ days.');
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = new FormData();
@@ -89,11 +104,14 @@ const EmployeeLeaveApplyPage = () => {
       }
       await employeeApi.createLeaveRequest(payload);
       setSuccess('Leave request submitted successfully.');
+      // Reload balances after successful submission
+      const data = await employeeApi.getLeaveBalances();
+      setBalances(data.balances || []);
       setForm({
         leave_policy_id: '',
         from_date: '',
         to_date: '',
-        partial_day: false,
+        partial_day: 'full_day',
         partial_session: 'first_half',
         reason: '',
         attachment: null,
@@ -117,10 +135,25 @@ const EmployeeLeaveApplyPage = () => {
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-2xl shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <PlusCircle className="w-5 h-5 text-indigo-500" />
-          Apply for Leave
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <PlusCircle className="w-5 h-5 text-indigo-500" />
+            Apply for Leave
+          </h2>
+          <button
+            onClick={async () => {
+              try {
+                const data = await employeeApi.getLeaveBalances();
+                setBalances(data.balances || []);
+              } catch (err) {
+                setError(err?.message || 'Unable to refresh balances.');
+              }
+            }}
+            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            Refresh Balances
+          </button>
+        </div>
 
         {error && (
           <div className="mb-4 flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
@@ -145,9 +178,9 @@ const EmployeeLeaveApplyPage = () => {
               required
             >
               <option value="">Select leave type</option>
-              {profile?.leave_policies?.map((policy) => (
-                <option key={policy.id} value={policy.id}>
-                  {policy.name}
+              {balances.map((balance) => (
+                <option key={balance.policy.id} value={balance.policy.id}>
+                  {balance.policy.name}
                 </option>
               ))}
             </select>
@@ -182,38 +215,74 @@ const EmployeeLeaveApplyPage = () => {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 bg-gray-50 rounded-xl">
-            <div className="flex items-center gap-2">
-              <input
-                id="partial-day"
-                type="checkbox"
-                className="w-4 h-4 text-indigo-600"
-                checked={form.partial_day}
-                onChange={(e) => handleChange('partial_day', e.target.checked)}
-              />
-              <label htmlFor="partial-day" className="text-sm text-gray-700">
-                Partial day
-              </label>
+          <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-100">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-indigo-500" />
+                <div className="flex items-center gap-2">
+                  <input
+                    id="partial-day"
+                    type="checkbox"
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    checked={form.partial_day === 'half_day'}
+                    onChange={(e) => handleChange('partial_day', e.target.checked ? 'half_day' : 'full_day')}
+                  />
+                  <label htmlFor="partial-day" className="text-sm font-medium text-gray-700">
+                    Partial day leave
+                  </label>
+                </div>
+              </div>
+
+              {form.partial_day === 'half_day' && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Session:</span>
+                  <select
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                    value={form.partial_session}
+                    onChange={(e) => handleChange('partial_session', e.target.value)}
+                  >
+                    <option value="first_half">Morning (First half)</option>
+                    <option value="second_half">Afternoon (Second half)</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-4 lg:gap-6">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">Days:</span>
+                  <span className={`font-semibold ${estimatedDays > availableBalance ? 'text-red-600' : 'text-gray-900'}`}>
+                    {Number.isNaN(estimatedDays) ? 0 : estimatedDays}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <span className="text-sm text-gray-600">Available:</span>
+                  <span className={`font-semibold ${availableBalance < estimatedDays ? 'text-red-600' : 'text-green-600'}`}>
+                    {availableBalance.toFixed(1)}
+                  </span>
+                </div>
+              </div>
             </div>
-            {form.partial_day && (
-              <select
-                className="w-full md:w-40 px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                value={form.partial_session}
-                onChange={(e) => handleChange('partial_session', e.target.value)}
-              >
-                <option value="first_half">First half</option>
-                <option value="second_half">Second half</option>
-                <option value="custom">Custom</option>
-              </select>
+
+            {selectedPolicy && (
+              <div className="mt-3 text-xs text-gray-500">
+                {selectedPolicy.sandwich_rule_enabled && (
+                  <p>Sandwich rule is enabled for this policy.</p>
+                )}
+                {selectedPolicy.code === 'SL' && (
+                  <p>Medical leave requires supporting document for 1+ days.</p>
+                )}
+              </div>
             )}
-            <div className="text-sm text-gray-600">
-              Estimated days:{' '}
-              <span className="font-semibold text-gray-900">{Number.isNaN(estimatedDays) ? 0 : estimatedDays}</span>
-            </div>
-            <div className="text-sm text-gray-600">
-              Available:{' '}
-              <span className="font-semibold text-gray-900">{availableBalance.toFixed(1)}</span>
-            </div>
+
+            {estimatedDays > availableBalance && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+                <AlertCircle className="w-4 h-4" />
+                Insufficient leave balance for the requested period.
+              </div>
+            )}
           </div>
 
           <div>
@@ -238,10 +307,20 @@ const EmployeeLeaveApplyPage = () => {
 
           <button
             type="submit"
-            disabled={submitting}
-            className="inline-flex items-center justify-center gap-2 w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-60"
+            disabled={submitting || estimatedDays > availableBalance}
+            className="inline-flex items-center justify-center gap-2 w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >
-            {submitting ? 'Submitting...' : 'Submit Request'}
+            {submitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Submitting Request...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-5 h-5" />
+                Submit Leave Request
+              </>
+            )}
           </button>
         </form>
       </div>
