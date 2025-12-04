@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Menu, X, Camera, LayoutDashboard, FileText, Calendar, BarChart3, Settings, Clock, Users, Lock, LogOut, Wifi, WifiOff, ClipboardCheck
+  Menu, X, Camera, LayoutDashboard, FileText, Calendar, BarChart3, Settings, Clock, Users, Lock, LogOut, Wifi, WifiOff, ClipboardCheck, ChevronDown
 } from 'lucide-react';
 import api from '../services/api';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isPoliciesDropdownOpen, setIsPoliciesDropdownOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const location = useLocation();
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -27,11 +29,28 @@ const Header = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsPoliciesDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // desktop nav
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Attendance Policies', href: '/policies', icon: FileText },
-    { name: 'Leave Policies', href: '/leave/policies', icon: Calendar },
+    {
+      name: 'Policies',
+      icon: FileText,
+      dropdown: true,
+      items: [
+        { name: 'Attendance Policies', href: '/policies', icon: FileText },
+        { name: 'Leave Policies', href: '/leave/policies', icon: Calendar }
+      ]
+    },
     { name: 'Leave Approvals', href: '/leave/approvals', icon: ClipboardCheck },
     { name: 'Employees', href: '/employees', icon: Users },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
@@ -110,19 +129,58 @@ const Header = () => {
               <div className="hidden lg:flex items-center gap-2">
                 {navigation.map((item) => {
                   const Icon = item.icon;
-                  const active = isActivePath(item.href);
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span>{item.name}</span>
-                    </Link>
-                  );
+                  if (item.dropdown) {
+                    const isDropdownActive = item.items.some(subItem => isActivePath(subItem.href));
+                    return (
+                      <div key={item.name} className="relative">
+                        <button
+                          onClick={() => setIsPoliciesDropdownOpen(!isPoliciesDropdownOpen)}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            isDropdownActive ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span>{item.name}</span>
+                          <ChevronDown className={`w-4 h-4 transition-transform ${isPoliciesDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isPoliciesDropdownOpen && (
+                          <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                            {item.items.map((subItem) => {
+                              const SubIcon = subItem.icon;
+                              const subActive = isActivePath(subItem.href);
+                              return (
+                                <Link
+                                  key={subItem.name}
+                                  to={subItem.href}
+                                  onClick={() => setIsPoliciesDropdownOpen(false)}
+                                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
+                                    subActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  <SubIcon className="w-4 h-4" />
+                                  <span>{subItem.name}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  } else {
+                    const active = isActivePath(item.href);
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  }
                 })}
                 <div className="h-6 w-px bg-gray-300 mx-2" />
                 <button

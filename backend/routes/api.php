@@ -97,5 +97,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('dashboard', [EmployeePortalController::class, 'dashboard']);
         Route::get('leave-balances', [EmployeePortalController::class, 'leaveBalances']);
         Route::get('attendance', [EmployeePortalController::class, 'attendanceReport']);
+        Route::get('holidays', [EmployeePortalController::class, 'holidays']);
     });
 });

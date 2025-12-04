@@ -11,8 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('leave_balances', function (Blueprint $table) {
-            $table->decimal('pending_deduction', 5, 2)->default(0);
+        Schema::table('leave_requests', function (Blueprint $table) {
+            if (!Schema::hasColumn('leave_requests', 'total_days')) {
+                $table->decimal('total_days', 5, 2)->default(0)->after('leave_type');
+            }
         });
     }
 
@@ -21,8 +23,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('leave_balances', function (Blueprint $table) {
-            //
+        Schema::table('leave_requests', function (Blueprint $table) {
+            $table->dropColumn('total_days');
         });
     }
 };

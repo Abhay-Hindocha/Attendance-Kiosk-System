@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\LeavePolicy;
-use App\Services\PolicyAssignmentService;
+use App\Services\LeavePolicyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -28,8 +28,18 @@ class LeavePolicyController extends Controller
             $data['code'] = Str::upper(Str::slug($data['name'], '_'));
         }
 
-        $data['eligible_departments'] = $request->input('eligible_departments');
-        $data['eligible_designations'] = $request->input('eligible_designations');
+        // Eligibility
+        $data['eligibility_departments'] = $request->input('eligibility_departments');
+        $data['eligibility_designations'] = $request->input('eligibility_designations');
+
+        // Default alignment with leave policy specifications
+        $data['annual_maximum'] = $data['annual_maximum'] ?? 12;
+        $data['carry_forward_allowed'] = $data['carry_forward_allowed'] ?? true;
+        $data['carry_forward_max_per_quarter'] = $data['carry_forward_max_per_quarter'] ?? 3;
+        $data['carry_forward_reset_frequency'] = $data['carry_forward_reset_frequency'] ?? 'QUARTERLY';
+        $data['carry_forward_auto_reset_enabled'] = $data['carry_forward_auto_reset_enabled'] ?? true;
+        $data['reset_notice_days'] = $data['reset_notice_days'] ?? 3;
+        $data['is_active'] = $data['is_active'] ?? true;
 
         $adminId = auth()->id();
         $policy = app(LeavePolicyService::class)->createPolicy($data, $adminId);
@@ -52,15 +62,13 @@ class LeavePolicyController extends Controller
             $data['code'] = $leavePolicy->code;
         }
 
-        $data['sandwich_examples'] = $this->normalizeExamples($request->input('sandwich_examples'));
         $data['eligibility_departments'] = $request->input('eligibility_departments');
         $data['eligibility_designations'] = $request->input('eligibility_designations');
-        $data['eligibility_employee_ids'] = $request->input('eligibility_employee_ids');
-        $data['last_updated_at'] = now();
 
-        $leavePolicy->update($data);
+        $adminId = auth()->id();
+        $policy = app(LeavePolicyService::class)->updatePolicy($leavePolicy, $data, $adminId);
 
-        return response()->json($leavePolicy);
+        return response()->json($policy);
     }
 
     public function destroy(LeavePolicy $leavePolicy)
@@ -93,8 +101,7 @@ class LeavePolicyController extends Controller
         $duplicate = $leavePolicy->replicate();
         $duplicate->name = 'Copy of ' . $leavePolicy->name;
         $duplicate->code = Str::upper(Str::slug($duplicate->name . '-' . now()->timestamp, '_'));
-        $duplicate->status = 'inactive';
-        $duplicate->last_updated_at = now();
+        $duplicate->is_active = false;
         $duplicate->save();
 
         return response()->json($duplicate, 201);
@@ -128,14 +135,10 @@ class LeavePolicyController extends Controller
             'sandwich_rule_enabled' => ['boolean'],
             'is_active' => ['boolean'],
             'archived' => ['boolean'],
-            'sandwich_examples' => ['nullable', 'array'],
-            'sandwich_examples.*' => ['string'],
-            'eligible_departments' => ['nullable', 'array'],
-            'eligible_departments.*' => ['string'],
-            'eligible_designations' => ['nullable', 'array'],
-            'eligible_designations.*' => ['string'],
-            'eligibility_employee_ids' => ['nullable', 'array'],
-            'eligibility_employee_ids.*' => ['string'],
+            'eligibility_departments' => ['nullable', 'array'],
+            'eligibility_departments.*' => ['string'],
+            'eligibility_designations' => ['nullable', 'array'],
+            'eligibility_designations.*' => ['string'],
         ]);
     }
 

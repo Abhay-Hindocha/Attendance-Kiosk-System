@@ -62,9 +62,9 @@ class AccrueLeaveCommand extends Command
         ];
 
         // Get policies that need notifications
-        $policies = \App\Models\LeavePolicy::where('carry_forward_enabled', true)
-            ->where('carry_forward_reset_mode', 'quarterly')
-            ->where('status', 'active')
+        $policies = \App\Models\LeavePolicy::where('carry_forward_allowed', true)
+            ->where('carry_forward_reset_frequency', 'QUARTERLY')
+            ->where('is_active', true)
             ->where('reset_notice_days', '>', 0)
             ->get();
 

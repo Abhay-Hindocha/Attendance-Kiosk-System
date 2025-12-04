@@ -10,7 +10,6 @@ export const useEmployeePortal = () => React.useContext(EmployeePortalContext);
 const navItems = [
   { label: 'Dashboard', path: '/employee/dashboard', icon: Home },
   { label: 'Leave Dashboard', path: '/employee/leaves', icon: CalendarCheck },
-  { label: 'Apply Leave', path: '/employee/apply-leave', icon: ClipboardList },
   { label: 'Attendance', path: '/employee/attendance', icon: Activity },
   { label: 'Profile', path: '/employee/profile', icon: UserCircle },
 ];

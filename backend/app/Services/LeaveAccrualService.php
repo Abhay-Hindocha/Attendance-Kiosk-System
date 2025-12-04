@@ -17,7 +17,7 @@ class LeaveAccrualService
     public function runMonthlyAccrual(Carbon $runDate): void
     {
         $policies = LeavePolicy::where('is_active', true)
-            ->where('monthly_accrual_enabled', true)
+            ->where('monthly_accrual_value', '>', 0)
             ->get();
 
         foreach ($policies as $policy) {
@@ -71,12 +71,12 @@ class LeaveAccrualService
 
             // Update balance
             $balance = \App\Models\LeaveBalance::firstOrCreate(
-                ['employee_id' => $employee->id, 'leave_policy_id' => $policy->id],
-                ['year' => date('Y'), 'balance' => 0, 'accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0]
+                ['employee_id' => $employee->id, 'leave_policy_id' => $policy->id, 'year' => $runDate->year],
+                ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'accrued' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
             );
-            $balance->balance += $accrualAmount;
+            $balance->accrued += $accrualAmount;
             $balance->accrued_this_year += $accrualAmount;
-            $balance->last_accrued_at = $runDate;
+            $balance->last_accrual_date = $runDate;
             $balance->save();
         }
     }
@@ -119,7 +119,7 @@ class LeaveAccrualService
                 ->whereRaw('QUARTER(approved_at) = ?', [$quarter])
                 ->sum('days_counted');
 
-            $unused = $accrued - $used;
+            $unused = max(0, $accrued - $used);
             $carryForward = min($unused, $policy->carry_forward_max_per_quarter);
 
             if ($carryForward > 0) {
@@ -144,6 +144,15 @@ class LeaveAccrualService
                     'notes' => "Reset/forfeited from Q{$quarter} {$year}",
                 ]);
             }
+
+            // Update balance
+            $balance = LeaveBalance::firstOrCreate(
+                ['employee_id' => $employee->id, 'leave_policy_id' => $policy->id, 'year' => $year],
+                ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'accrued' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
+            );
+            $balance->carry_forward_balance += $carryForward;
+            $balance->accrued_this_year -= $reset;
+            $balance->save();
         }
     }
 
@@ -190,10 +199,7 @@ class LeaveAccrualService
         $quarter = $this->getQuarter($date);
         $year = $date->year;
 
-        if ($quarter == 4) {
-            return Carbon::create($year, 12, 31);
-        }
-
-        return Carbon::create($year, $quarter * 3, $quarter == 1 ? 31 : ($quarter == 2 ? 30 : 30));
+        $endMonth = $quarter * 3;
+        return Carbon::create($year, $endMonth, 1)->endOfMonth();
     }
 }

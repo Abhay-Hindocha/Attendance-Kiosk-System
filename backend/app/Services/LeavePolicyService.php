@@ -3,8 +3,7 @@
 namespace App\Services;
 
 use App\Models\LeavePolicy;
-use App\Models\AuditLog;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class LeavePolicyService
 {
@@ -32,19 +31,23 @@ class LeavePolicyService
 
     public function archivePolicy(LeavePolicy $policy, int $adminId): void
     {
-        $policy->update(['archived' => true, 'is_active' => false]);
+        $policy->update(['is_active' => false]);
 
-        $this->logAudit($policy, 'ARCHIVE', $adminId, ['archived' => true, 'is_active' => false]);
+        $this->logAudit($policy, 'ARCHIVE', $adminId, ['is_active' => false]);
     }
 
     private function logAudit(LeavePolicy $policy, string $action, int $adminId, array $details): void
     {
-        AuditLog::create([
-            'entity_type' => 'LeavePolicy',
-            'entity_id' => $policy->id,
-            'action' => $action,
-            'performed_by' => $adminId,
-            'performed_at' => now(),
+        $message = sprintf(
+            'Policy %s by Admin %d at %s',
+            $action,
+            $adminId,
+            now()->toDateTimeString()
+        );
+
+        Log::info($message, [
+            'policy_id' => $policy->id,
+            'policy_name' => $policy->name,
             'details' => $details,
         ]);
     }

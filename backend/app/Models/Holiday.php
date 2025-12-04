@@ -14,6 +14,7 @@ class Holiday extends Model
     protected $fillable = [
         'date',        // Date of the holiday
         'name',        // Name of the holiday (e.g., "Christmas Day")
-        'description'  // Optional description or details about the holiday
+        'description', // Optional description or details about the holiday
+        'type'         // Type of holiday (e.g., "national", "regional")
     ];
 }

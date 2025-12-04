@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Holiday;
+use App\Models\LeavePolicy;
 use Carbon\Carbon;
 
 class SandwichRuleService
@@ -13,7 +14,7 @@ class SandwichRuleService
         $currentDate = $fromDate->copy();
 
         while ($currentDate->lte($toDate)) {
-            if ($this->isWeekend($currentDate) || $this->isHoliday($currentDate, $holidays)) {
+            if ($this->isWeekend($currentDate)) {
                 $sandwichDays++;
             }
             $currentDate->addDay();
@@ -22,8 +23,21 @@ class SandwichRuleService
         return $sandwichDays;
     }
 
-    public function applySandwichRule(Carbon $fromDate, Carbon $toDate, array $holidays = []): array
+    public function applySandwichRule(LeavePolicy $policy, Carbon $fromDate, Carbon $toDate): array
     {
+        if (!$policy->sandwich_rule_enabled) {
+            return [
+                'original_from' => $fromDate,
+                'original_to' => $toDate,
+                'extended_from' => $fromDate,
+                'extended_to' => $toDate,
+                'total_days' => $fromDate->diffInDays($toDate) + 1,
+                'sandwich_days' => 0,
+                'effective_days' => $fromDate->diffInDays($toDate) + 1,
+            ];
+        }
+
+        $holidays = $this->getHolidaysForYear($fromDate->year);
         $extendedFrom = $this->findExtendedStart($fromDate, $holidays);
         $extendedTo = $this->findExtendedEnd($toDate, $holidays);
 
@@ -43,20 +57,20 @@ class SandwichRuleService
 
     private function findExtendedStart(Carbon $date, array $holidays): Carbon
     {
-        $extended = $date->copy();
-        while ($this->isWeekend($extended) || $this->isHoliday($extended, $holidays)) {
+        $extended = $date->copy()->subDay();
+        while ($this->isWeekend($extended)) {
             $extended->subDay();
         }
-        return $extended;
+        return $extended->addDay();
     }
 
     private function findExtendedEnd(Carbon $date, array $holidays): Carbon
     {
-        $extended = $date->copy();
-        while ($this->isWeekend($extended) || $this->isHoliday($extended, $holidays)) {
+        $extended = $date->copy()->addDay();
+        while ($this->isWeekend($extended)) {
             $extended->addDay();
         }
-        return $extended;
+        return $extended->subDay();
     }
 
     private function isWeekend(Carbon $date): bool

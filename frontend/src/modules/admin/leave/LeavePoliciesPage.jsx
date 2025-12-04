@@ -13,6 +13,34 @@ import {
 } from 'lucide-react';
 import api from '../../../services/api';
 
+// Field mapping between frontend and backend
+const fieldMappings = {
+  // Frontend -> Backend
+  toBackend: {
+    monthly_accrual: 'monthly_accrual_value',
+    accrual_day: 'accrual_day_of_month',
+    carry_forward_quarter_cap: 'carry_forward_max_per_quarter',
+    carry_forward_reset_mode: 'carry_forward_reset_frequency',
+    max_balance: 'annual_maximum',
+    status: 'is_active',
+    carry_forward_enabled: 'carry_forward_allowed',
+    auto_reset_quarter_end: 'carry_forward_auto_reset_enabled',
+    sandwich_rule_enabled: 'sandwich_rule_enabled',
+  },
+  // Backend -> Frontend
+  fromBackend: {
+    monthly_accrual_value: 'monthly_accrual',
+    accrual_day_of_month: 'accrual_day',
+    carry_forward_max_per_quarter: 'carry_forward_quarter_cap',
+    carry_forward_reset_frequency: 'carry_forward_reset_mode',
+    annual_maximum: 'max_balance',
+    is_active: 'status',
+    carry_forward_allowed: 'carry_forward_enabled',
+    carry_forward_auto_reset_enabled: 'auto_reset_quarter_end',
+    sandwich_rule_enabled: 'sandwich_rule_enabled',
+  },
+};
+
 const defaultForm = {
   name: '',
   code: '',
@@ -27,10 +55,6 @@ const defaultForm = {
   auto_reset_quarter_end: true,
   reset_notice_days: 3,
   sandwich_rule_enabled: true,
-  sandwich_examples: [
-    'Leave Fri + Mon → Sat & Sun counted (4 days)',
-    'Leave Wed + Fri with Thu holiday → Wed, Thu, Fri (3 days)',
-  ],
   max_balance: 12,
   status: 'active',
   eligibility_departments: [],
@@ -61,11 +85,89 @@ const LeavePoliciesPage = () => {
   const [confirmArchive, setConfirmArchive] = useState(null);
   const [confirmCopy, setConfirmCopy] = useState(null);
 
+  // Employees / departments / designations (for dropdowns)
+  const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [designations, setDesignations] = useState([]);
+  const [metaLoading, setMetaLoading] = useState(false);
+
+  // Transform backend data to frontend format
+  const transformFromBackend = (data) => {
+    if (Array.isArray(data)) {
+      return data.map((item) => transformFromBackend(item));
+    }
+
+    const transformed = { ...data };
+
+    // Apply field mappings
+    Object.keys(fieldMappings.fromBackend).forEach((backendKey) => {
+      const frontendKey = fieldMappings.fromBackend[backendKey];
+      if (transformed[backendKey] !== undefined) {
+        transformed[frontendKey] = transformed[backendKey];
+        delete transformed[backendKey];
+      }
+    });
+
+    // Normalize status (backend is_active -> 'active'/'inactive')
+    if (typeof transformed.status === 'boolean') {
+      transformed.status = transformed.status ? 'active' : 'inactive';
+    }
+
+    // Convert boolean fields from backend strings/numbers to actual booleans
+    transformed.carry_forward_enabled = !!transformed.carry_forward_enabled;
+    transformed.auto_reset_quarter_end = !!transformed.auto_reset_quarter_end;
+    transformed.sandwich_rule_enabled = !!transformed.sandwich_rule_enabled;
+
+    // Ensure eligibility arrays are present
+    transformed.eligibility_departments = transformed.eligibility_departments || [];
+    transformed.eligibility_designations = transformed.eligibility_designations || [];
+
+    return transformed;
+  };
+
+  // Transform frontend data to backend format
+  const transformToBackend = (data) => {
+    const transformed = { ...data };
+
+    // Apply field mappings
+    Object.keys(fieldMappings.toBackend).forEach((frontendKey) => {
+      const backendKey = fieldMappings.toBackend[frontendKey];
+      if (transformed[frontendKey] !== undefined) {
+        let value = transformed[frontendKey];
+
+        // Convert status string to boolean for is_active
+        if (frontendKey === 'status') {
+          value = value === 'active';
+        }
+
+        // Convert carry_forward_reset_mode to backend expected values
+        if (frontendKey === 'carry_forward_reset_mode') {
+          const modeMapping = {
+            quarterly: 'QUARTERLY',
+            annual: 'ANNUAL',
+            custom: 'CUSTOM',
+          };
+          value = modeMapping[value] || 'QUARTERLY';
+        }
+
+        transformed[backendKey] = value;
+        if (backendKey !== frontendKey) {
+          delete transformed[frontendKey];
+        }
+      }
+    });
+
+    // Required backend field default
+    transformed.join_date_proration_rule = 'ACCRUE_FROM_NEXT_MONTH';
+
+    return transformed;
+  };
+
   const loadPolicies = async () => {
     try {
       setLoading(true);
       const data = await api.getLeavePolicies();
-      setPolicies(data);
+      setPolicies(transformFromBackend(data));
     } catch (error) {
       console.error('Failed to load leave policies', error);
       setNotification({ type: 'error', message: 'Unable to load leave policies.' });
@@ -74,8 +176,36 @@ const LeavePoliciesPage = () => {
     }
   };
 
+  // Load employees and derive departments/designations (like AttendanceReportsPage)
+  const loadMeta = async () => {
+    try {
+      setMetaLoading(true);
+      const data = await api.getEmployees();
+      setEmployees(data || []);
+
+      const deptSet = new Set();
+      const desigSet = new Set();
+
+      (data || []).forEach((emp) => {
+        if (emp.department) deptSet.add(emp.department);
+        if (emp.designation) desigSet.add(emp.designation);
+      });
+
+      setDepartments(Array.from(deptSet));
+      setDesignations(Array.from(desigSet));
+    } catch (error) {
+      console.error('Failed to load employees / departments', error);
+      setNotification((prev) =>
+        prev || { type: 'error', message: 'Unable to load departments and designations.' }
+      );
+    } finally {
+      setMetaLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadPolicies();
+    loadMeta();
   }, []);
 
   const handleModalClose = () => {
@@ -102,20 +232,16 @@ const LeavePoliciesPage = () => {
       monthly_accrual: policy.monthly_accrual,
       accrual_day: policy.accrual_day,
       carry_forward_enabled: policy.carry_forward_enabled,
-      sandwich_examples: policy.sandwich_examples || defaultForm.sandwich_examples,
+      sandwich_rule_enabled: policy.sandwich_rule_enabled,
       eligibility_departments: policy.eligibility_departments || [],
       eligibility_designations: policy.eligibility_designations || [],
+      metadataObject: policy.metadataObject || {},
     });
     setShowModal(true);
   };
 
   const handleInput = (key, value) => {
     setFormState((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleArrayInput = (key, value) => {
-    const items = value.split(',').map((item) => item.trim()).filter(Boolean);
-    handleInput(key, items);
   };
 
   const formSections = useMemo(
@@ -222,12 +348,16 @@ const LeavePoliciesPage = () => {
             {formState.carry_forward_enabled && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quarter Cap (max leaves)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quarter Cap (max leaves)
+                  </label>
                   <input
                     type="number"
                     min={0}
                     value={formState.carry_forward_quarter_cap}
-                    onChange={(e) => handleInput('carry_forward_quarter_cap', Number(e.target.value))}
+                    onChange={(e) =>
+                      handleInput('carry_forward_quarter_cap', Number(e.target.value))
+                    }
                     className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   />
                   <p className="text-xs text-gray-500 mt-1">Max 3 leaves carry forward</p>
@@ -245,7 +375,9 @@ const LeavePoliciesPage = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Reset Notification (days)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Reset Notification (days)
+                  </label>
                   <input
                     type="number"
                     min={0}
@@ -262,16 +394,20 @@ const LeavePoliciesPage = () => {
       },
       {
         title: 'Sandwich Rule',
-        description: 'Enable sandwich logic & examples',
+        description: 'Weekend/holiday counted if leave spans both sides',
         content: (
           <div className="space-y-4">
             <div className="flex items-center justify-between border border-gray-200 rounded-lg p-4">
               <div>
                 <p className="font-medium text-gray-800">Sandwich Rule</p>
-                <p className="text-sm text-gray-500">Weekend/holiday counted if leave spans both sides</p>
+                <p className="text-sm text-gray-500">
+                  Weekend/holiday counted if leave spans both sides
+                </p>
               </div>
-              <label className="inline-flex items-center cursor-pointer">
+              <label htmlFor="sandwich_rule_enabled" className="inline-flex items-center cursor-pointer">
                 <input
+                  id="sandwich_rule_enabled"
+                  name="sandwich_rule_enabled"
                   type="checkbox"
                   checked={formState.sandwich_rule_enabled}
                   onChange={(e) => handleInput('sandwich_rule_enabled', e.target.checked)}
@@ -279,20 +415,6 @@ const LeavePoliciesPage = () => {
                 />
               </label>
             </div>
-            {formState.sandwich_rule_enabled && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Examples</label>
-                <textarea
-                  value={formState.sandwich_examples.join('\n')}
-                  onChange={(e) => handleInput('sandwich_examples', e.target.value.split('\n').filter(Boolean))}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  rows={3}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  One example per line. Displayed to admins for clarity.
-                </p>
-              </div>
-            )}
           </div>
         ),
       },
@@ -301,43 +423,116 @@ const LeavePoliciesPage = () => {
         description: 'Departments / designations the policy applies to',
         content: (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Department multi-select */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Departments</label>
-              <input
-                type="text"
-                value={formState.eligibility_departments.join(', ')}
-                onChange={(e) => handleArrayInput('eligibility_departments', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                placeholder="HR, Finance, Engineering"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Departments (Multi-select)
+              </label>
+              <div className="relative">
+                <select
+                  multiple
+                  value={formState.eligibility_departments}
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.selectedOptions, option => option.value);
+                    handleInput('eligibility_departments', selected);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px]"
+                >
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                  <svg
+                    className="w-4 h-4 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Hold Ctrl/Cmd to select multiple. Leave empty for all departments.
+              </p>
+              {metaLoading && (
+                <p className="text-xs text-gray-400 mt-1">Loading departments…</p>
+              )}
             </div>
+
+            {/* Designation multi-select */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Designations</label>
-              <input
-                type="text"
-                value={formState.eligibility_designations.join(', ')}
-                onChange={(e) => handleArrayInput('eligibility_designations', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                placeholder="Manager, Executive"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Designations (Multi-select)
+              </label>
+              <div className="relative">
+                <select
+                  multiple
+                  value={formState.eligibility_designations}
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.selectedOptions, option => option.value);
+                    handleInput('eligibility_designations', selected);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px]"
+                >
+                  {designations.map((desig) => (
+                    <option key={desig} value={desig}>
+                      {desig}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                  <svg
+                    className="w-4 h-4 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Hold Ctrl/Cmd to select multiple. Leave empty for all designations.
+              </p>
+              {metaLoading && (
+                <p className="text-xs text-gray-400 mt-1">Loading designations…</p>
+              )}
             </div>
           </div>
         ),
       },
     ],
-    [formState]
+    [formState, departments, designations, metaLoading]
   );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const backendData = transformToBackend(formState);
       if (editingPolicy) {
-        await api.updateLeavePolicy(editingPolicy.id, formState);
+        await api.updateLeavePolicy(editingPolicy.id, backendData);
       } else {
-        await api.createLeavePolicy(formState);
+        await api.createLeavePolicy(backendData);
       }
       await loadPolicies();
-      setNotification({ type: 'success', message: `Policy ${editingPolicy ? 'updated' : 'created'} successfully.` });
+      setNotification({
+        type: 'success',
+        message: `Policy ${editingPolicy ? 'updated' : 'created'} successfully.`,
+      });
       handleModalClose();
     } catch (error) {
       console.error('Failed to save policy', error);
@@ -399,7 +594,11 @@ const LeavePoliciesPage = () => {
                 : 'bg-red-50 text-red-800 border border-red-200'
             }`}
           >
-            {notification.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            {notification.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertCircle className="w-5 h-5" />
+            )}
             <span className="font-medium text-sm">{notification.message}</span>
           </div>
         )}
@@ -409,7 +608,10 @@ const LeavePoliciesPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {policies.map((policy) => (
-              <div key={policy.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-4">
+              <div
+                key={policy.id}
+                className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-4"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm text-gray-500">{policy.code}</p>
@@ -418,7 +620,9 @@ const LeavePoliciesPage = () => {
                   </div>
                   <span
                     className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                      policy.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                      policy.status === 'active'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-600'
                     }`}
                   >
                     {policy.status}
@@ -427,24 +631,35 @@ const LeavePoliciesPage = () => {
                 <div className="space-y-3 text-sm text-gray-700">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-blue-500" />
-                    <span>Quota: {policy.yearly_quota} / year · +{policy.monthly_accrual} monthly</span>
+                    <span>
+                      Quota: {policy.yearly_quota} / year · +{policy.monthly_accrual} monthly
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-purple-500" />
-                    <span>Accrual on {policy.accrual_day}{policy.accrual_day === 1 ? 'st' : 'th'} · Max {policy.max_balance}</span>
+                    <span>
+                      Accrual on {policy.accrual_day}
+                      {policy.accrual_day === 1 ? 'st' : 'th'} · Max {policy.max_balance}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <RefreshCw className="w-4 h-4 text-orange-500" />
                     <span>
                       Carry forward:{' '}
-                      {policy.carry_forward_enabled ? `Yes · ${policy.carry_forward_quarter_cap} per quarter` : 'No'}
+                      {policy.carry_forward_enabled
+                        ? `Yes · ${policy.carry_forward_quarter_cap} per quarter`
+                        : 'No'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <AlertCircle
-                      className={`w-4 h-4 ${policy.sandwich_rule_enabled ? 'text-red-500' : 'text-gray-400'}`}
+                      className={`w-4 h-4 ${
+                        policy.sandwich_rule_enabled ? 'text-red-500' : 'text-gray-400'
+                      }`}
                     />
-                    <span>Sandwich rule: {policy.sandwich_rule_enabled ? 'Enabled' : 'Disabled'}</span>
+                    <span>
+                      Sandwich rule: {policy.sandwich_rule_enabled ? 'Enabled' : 'Disabled'}
+                    </span>
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 space-y-1">
@@ -499,7 +714,10 @@ const LeavePoliciesPage = () => {
             </div>
             <form onSubmit={handleSubmit} className="overflow-y-auto px-6 py-4 space-y-6">
               {formSections.map((section) => (
-                <div key={section.title} className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                <div
+                  key={section.title}
+                  className="border border-gray-200 rounded-xl p-4 bg-gray-50"
+                >
                   <div className="mb-3">
                     <p className="text-sm font-semibold text-gray-800">{section.title}</p>
                     <p className="text-xs text-gray-500">{section.description}</p>
@@ -540,7 +758,10 @@ const LeavePoliciesPage = () => {
                 : 'Activating will resume accruals for eligible employees.'}
             </p>
             <div className="flex items-center gap-2 justify-end">
-              <button onClick={() => setConfirmArchive(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+              <button
+                onClick={() => setConfirmArchive(null)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
                 Cancel
               </button>
               <button
@@ -558,9 +779,14 @@ const LeavePoliciesPage = () => {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">Copy {confirmCopy.name}?</h3>
-            <p className="text-sm text-gray-600">A new inactive policy will be created with the same rules.</p>
+            <p className="text-sm text-gray-600">
+              A new inactive policy will be created with the same rules.
+            </p>
             <div className="flex items-center gap-2 justify-end">
-              <button onClick={() => setConfirmCopy(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+              <button
+                onClick={() => setConfirmCopy(null)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
                 Cancel
               </button>
               <button
@@ -578,4 +804,3 @@ const LeavePoliciesPage = () => {
 };
 
 export default LeavePoliciesPage;
-

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('leave_requests', function (Blueprint $table) {
-            //
+            $table->decimal('total_days', 5, 2)->default(0)->after('leave_type');
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('leave_requests', function (Blueprint $table) {
-            //
+            $table->dropColumn('total_days');
         });
     }
 };

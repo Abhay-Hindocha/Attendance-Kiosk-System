@@ -52,7 +52,7 @@ class LeaveBalanceService
             throw new \Exception('Insufficient leave balance');
         }
 
-        $balance->balance -= $days;
+        $balance->used += $days;
         $balance->pending_deduction += $days;
         $balance->save();
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Clock, LogOut } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, LogOut, Download } from 'lucide-react';
 import employeeApi from '../../services/employeeApi';
 import { useNavigate } from 'react-router-dom';
 
@@ -29,6 +29,27 @@ export default function EmployeeAttendancePage() {
       setSelectedYear(selectedYear + 1);
     } else {
       setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth() + 1;
+      const startDate = formatDateKey(year, month - 1, 1);
+      const endDate = formatDateKey(year, month - 1, daysInMonth);
+      const blob = await employeeApi.exportAttendanceReport({ start_date: startDate, end_date: endDate });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `attendance-${year}-${String(month).padStart(2, '0')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Download failed:', err);
+      setError('Failed to download attendance report');
     }
   };
 
@@ -152,7 +173,7 @@ export default function EmployeeAttendancePage() {
 
         {/* Controls and Calendar */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">
               <button onClick={handlePreviousMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <ChevronLeft className="w-5 h-5" />
@@ -162,6 +183,10 @@ export default function EmployeeAttendancePage() {
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
+            <button onClick={handleDownload} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto">
+              <Download className="w-4 h-4" />
+              Download CSV
+            </button>
           </div>
 
           {error && <div className="text-rose-500 text-sm">{error}</div>}
@@ -199,7 +224,7 @@ export default function EmployeeAttendancePage() {
                           {status === 'Holiday' ? (
                             <span className={`font-medium ${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.holiday?.name || 'Holiday'}</span>
                           ) : status === 'On Leave' ? (
-                            <span className={`font-medium ${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.leaveReason || 'Sick Leave'}</span>
+                            <span className={`font-medium ${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.leaveReason || 'Leave'}</span>
                           ) : status === 'Present' || status === 'Late Arrival' || status === 'Early Departure' || status === 'Half Day' ? (
                             <>
                               <span className={`${status ? 'text-white' : 'text-gray-700'}`}>In: {c.rec.checkIn}</span>

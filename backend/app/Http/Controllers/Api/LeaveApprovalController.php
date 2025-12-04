@@ -51,7 +51,13 @@ class LeaveApprovalController extends Controller
             if (!empty($data['from_date']) && !empty($data['to_date'])) {
                 $fromDate = Carbon::parse($data['from_date']);
                 $toDate = Carbon::parse($data['to_date']);
-                $totalDays = $toDate->diffInDays($fromDate) + 1;
+                $period = CarbonPeriod::create($fromDate, $toDate);
+                $totalDays = collect($period)->reduce(function ($carry, Carbon $date) {
+                    if (!$date->isWeekend()) {
+                        return $carry + 1;
+                    }
+                    return $carry;
+                }, 0.0);
                 $leaveRequest->from_date = $fromDate;
                 $leaveRequest->to_date = $toDate;
                 $leaveRequest->estimated_days = $totalDays;
@@ -180,7 +186,13 @@ class LeaveApprovalController extends Controller
             $totalDaysOld = $leaveRequest->estimated_days + $leaveRequest->sandwich_applied_days;
             $newFrom = Carbon::parse($data['from_date']);
             $newTo = Carbon::parse($data['to_date']);
-            $newTotalDays = $newTo->diffInDays($newFrom) + 1;
+            $period = CarbonPeriod::create($newFrom, $newTo);
+            $newTotalDays = collect($period)->reduce(function ($carry, Carbon $date) {
+                if (!$date->isWeekend()) {
+                    return $carry + 1;
+                }
+                return $carry;
+            }, 0.0);
 
             $balance = LeaveBalance::where('employee_id', $leaveRequest->employee_id)
                 ->where('leave_policy_id', $leaveRequest->leave_policy_id)

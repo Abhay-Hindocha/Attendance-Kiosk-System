@@ -21,6 +21,8 @@ const EmployeeLeaveApplyPage = () => {
     attachment: null,
   });
 
+  const [holidays, setHolidays] = useState([]);
+
   useEffect(() => {
     const loadBalances = async () => {
       try {
@@ -33,6 +35,19 @@ const EmployeeLeaveApplyPage = () => {
       }
     };
     loadBalances();
+  }, []);
+
+  useEffect(() => {
+    const loadHolidays = async () => {
+      try {
+        const data = await employeeApi.getHolidays();
+        setHolidays(data.holidays || []);
+      } catch (err) {
+        // Silently fail for holidays, not critical
+        console.warn('Failed to load holidays:', err);
+      }
+    };
+    loadHolidays();
   }, []);
 
   useEffect(() => {
@@ -61,9 +76,35 @@ const EmployeeLeaveApplyPage = () => {
     const from = new Date(form.from_date);
     const to = new Date(form.to_date);
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) return 0;
-    const diff = (to - from) / (1000 * 60 * 60 * 24) + 1;
-    return form.partial_day === 'half_day' ? 0.5 : diff;
-  }, [form.from_date, form.to_date, form.partial_day]);
+
+    if (form.partial_day === 'half_day') return 0.5;
+
+    // Check if sandwich rule is enabled for the selected policy
+    const isSandwichRuleEnabled = selectedPolicy?.sandwich_rule_enabled === true;
+
+    if (isSandwichRuleEnabled) {
+      // Sandwich rule logic: count all days in the range (including weekends)
+      // when the leave spans across weekends (has working days on both sides)
+      const totalDays = Math.floor((to - from) / (1000 * 60 * 60 * 24)) + 1;
+      return totalDays;
+    } else {
+      // If sandwich rule is disabled, only count working days (exclude weekends and holidays)
+      let workingDays = 0;
+      const currentDate = new Date(from);
+      const holidayDates = holidays.map(h => h.date);
+
+      while (currentDate <= to) {
+        // Check if it's not a weekend (0 = Sunday, 6 = Saturday) and not a holiday
+        const dateString = currentDate.toISOString().split('T')[0];
+        if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6 && !holidayDates.includes(dateString)) {
+          workingDays++;
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      return workingDays;
+    }
+  }, [form.from_date, form.to_date, form.partial_day, selectedPolicy, holidays]);
 
   const handleChange = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -97,7 +138,9 @@ const EmployeeLeaveApplyPage = () => {
       payload.append('from_date', form.from_date);
       payload.append('to_date', form.to_date);
       payload.append('partial_day', form.partial_day);
-      payload.append('partial_session', form.partial_session);
+      if (form.partial_day === 'half_day') {
+        payload.append('partial_session', form.partial_session);
+      }
       payload.append('reason', form.reason);
       if (form.attachment) {
         payload.append('attachment', form.attachment);
@@ -117,7 +160,7 @@ const EmployeeLeaveApplyPage = () => {
         attachment: null,
       });
     } catch (err) {
-      setError(err?.message || 'Failed to submit leave request.');
+      setError(err?.error || err?.message || 'Failed to submit leave request.');
     } finally {
       setSubmitting(false);
     }
@@ -187,7 +230,7 @@ const EmployeeLeaveApplyPage = () => {
             {selectedPolicy && (
               <p className="text-xs text-gray-500 mt-1">
                 Monthly accrual: {selectedPolicy.monthly_accrual} · Sandwich rule{' '}
-                {selectedPolicy.sandwich_rule_enabled ? 'enabled' : 'disabled'}
+                {selectedPolicy.sandwich_rule_enabled === true ? 'enabled' : 'disabled'}
               </p>
             )}
           </div>
@@ -268,7 +311,7 @@ const EmployeeLeaveApplyPage = () => {
 
             {selectedPolicy && (
               <div className="mt-3 text-xs text-gray-500">
-                {selectedPolicy.sandwich_rule_enabled && (
+                {selectedPolicy.sandwich_rule_enabled === true && (
                   <p>Sandwich rule is enabled for this policy.</p>
                 )}
                 {selectedPolicy.code === 'SL' && (

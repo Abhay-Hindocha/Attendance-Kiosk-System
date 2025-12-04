@@ -108,6 +108,12 @@ class EmployeeApiService {
     return this.request(endpoint);
   }
 
+  async exportAttendanceReport(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const endpoint = query ? `/employee/portal/attendance/export?${query}` : '/employee/portal/attendance/export';
+    return this.request(endpoint, { responseType: 'blob' });
+  }
+
   async getLeaveRequests(params = {}) {
     const query = new URLSearchParams(params).toString();
     const endpoint = query ? `/leave/requests?${query}` : '/leave/requests';
@@ -125,6 +131,10 @@ class EmployeeApiService {
     return this.request(`/leave/requests/${id}/cancel`, {
       method: 'POST',
     });
+  }
+
+  async getHolidays(year = new Date().getFullYear()) {
+    return this.request(`/employee/portal/holidays?year=${year}`);
   }
 }
 

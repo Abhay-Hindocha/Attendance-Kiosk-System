@@ -9,6 +9,7 @@ use App\Models\LeaveBalance;
 use App\Models\LeavePolicy;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestTimeline;
+use App\Services\SandwichRuleService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
@@ -18,6 +19,13 @@ use Illuminate\Validation\ValidationException;
 
 class LeaveRequestController extends Controller
 {
+    protected $sandwichRuleService;
+
+    public function __construct(SandwichRuleService $sandwichRuleService)
+    {
+        $this->sandwichRuleService = $sandwichRuleService;
+    }
+
     public function index(Request $request)
     {
         $query = LeaveRequest::with(['employee:id,name,department', 'policy:id,name,code'])
@@ -86,10 +94,11 @@ class LeaveRequestController extends Controller
         $toDate = Carbon::parse($data['to_date'])->startOfDay();
         $partialDay = $data['partial_day'] ?? 'full_day';
         $isPartial = $partialDay === 'half_day';
-        $estimatedDays = $this->calculateEstimatedDays($fromDate, $toDate, $isPartial, $data['partial_session'] ?? null);
-        $sandwichDays = $policy->sandwich_rule_enabled
-            ? $this->calculateSandwichDays($employee, $fromDate, $toDate)
-            : 0;
+        $holidays = $this->sandwichRuleService->getHolidaysForYear($fromDate->year);
+        $estimatedDays = $this->calculateEstimatedDays($fromDate, $toDate, $isPartial, $data['partial_session'] ?? null, $holidays);
+
+        $sandwichResult = $this->sandwichRuleService->applySandwichRule($policy, $fromDate, $toDate);
+        $sandwichDays = $sandwichResult['sandwich_days'];
         $totalDays = $estimatedDays + $sandwichDays;
 
         $requiresDocument = $this->shouldRequireDocument($policy, $totalDays);
@@ -246,45 +255,22 @@ class LeaveRequestController extends Controller
         Carbon $fromDate,
         Carbon $toDate,
         bool $isPartial,
-        ?string $partialSession
+        ?string $partialSession,
+        array $holidays = []
     ): float {
         if ($isPartial) {
             return $partialSession === 'custom' ? 0.5 : 0.5;
         }
 
         $period = CarbonPeriod::create($fromDate, $toDate);
-        return collect($period)->reduce(function ($carry, Carbon $date) {
-            return $carry + 1;
+        return collect($period)->reduce(function ($carry, Carbon $date) use ($holidays) {
+            if (!$date->isWeekend() && !in_array($date->toDateString(), $holidays)) {
+                return $carry + 1;
+            }
+            return $carry;
         }, 0.0);
     }
 
-    protected function calculateSandwichDays(Employee $employee, Carbon $fromDate, Carbon $toDate): float
-    {
-        $previousDay = $fromDate->copy()->subDay();
-        $nextDay = $toDate->copy()->addDay();
-
-        $sandwichDays = 0.0;
-
-        if ($this->isWeekendOrHoliday($employee, $previousDay) && $this->isWeekendOrHoliday($employee, $nextDay)) {
-            $period = CarbonPeriod::create($fromDate, $toDate);
-            foreach ($period as $date) {
-                if ($this->isWeekendOrHoliday($employee, $date)) {
-                    $sandwichDays += 1;
-                }
-            }
-        }
-
-        return $sandwichDays;
-    }
-
-    protected function isWeekendOrHoliday(Employee $employee, Carbon $date): bool
-    {
-        if ($date->isWeekend()) {
-            return true;
-        }
-
-        return Holiday::whereDate('date', $date)->exists();
-    }
 
     protected function shouldRequireDocument(LeavePolicy $policy, float $totalDays): bool
     {
@@ -295,4 +281,3 @@ class LeaveRequestController extends Controller
         return false;
     }
 }
-

@@ -33,7 +33,19 @@ class LeaveBalance extends Model
         'pending_deduction' => 'float',
         'accrued_this_year' => 'float',
         'last_accrual_date' => 'date',
+        'opening_balance' => 'float',
+        'accrued' => 'float',
+        'used' => 'float',
+        'carried_forward' => 'float',
+        'sandwich_days_charged' => 'float',
+        'reset' => 'float',
+        'closing_balance' => 'float',
     ];
+
+    public function getBalanceAttribute(): float
+    {
+        return $this->opening_balance + $this->accrued - $this->used - $this->carried_forward - $this->sandwich_days_charged;
+    }
 
     public function employee()
     {

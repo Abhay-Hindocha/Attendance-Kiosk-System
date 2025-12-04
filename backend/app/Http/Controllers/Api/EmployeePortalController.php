@@ -11,6 +11,7 @@ use App\Services\LeaveService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmployeePortalController extends Controller
 {
@@ -82,10 +83,137 @@ class EmployeePortalController extends Controller
             return $minutesWorked / 60;
         });
 
-        $pendingLeaves = LeaveRequest::where('employee_id', $employee->id)
+        // Leave balances
+        $policies = $employee->leavePolicies;
+        $leaveBalancesArray = [];
+        foreach ($policies as $policy) {
+            $balanceRecord = LeaveBalance::where('employee_id', $employee->id)
+                ->where('leave_policy_id', $policy->id)
+                ->first();
+
+            // Create balance record if it doesn't exist
+            if (!$balanceRecord) {
+                $leaveService = new LeaveService();
+                $initialBalance = $leaveService->calculateProratedBalance($policy, $employee->join_date ?? now());
+
+                // For monthly accrual policies, start with 0 balance and accrue monthly
+                if ($policy->monthly_accrual_value > 0) {
+                    $openingBalance = 0;
+                    $accrued = 0;
+                    $balanceValue = 0;
+                    $accruedThisYear = 0;
+                } else {
+                    $openingBalance = $initialBalance;
+                    $accrued = 0;
+                    $balanceValue = $initialBalance;
+                    $accruedThisYear = 0;
+                }
+
+                $balanceRecord = LeaveBalance::create([
+                    'employee_id' => $employee->id,
+                    'leave_policy_id' => $policy->id,
+                    'year' => date('Y'),
+                    'balance' => $balanceValue,
+                    'opening_balance' => $openingBalance,
+                    'carry_forward_balance' => 0,
+                    'pending_deduction' => 0,
+                    'accrued_this_year' => $accruedThisYear,
+                    'accrued' => $accrued,
+                    'used' => 0,
+                    'carried_forward' => 0,
+                    'sandwich_days_charged' => 0,
+                ]);
+            }
+
+            $available = $balanceRecord->balance - $balanceRecord->pending_deduction;
+            // For monthly accrual policies, total is the accrued this year, not the balance
+            if ($policy->monthly_accrual_value > 0) {
+                $total = $balanceRecord->accrued_this_year + $balanceRecord->carry_forward_balance;
+            } else {
+                $total = $balanceRecord->balance + $balanceRecord->carry_forward_balance;
+            }
+
+            $leaveBalancesArray[] = [
+                'id' => $policy->id,
+                'name' => $policy->name,
+                'code' => $policy->code,
+                'description' => $policy->description,
+                'available' => max(0, $available),
+                'total' => $total,
+                'balance' => $balanceRecord->balance,
+                'carry_forward_balance' => $balanceRecord->carry_forward_balance,
+                'pending_deduction' => $balanceRecord->pending_deduction,
+                'accrued_this_year' => $balanceRecord->accrued_this_year,
+            ];
+        }
+
+        // Update pending deductions
+        $leaveService = new LeaveService();
+        $leaveService->updatePendingDeductions($employee->id);
+
+        // Refresh pending deductions after updating
+        foreach ($leaveBalancesArray as &$bal) {
+            if ($bal['id']) {
+                $updated = LeaveBalance::where('employee_id', $employee->id)
+                    ->where('leave_policy_id', $bal['id'])
+                    ->first();
+                if ($updated) {
+                    $bal['pending_deduction'] = $updated->pending_deduction;
+                    $bal['available'] = max(0, $updated->balance - $updated->pending_deduction);
+                }
+            }
+        }
+
+        // Pending requests
+        $pendingRequests = LeaveRequest::where('employee_id', $employee->id)
             ->whereIn('status', ['pending', 'clarification'])
             ->orderByDesc('created_at')
-            ->get(['id', 'from_date', 'to_date', 'status', 'reason']);
+            ->get(['id', 'from_date', 'to_date', 'status', 'reason', 'leave_type', 'total_days', 'created_at']);
+
+        $pendingRequestsFormatted = $pendingRequests->map(function ($request) {
+            return [
+                'id' => $request->id,
+                'type' => $request->leave_type ?? 'Leave',
+                'from_date' => $request->from_date,
+                'to_date' => $request->to_date,
+                'days' => $request->total_days ?? 1,
+                'reason' => $request->reason,
+                'submitted_at' => $request->created_at->toDateString(),
+            ];
+        });
+
+        // Recent requests
+        $recentRequests = LeaveRequest::where('employee_id', $employee->id)
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get(['id', 'from_date', 'to_date', 'status', 'reason', 'leave_type', 'total_days', 'created_at']);
+
+        $recentRequestsFormatted = $recentRequests->map(function ($request) {
+            return [
+                'id' => $request->id,
+                'type' => $request->leave_type ?? 'Leave',
+                'from_date' => $request->from_date,
+                'to_date' => $request->to_date,
+                'days' => $request->total_days ?? 1,
+                'status' => ucfirst($request->status),
+                'reason' => $request->reason,
+                'submitted_at' => $request->created_at->toDateString(),
+            ];
+        });
+
+        // Stats
+        $currentMonth = Carbon::now()->month;
+        $currentYear = Carbon::now()->year;
+
+        $approvedThisMonth = LeaveRequest::where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->whereYear('approved_at', $currentYear)
+            ->whereMonth('approved_at', $currentMonth)
+            ->sum('total_days');
+
+        $totalLeavesTaken = LeaveRequest::where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->sum('total_days');
 
         return response()->json([
             'today' => [
@@ -96,7 +224,12 @@ class EmployeePortalController extends Controller
             ],
             'last_check_ins' => $lastActivities,
             'weekly_hours' => round(max(0, $weeklyHours), 2),
-            'pending_leaves' => $pendingLeaves,
+            'leave_balances' => $leaveBalancesArray,
+            'pending_requests' => $pendingRequestsFormatted,
+            'recent_leaves' => $recentRequestsFormatted,
+            'pending_requests_count' => $pendingRequests->count(),
+            'approved_this_month' => (float) $approvedThisMonth,
+            'total_leaves_taken' => (float) $totalLeavesTaken,
             'quick_actions' => [
                 ['label' => 'Leave Dashboard', 'path' => '/employee/leaves'],
                 ['label' => 'View Attendance', 'path' => '/employee/attendance'],
@@ -122,14 +255,26 @@ class EmployeePortalController extends Controller
                 $leaveService = new LeaveService();
                 $initialBalance = $leaveService->calculateProratedBalance($policy, $employee->join_date ?? now());
 
+                // For monthly accrual policies, start with 0 balance and accrue monthly
+                if ($policy->monthly_accrual_value > 0) {
+                    $balanceValue = 0;
+                } else {
+                    $balanceValue = $initialBalance;
+                }
+
                 $balanceRecord = LeaveBalance::create([
                     'employee_id' => $employee->id,
                     'leave_policy_id' => $policy->id,
                     'year' => date('Y'),
-                    'balance' => $initialBalance,
+                    'balance' => $balanceValue,
+                    'opening_balance' => $balanceValue,
                     'carry_forward_balance' => 0,
                     'pending_deduction' => 0,
                     'accrued_this_year' => 0,
+                    'accrued' => 0,
+                    'used' => 0,
+                    'carried_forward' => 0,
+                    'sandwich_days_charged' => 0,
                 ]);
             }
 
@@ -185,16 +330,128 @@ class EmployeePortalController extends Controller
         $start = Carbon::parse($request->input('start_date', Carbon::now()->startOfMonth()));
         $end = Carbon::parse($request->input('end_date', Carbon::now()->endOfMonth()));
 
-        $records = Attendance::where('employee_id', $employee->id)
+        $attendances = Attendance::where('employee_id', $employee->id)
             ->whereBetween('date', [$start, $end])
-            ->orderBy('date')
-            ->get();
+            ->with('employee.policy', 'breaks')
+            ->get()
+            ->keyBy(function($item) {
+                return Carbon::parse($item->date)->toDateString();
+            });
+
+        $holidays = \App\Models\Holiday::whereBetween('date', [$start, $end])
+            ->get()
+            ->keyBy('date');
+
+        // Fetch leave requests
+        $leaveRequests = LeaveRequest::where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->where(function ($query) use ($start, $end) {
+                $query->whereBetween('from_date', [$start, $end])
+                      ->orWhereBetween('to_date', [$start, $end])
+                      ->orWhere(function ($q) use ($start, $end) {
+                          $q->where('from_date', '<=', $start)
+                            ->where('to_date', '>=', $end);
+                      });
+            })
+            ->get()
+            ->keyBy('from_date');
+
+        $result = [];
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $dateKey = $date->toDateString();
+            $attendance = $attendances->get($dateKey);
+            $holiday = $holidays->get($dateKey);
+            $leave = $leaveRequests->get($dateKey);
+
+            if ($attendance) {
+                $checkIn = $attendance->check_in ? $attendance->check_in->toISOString() : null;
+                $checkOut = $attendance->check_out ? $attendance->check_out->toISOString() : null;
+
+                // Calculate total work minutes and format using AttendanceLogic
+                $totalMinutesWorked = null;
+                $totalHours = null;
+
+                if ($attendance->check_in && $attendance->check_out) {
+                    $totalMinutesWorked = (new AttendanceLogic())->calculateWorkMinutes($attendance, $employee->policy);
+                    $totalHours = (new AttendanceLogic())->formatWorkDuration($totalMinutesWorked);
+                }
+
+                // Use AttendanceLogic to calculate the correct status
+                $status = (new AttendanceLogic())->calculateStatus($employee, $attendance);
+
+                // Update the database record if status changed
+                if ($status !== $attendance->status) {
+                    $attendance->update(['status' => $status]);
+                }
+
+                // Map database status to display strings
+                $displayStatusMap = [
+                    'late' => 'Late Arrival',
+                    'present' => 'Present',
+                    'absent' => 'Absent',
+                    'half_day' => 'Half Day',
+                    'early_departure' => 'Early Departure',
+                    'leave' => 'On Leave',
+                ];
+                $displayStatus = $displayStatusMap[$status] ?? ucfirst($status);
+
+                $result[] = [
+                    'date' => $dateKey,
+                    'check_in' => $checkIn,
+                    'check_out' => $checkOut,
+                    'total_hours' => $totalHours,
+                    'breaks' => $attendance->breaks->map(function($break) {
+                        return [
+                            'break_out' => $break->break_start ? $break->break_start->toISOString() : null,
+                            'break_in' => $break->break_end ? $break->break_end->toISOString() : null,
+                        ];
+                    })->toArray(),
+                    'status' => $displayStatus,
+                    'holiday' => $holiday ? ['name' => $holiday->name, 'description' => $holiday->description] : null
+                ];
+            } elseif ($holiday) {
+                $result[] = [
+                    'date' => $dateKey,
+                    'check_in' => null,
+                    'check_out' => null,
+                    'total_hours' => null,
+                    'breaks' => [],
+                    'status' => 'Holiday',
+                    'holiday' => ['name' => $holiday->name, 'description' => $holiday->description]
+                ];
+            } elseif ($leave) {
+                $result[] = [
+                    'date' => $dateKey,
+                    'check_in' => null,
+                    'check_out' => null,
+                    'total_hours' => null,
+                    'breaks' => [],
+                    'status' => 'On Leave',
+                    'leave_reason' => $leave->reason ?? 'Leave',
+                    'holiday' => null
+                ];
+            } else {
+                // No attendance and no holiday - only include if it's past (till one day behind), and not a weekend
+                $yesterday = Carbon::yesterday()->toDateString();
+                if ($dateKey <= $yesterday && !$date->isWeekend()) {
+                    $result[] = [
+                        'date' => $dateKey,
+                        'check_in' => null,
+                        'check_out' => null,
+                        'total_hours' => null,
+                        'breaks' => [],
+                        'status' => 'Absent',
+                        'holiday' => null
+                    ];
+                }
+            }
+        }
 
         $summary = [
-            'total_days' => CarbonPeriod::create($start, $end)->count(),
-            'present' => $records->where('status', 'present')->count(),
-            'absent' => $records->where('status', 'absent')->count(),
-            'late' => $records->where('status', 'late')->count(),
+            'total_days' => $start->diffInDays($end) + 1,
+            'present' => collect($result)->where('status', 'Present')->count(),
+            'absent' => collect($result)->where('status', 'Absent')->count(),
+            'late' => collect($result)->where('status', 'Late Arrival')->count(),
         ];
 
         return response()->json([
@@ -203,7 +460,204 @@ class EmployeePortalController extends Controller
                 'end' => $end->toDateString(),
             ],
             'summary' => $summary,
-            'records' => $records,
+            'records' => $result,
+        ]);
+    }
+
+    public function exportAttendanceReport(Request $request)
+    {
+        $employee = $request->user();
+
+        $start = Carbon::parse($request->input('start_date', Carbon::now()->startOfMonth()));
+        $end = Carbon::parse($request->input('end_date', Carbon::now()->endOfMonth()));
+
+        $attendances = Attendance::where('employee_id', $employee->id)
+            ->whereBetween('date', [$start, $end])
+            ->with('employee.policy', 'breaks')
+            ->get()
+            ->keyBy(function($item) {
+                return Carbon::parse($item->date)->toDateString();
+            });
+
+        $holidays = \App\Models\Holiday::whereBetween('date', [$start, $end])
+            ->get()
+            ->keyBy('date');
+
+        // Fetch leave requests
+        $leaveRequests = LeaveRequest::where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->where(function ($query) use ($start, $end) {
+                $query->whereBetween('from_date', [$start, $end])
+                      ->orWhereBetween('to_date', [$start, $end])
+                      ->orWhere(function ($q) use ($start, $end) {
+                          $q->where('from_date', '<=', $start)
+                            ->where('to_date', '>=', $end);
+                      });
+            })
+            ->get()
+            ->keyBy('from_date');
+
+        $result = [];
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $dateKey = $date->toDateString();
+            $attendance = $attendances->get($dateKey);
+            $holiday = $holidays->get($dateKey);
+            $leave = $leaveRequests->get($dateKey);
+
+            if ($attendance) {
+                $checkIn = $attendance->check_in ? $attendance->check_in->toISOString() : null;
+                $checkOut = $attendance->check_out ? $attendance->check_out->toISOString() : null;
+
+                // Calculate total work minutes and format using AttendanceLogic
+                $totalMinutesWorked = null;
+                $totalHours = null;
+
+                if ($attendance->check_in && $attendance->check_out) {
+                    $totalMinutesWorked = (new AttendanceLogic())->calculateWorkMinutes($attendance, $employee->policy);
+                    $totalHours = (new AttendanceLogic())->formatWorkDuration($totalMinutesWorked);
+                }
+
+                // Use AttendanceLogic to calculate the correct status
+                $status = (new AttendanceLogic())->calculateStatus($employee, $attendance);
+
+                // Update the database record if status changed
+                if ($status !== $attendance->status) {
+                    $attendance->update(['status' => $status]);
+                }
+
+                // Map database status to display strings
+                $displayStatusMap = [
+                    'late' => 'Late Arrival',
+                    'present' => 'Present',
+                    'absent' => 'Absent',
+                    'half_day' => 'Half Day',
+                    'early_departure' => 'Early Departure',
+                    'leave' => 'On Leave',
+                ];
+                $displayStatus = $displayStatusMap[$status] ?? ucfirst($status);
+
+                $result[] = [
+                    'date' => $dateKey,
+                    'check_in' => $checkIn,
+                    'check_out' => $checkOut,
+                    'total_hours' => $totalHours,
+                    'breaks' => $attendance->breaks->map(function($break) {
+                        return [
+                            'break_out' => $break->break_start ? $break->break_start->toISOString() : null,
+                            'break_in' => $break->break_end ? $break->break_end->toISOString() : null,
+                        ];
+                    })->toArray(),
+                    'status' => $displayStatus,
+                    'holiday' => $holiday ? ['name' => $holiday->name, 'description' => $holiday->description] : null
+                ];
+            } elseif ($holiday) {
+                $result[] = [
+                    'date' => $dateKey,
+                    'check_in' => null,
+                    'check_out' => null,
+                    'total_hours' => null,
+                    'breaks' => [],
+                    'status' => 'Holiday',
+                    'holiday' => ['name' => $holiday->name, 'description' => $holiday->description]
+                ];
+            } elseif ($leave) {
+                $result[] = [
+                    'date' => $dateKey,
+                    'check_in' => null,
+                    'check_out' => null,
+                    'total_hours' => null,
+                    'breaks' => [],
+                    'status' => 'On Leave',
+                    'leave_reason' => $leave->reason ?? 'Leave',
+                    'holiday' => null
+                ];
+            } else {
+                // No attendance and no holiday - only include if it's past (till one day behind), and not a weekend
+                $yesterday = Carbon::yesterday()->toDateString();
+                if ($dateKey <= $yesterday && !$date->isWeekend()) {
+                    $result[] = [
+                        'date' => $dateKey,
+                        'check_in' => null,
+                        'check_out' => null,
+                        'total_hours' => null,
+                        'breaks' => [],
+                        'status' => 'Absent',
+                        'holiday' => null
+                    ];
+                }
+            }
+        }
+
+        $filename = "attendance-{$employee->name}-{$start->format('Y-m')}.csv";
+
+        $headers = [
+            "Content-type" => "text/csv",
+            "Content-Disposition" => "attachment; filename=$filename",
+            "Pragma" => "no-cache",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0"
+        ];
+
+        $columns = ['Date', 'Check In', 'Check Out', 'Total Hours', 'Breaks', 'Break Details', 'Status'];
+
+        $callback = function() use ($result, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            foreach ($result as $record) {
+                $breaksText = '';
+                $breakDetails = '';
+                if (is_array($record['breaks']) && count($record['breaks']) > 0) {
+                    $breaksText = count($record['breaks']) . ' times';
+                    $breakDetailsArray = [];
+                    foreach ($record['breaks'] as $index => $break) {
+                        $out = $break['break_out'] ? Carbon::parse($break['break_out'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $in = $break['break_in'] ? Carbon::parse($break['break_in'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$out}-{$in}";
+                    }
+                    $breakDetails = implode(', ', $breakDetailsArray);
+                } elseif (is_numeric($record['breaks'])) {
+                    $breaksText = $record['breaks'] . ' times';
+                    $breakDetails = '-';
+                } else {
+                    $breaksText = '-';
+                    $breakDetails = '-';
+                }
+                fputcsv($file, [
+                    $record['date'],
+                    $record['check_in'] ? Carbon::parse($record['check_in'])->setTimezone(config('app.timezone'))->format('H:i') : '-',
+                    $record['check_out'] ? Carbon::parse($record['check_out'])->setTimezone(config('app.timezone'))->format('H:i') : '-',
+                    $record['total_hours'] ?? '-',
+                    $breaksText,
+                    $breakDetails,
+                    $record['status']
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return new StreamedResponse($callback, 200, $headers);
+    }
+
+    public function holidays(Request $request)
+    {
+        $year = $request->input('year', date('Y'));
+
+        $holidays = \App\Models\Holiday::whereYear('date', $year)
+            ->get(['id', 'name', 'date', 'type'])
+            ->map(function ($holiday) {
+                return [
+                    'id' => $holiday->id,
+                    'name' => $holiday->name,
+                    'date' => $holiday->date->toDateString(),
+                    'type' => $holiday->type,
+                ];
+            });
+
+        return response()->json([
+            'year' => $year,
+            'holidays' => $holidays,
         ]);
     }
 }
