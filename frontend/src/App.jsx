@@ -17,7 +17,7 @@ import EmployeeLayout from './modules/employee/EmployeeLayout';
 import EmployeeDashboardPage from './modules/employee/EmployeeDashboardPage';
 import EmployeeLeavesPage from './modules/employee/EmployeeLeavesPage';
 import EmployeeLeaveApplyPage from './modules/employee/EmployeeLeaveApplyPage';
-import EmployeeAttendancePage from './modules/employee/EmployeeAttendancePage';
+import EmployeeAttendanceCorrectionPage from './modules/employee/EmployeeAttendancePage';
 import EmployeeProfilePage from './modules/employee/EmployeeProfilePage';
 
 // Component to handle route changes and call registered cleanup callbacks on camera usage
@@ -101,7 +101,7 @@ function App() {
           <Route path="dashboard" element={<EmployeeDashboardPage />} />
           <Route path="leaves" element={<EmployeeLeavesPage />} />
           <Route path="apply-leave" element={<EmployeeLeaveApplyPage />} />
-          <Route path="attendance" element={<EmployeeAttendancePage />} />
+          <Route path="attendance" element={<EmployeeAttendanceCorrectionPage />} />
           <Route path="profile" element={<EmployeeProfilePage />} />
         </Route>
         <Route

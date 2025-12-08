@@ -24,9 +24,15 @@ const EmployeeProfilePage = () => {
   });
 
   // Correction request form state
+  const [dateRangeOption, setDateRangeOption] = useState('today');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [attendanceLogs, setAttendanceLogs] = useState([]);
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [logsError, setLogsError] = useState(null);
+
   const [correctionForm, setCorrectionForm] = useState({
     type: 'missing',
-    attendance_id: '',
     requested_check_in: '',
     requested_check_out: '',
     reason: ''
@@ -100,13 +106,57 @@ const EmployeeProfilePage = () => {
     }
   };
 
+  const fetchAttendanceLogs = async () => {
+    if (!selectedDate) {
+      setLogsError('Please select a date');
+      return;
+    }
+
+    setLoadingLogs(true);
+    setLogsError('');
+    try {
+      const params = {
+        start_date: selectedDate,
+        end_date: selectedDate
+      };
+      const data = await employeeApi.getAttendanceReport(params);
+      setAttendanceLogs(data.records || []);
+      setSelectedLog(null); // Reset selected log when fetching new logs
+    } catch (error) {
+      console.error('Failed to fetch attendance logs:', error);
+      setLogsError('Failed to fetch attendance logs');
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const handleDateRangeChange = (option) => {
+    setDateRangeOption(option);
+    if (option === 'today') {
+      const today = new Date().toISOString().split('T')[0];
+      setSelectedDate(today);
+    } else {
+      setSelectedDate('');
+    }
+    setAttendanceLogs([]);
+    setSelectedLog(null);
+  };
+
   const handleTypeChange = (newType) => {
     setCorrectionForm({
       ...correctionForm,
       type: newType,
-      attendance_id: '', // Clear attendance_id when switching types
-      requested_check_in: newType === 'missing' ? correctionForm.requested_check_in : '',
-      requested_check_out: newType === 'missing' ? correctionForm.requested_check_out : ''
+      requested_check_in: newType === 'missing' ? correctionForm.requested_check_in : (selectedLog ? selectedLog.check_in : ''),
+      requested_check_out: newType === 'missing' ? correctionForm.requested_check_out : (selectedLog ? selectedLog.check_out : '')
+    });
+  };
+
+  const handleLogSelection = (log) => {
+    setSelectedLog(log);
+    setCorrectionForm({
+      ...correctionForm,
+      requested_check_in: log.check_in || '',
+      requested_check_out: log.check_out || ''
     });
   };
 
@@ -135,16 +185,21 @@ const EmployeeProfilePage = () => {
     }
 
     try {
-      await employeeApi.submitCorrectionRequest(correctionForm);
+      const formData = {
+        ...correctionForm,
+        attendance_id: selectedLog?.id || ''
+      };
+      await employeeApi.submitCorrectionRequest(formData);
 
       setMessage('Correction request submitted successfully');
       setCorrectionForm({
         type: 'missing',
-        attendance_id: '',
         requested_check_in: '',
         requested_check_out: '',
         reason: ''
       });
+      setSelectedLog(null);
+      setAttendanceLogs([]);
       loadCorrectionRequests();
     } catch (error) {
       setMessage(error.message || 'Failed to submit correction request');
@@ -530,162 +585,402 @@ const EmployeeProfilePage = () => {
           {/* Attendance Corrections Tab */}
           {activeTab === 'corrections' && (
             <div className="space-y-6">
+              {/* Error Message */}
+              {logsError && (
+                <div className="p-4 rounded-xl shadow-lg border-l-4 bg-red-50 text-red-800 border-red-400 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <AlertCircle className="h-6 w-6 text-red-600" />
+                    <span className="font-medium">{logsError}</span>
+                  </div>
+                  <button
+                    onClick={() => setLogsError('')}
+                    className="text-red-400 hover:text-red-600 transition-colors duration-200"
+                  >
+                    <XCircle className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Filters */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-gray-500" />
+                      Date Range
+                    </label>
+                    <div className="space-y-3">
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="today"
+                          name="dateRange"
+                          value="today"
+                          checked={dateRangeOption === 'today'}
+                          onChange={(e) => {
+                            setDateRangeOption(e.target.value);
+                            const today = new Date().toISOString().split('T')[0];
+                            setSelectedDate(today);
+                          }}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                        />
+                        <label htmlFor="today" className="ml-2 block text-sm text-gray-900">
+                          Today
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="custom"
+                          name="dateRange"
+                          value="custom"
+                          checked={dateRangeOption === 'custom'}
+                          onChange={(e) => {
+                            setDateRangeOption(e.target.value);
+                            setSelectedDate('');
+                          }}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                        />
+                        <label htmlFor="custom" className="ml-2 block text-sm text-gray-900">
+                          Custom Range
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {dateRangeOption === 'custom' && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 flex flex-col sm:flex-row gap-4">
+                  <button
+                    onClick={fetchAttendanceLogs}
+                    disabled={!selectedDate || loadingLogs}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  >
+                    {loadingLogs && <RefreshCw className="w-4 h-4 animate-spin" />}
+                    {loadingLogs ? 'Loading...' : 'Fetch Attendance Logs'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Attendance Logs Table */}
+              {attendanceLogs.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h2 className="text-lg font-semibold">Your Attendance Logs</h2>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Check In
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Check Out
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Breaks
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Break Duration
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Total Hours
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {attendanceLogs.map((log) => (
+                          <tr key={log.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(log.date).toLocaleDateString('en-GB')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {log.check_in ? new Date(log.check_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {log.check_out ? new Date(log.check_out).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {log.breaks && log.breaks.length > 0 ? (
+                                <div className="space-y-1">
+                                  {log.breaks.map((breakItem, index) => (
+                                    <div key={breakItem.id || index} className="text-xs">
+                                      Break {index + 1}: {(breakItem.break_out || breakItem.break_start) ? new Date(breakItem.break_out || breakItem.break_start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'} - {(breakItem.break_in || breakItem.break_end) ? new Date(breakItem.break_in || breakItem.break_end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                'No breaks'
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {log.breaks && log.breaks.length > 0 ? `${log.breaks.length * 30} min` : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {log.total_hours || '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                log.status === 'Present' ? 'bg-green-100 text-green-800' :
+                                log.status === 'Absent' ? 'bg-red-100 text-red-800' :
+                                log.status === 'Late Arrival' ? 'bg-purple-100 text-purple-800' :
+                                log.status === 'Early Departure' ? 'bg-pink-100 text-pink-800' :
+                                log.status === 'Holiday' ? 'bg-blue-100 text-blue-800' :
+                                log.status === 'On Leave' ? 'bg-orange-100 text-orange-800' :
+                                log.status === 'Half Day' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {log.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <button
+                                type="button"
+                                onClick={() => handleLogSelection(log)}
+                                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                  selectedLog?.id === log.id
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                                }`}
+                              >
+                                {selectedLog?.id === log.id ? 'Selected' : 'Select'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* Submit Correction Request Form */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <FileText className="w-5 h-5 text-gray-600" />
                   Submit Correction Request
                 </h3>
+                {selectedLog ? (
+                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Selected Log:</strong> {new Date(selectedLog.date).toLocaleDateString()}{' '}
+                      - Check-in: {selectedLog.check_in ? new Date(selectedLog.check_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}{' '}
+                      - Check-out: {selectedLog.check_out ? new Date(selectedLog.check_out).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      Please select an attendance log from the table above to submit a correction request.
+                    </p>
+                  </div>
+                )}
                 <form onSubmit={handleCorrectionRequest} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-gray-500" />
-                        Request Type
-                      </label>
-                      <select
-                        value={correctionForm.type}
-                        onChange={(e) => handleTypeChange(e.target.value)}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                      >
-                        <option value="missing">Missing Attendance</option>
-                        <option value="wrong_checkin">Wrong Check-in Time</option>
-                        <option value="wrong_checkout">Wrong Check-out Time</option>
-                      </select>
-                    </div>
-                    {(correctionForm.type === 'wrong_checkin' || correctionForm.type === 'wrong_checkout') && (
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-gray-500" />
-                          Attendance ID
-                        </label>
-                        <input
-                          type="text"
-                          value={correctionForm.attendance_id}
-                          onChange={(e) => setCorrectionForm({...correctionForm, attendance_id: e.target.value})}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                          placeholder="Enter attendance ID"
-                          required
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        Requested Check-in Time
-                      </label>
-                      <input
-                        type="time"
-                        value={correctionForm.requested_check_in}
-                        onChange={(e) => setCorrectionForm({...correctionForm, requested_check_in: e.target.value})}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                        required={correctionForm.type === 'missing'}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        Requested Check-out Time
-                      </label>
-                      <input
-                        type="time"
-                        value={correctionForm.requested_check_out}
-                        onChange={(e) => setCorrectionForm({...correctionForm, requested_check_out: e.target.value})}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                        required={correctionForm.type === 'missing'}
-                      />
-                    </div>
-                  </div>
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                       <FileText className="w-4 h-4 text-gray-500" />
-                      Reason
+                      Correction Type *
+                    </label>
+                    <select
+                      value={correctionForm.type}
+                      onChange={(e) => handleTypeChange(e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                      required
+                    >
+                      <option value="missing">Missing Attendance</option>
+                      <option value="wrong_checkin">Wrong Check-in Time</option>
+                      <option value="wrong_checkout">Wrong Check-out Time</option>
+                    </select>
+                  </div>
+
+                  {(correctionForm.type === 'missing') && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-gray-500" />
+                          Date *
+                        </label>
+                        <input
+                          type="date"
+                          value={correctionForm.requested_date || selectedDate}
+                          onChange={(e) => setCorrectionForm({...correctionForm, requested_date: e.target.value})}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-gray-500" />
+                            Check In *
+                          </label>
+                          <input
+                            type="time"
+                            value={correctionForm.requested_check_in}
+                            onChange={(e) => setCorrectionForm({...correctionForm, requested_check_in: e.target.value})}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-gray-500" />
+                            Check Out *
+                          </label>
+                          <input
+                            type="time"
+                            value={correctionForm.requested_check_out}
+                            onChange={(e) => setCorrectionForm({...correctionForm, requested_check_out: e.target.value})}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {(correctionForm.type === 'wrong_checkin' || correctionForm.type === 'wrong_checkout') && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          Corrected {correctionForm.type === 'wrong_checkin' ? 'Check-in' : 'Check-out'} Time *
+                        </label>
+                        <input
+                          type="time"
+                          value={correctionForm.type === 'wrong_checkin' ? correctionForm.requested_check_in : correctionForm.requested_check_out}
+                          onChange={(e) => setCorrectionForm({
+                            ...correctionForm,
+                            [correctionForm.type === 'wrong_checkin' ? 'requested_check_in' : 'requested_check_out']: e.target.value
+                          })}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                          required
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-gray-500" />
+                      Reason *
                     </label>
                     <textarea
                       value={correctionForm.reason}
                       onChange={(e) => setCorrectionForm({...correctionForm, reason: e.target.value})}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-none"
                       rows={4}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                      placeholder="Please explain the reason for this correction request"
+                      placeholder="Please explain the reason for this attendance correction"
                       required
                     />
                   </div>
+
                   <div className="flex justify-end pt-4 border-t border-gray-200">
                     <button
                       type="submit"
-                      disabled={isLoading}
+                      disabled={isLoading || !selectedLog}
                       className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                     >
-                      {isLoading ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Submitting...
-                        </>
-                      ) : (
-                        <>
-                          <FileText className="w-4 h-4" />
-                          Submit Request
-                        </>
-                      )}
+                      {isLoading && <RefreshCw className="w-4 h-4 animate-spin" />}
+                      <FileText className="w-4 h-4" />
+                      {isLoading ? 'Submitting...' : 'Submit Request'}
                     </button>
                   </div>
                 </form>
               </div>
 
               {/* Correction Requests History */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-gray-600" />
-                  Correction Request History
-                </h3>
-                <div className="space-y-4">
-                  {loadingRequests ? (
-                    <div className="text-center py-8">
-                      <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-3" />
-                      <p className="text-gray-500">Loading correction requests...</p>
-                    </div>
-                  ) : requestsError ? (
-                    <div className="text-center py-8">
-                      <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-                      <p className="text-red-500">{requestsError}</p>
-                    </div>
-                  ) : correctionRequests.length === 0 ? (
-                    <div className="text-center py-8">
-                      <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500">No correction requests found.</p>
-                    </div>
-                  ) : (
-                    correctionRequests.map((request) => (
-                      <div key={request.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <FileText className="w-4 h-4 text-gray-500" />
-                              <p className="font-medium text-gray-900 capitalize">{request.type.replace('_', ' ')}</p>
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                                request.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {request.status}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Your Correction Requests
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  {correctionRequests.length > 0 ? (
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Type
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Requested Times
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Reason
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Submitted
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {correctionRequests.map((request) => (
+                          <tr key={request.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {request.attendance ? new Date(request.attendance.date).toLocaleDateString('en-GB') : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {request.type === 'missing' ? 'Missing Attendance' :
+                               request.type === 'wrong_checkin' ? 'Wrong Check-in' :
+                               request.type === 'wrong_checkout' ? 'Wrong Check-out' : request.type}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {request.requested_check_in || '-'} - {request.requested_check_out || '-'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                              {request.reason}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
+                                {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                               </span>
-                            </div>
-                            <p className="text-sm text-gray-500 mb-2">Submitted on {request.submitted_at}</p>
-                            <p className="text-sm text-gray-600 mb-2">{request.reason}</p>
-                            {(request.requested_check_in || request.requested_check_out) && (
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-gray-500" />
-                                <p className="text-sm text-gray-600">
-                                  Requested: {request.requested_check_in || 'N/A'} - {request.requested_check_out || 'N/A'}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(request.created_at).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="px-6 py-8 text-center text-gray-500">
+                      No correction requests found
+                    </div>
                   )}
                 </div>
               </div>

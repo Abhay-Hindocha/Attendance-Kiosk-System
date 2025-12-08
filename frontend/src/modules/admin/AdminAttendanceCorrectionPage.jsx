@@ -44,6 +44,22 @@ const AdminAttendanceCorrectionPage = () => {
     return `${day}-${month}-${year}`;
   };
 
+  // Helper function to calculate total break duration in minutes
+  const calculateBreakDuration = (breaks) => {
+    if (!breaks || breaks.length === 0) return 'N/A';
+    let totalMinutes = 0;
+    breaks.forEach(breakItem => {
+      if (breakItem.break_start && breakItem.break_end) {
+        const start = new Date(`1970-01-01T${breakItem.break_start}:00`);
+        const end = new Date(`1970-01-01T${breakItem.break_end}:00`);
+        const diffMs = end - start;
+        const diffMins = Math.floor(diffMs / 60000); // Convert to minutes
+        if (diffMins > 0) totalMinutes += diffMins;
+      }
+    });
+    return totalMinutes > 0 ? `${totalMinutes} min` : 'N/A';
+  };
+
   useEffect(() => {
     fetchDepartments();
   }, []);
@@ -451,6 +467,9 @@ const AdminAttendanceCorrectionPage = () => {
                     Breaks
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Break Duration
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
@@ -479,6 +498,9 @@ const AdminAttendanceCorrectionPage = () => {
                       ) : (
                         'No breaks'
                       )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {calculateBreakDuration(log.breaks)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {log.status}
