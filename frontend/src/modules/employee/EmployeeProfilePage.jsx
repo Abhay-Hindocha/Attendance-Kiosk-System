@@ -1,5 +1,6 @@
-  import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useEmployeePortal } from './EmployeeLayout';
+import { User, Phone, Mail, Building, Calendar, Shield, Edit, Key, FileText, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import employeeApi from '../../services/employeeApi';
 
 const EmployeeProfilePage = () => {
@@ -177,35 +178,40 @@ const EmployeeProfilePage = () => {
   }
 
   const tabs = [
-    { id: 'view', label: 'Profile' },
-    { id: 'edit', label: 'Edit Profile' },
-    { id: 'password', label: 'Change Password' },
-    { id: 'corrections', label: 'Attendance Corrections' }
+    { id: 'view', label: 'Profile', icon: User },
+    { id: 'edit', label: 'Edit Profile', icon: Edit },
+    { id: 'password', label: 'Change Password', icon: Key },
+    { id: 'corrections', label: 'Attendance Corrections', icon: FileText }
   ];
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="bg-white rounded-2xl shadow p-6">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-[1400px] mx-auto">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <p className="text-xs text-gray-500 uppercase">Employee</p>
-            <h2 className="text-2xl font-semibold text-gray-900">{profile.name}</h2>
-            <p className="text-sm text-gray-500">{profile.employee_id}</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Employee Profile</h1>
+            <p className="text-sm md:text-base text-gray-600 mt-1">Manage your personal information and account settings</p>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-              {profile?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                {profile?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+              </div>
+              <div className="hidden md:block">
+                <p className="text-sm font-medium text-gray-900">{profile.name}</p>
+                <p className="text-xs text-gray-500">{profile.employee_id}</p>
+              </div>
             </div>
             <button
               onClick={refreshProfile}
-              className="px-4 py-2 rounded-full text-sm font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
             >
-              Refresh
+              <RefreshCw className="w-4 h-4" />
+              <span>Refresh</span>
             </button>
           </div>
         </div>
-      </div>
 
       {/* Tabs */}
       <div className="bg-white rounded-2xl shadow">
@@ -241,79 +247,145 @@ const EmployeeProfilePage = () => {
           {/* View Profile Tab */}
           {activeTab === 'view' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-500">Email</p>
-                  <p className="font-medium text-gray-900">{profile.email}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Phone</p>
-                  <p className="font-medium text-gray-900">{profile.phone || 'Not provided'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Emergency Contact</p>
-                  <p className="font-medium text-gray-900">{profile.emergency_contact || 'Not provided'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Department</p>
-                  <p className="font-medium text-gray-900">{profile.department || 'General'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Designation</p>
-                  <p className="font-medium text-gray-900">{profile.designation || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Join Date</p>
-                  <p className="font-medium text-gray-900">
-                    {profile.join_date
-                      ? new Date(profile.join_date).toLocaleDateString('en-GB')
-                      : 'N/A'
-                    }
-                  </p>
+              {/* Personal Information */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-gray-600" />
+                  Personal Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Mail className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Email Address</p>
+                      <p className="font-medium text-gray-900">{profile.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Phone className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Phone Number</p>
+                      <p className="font-medium text-gray-900">{profile.phone || 'Not provided'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Shield className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Emergency Contact</p>
+                      <p className="font-medium text-gray-900">{profile.emergency_contact || 'Not provided'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Building className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Department</p>
+                      <p className="font-medium text-gray-900">{profile.department || 'General'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <User className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Designation</p>
+                      <p className="font-medium text-gray-900">{profile.designation || 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-cyan-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Calendar className="w-5 h-5 text-cyan-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Join Date</p>
+                      <p className="font-medium text-gray-900">
+                        {profile.join_date
+                          ? new Date(profile.join_date).toLocaleDateString('en-GB')
+                          : 'N/A'
+                        }
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Assigned Leave Policies</h3>
-                <div className="flex flex-wrap gap-2">
+              {/* Assigned Leave Policies */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-gray-600" />
+                  Assigned Leave Policies
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {profile.leave_policies?.map((policy) => (
-                    <div key={policy.id} className="px-4 py-2 rounded-xl bg-gray-50 border border-gray-100">
-                      <p className="text-sm font-semibold text-gray-900">{policy.name}</p>
-                      <p className="text-xs text-gray-500">{policy.yearly_quota} days/year</p>
+                    <div key={policy.id} className="p-4 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                          <Calendar className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{policy.name}</p>
+                          <p className="text-xs text-green-600 font-medium">{policy.yearly_quota} days/year</p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                   {(!profile.leave_policies || profile.leave_policies.length === 0) && (
-                    <p className="text-sm text-gray-500">No leave policies assigned.</p>
+                    <div className="col-span-full p-8 text-center">
+                      <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-sm text-gray-500">No leave policies assigned.</p>
+                    </div>
                   )}
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Assigned Attendance Policy</h3>
+              {/* Assigned Attendance Policy */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-gray-600" />
+                  Assigned Attendance Policy
+                </h3>
                 {profile.attendance_policy ? (
-                  <div className="px-4 py-3 rounded-xl bg-blue-50 border border-blue-100">
-                    <p className="text-sm font-semibold text-gray-900">{profile.attendance_policy.name}</p>
-                    <div className="mt-2 grid grid-cols-2 gap-4 text-xs">
-                      <div>
-                        <span className="text-gray-500">Work Start:</span>
-                        <span className="ml-1 font-medium">{profile.attendance_policy.work_start_time}</span>
+                  <div className="p-4 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                        <Clock className="w-5 h-5 text-white" />
                       </div>
                       <div>
-                        <span className="text-gray-500">Work End:</span>
-                        <span className="ml-1 font-medium">{profile.attendance_policy.work_end_time}</span>
+                        <p className="text-lg font-semibold text-gray-900">{profile.attendance_policy.name}</p>
+                        <p className="text-sm text-blue-600">Work Schedule Policy</p>
                       </div>
-                      <div>
-                        <span className="text-gray-500">Break Duration:</span>
-                        <span className="ml-1 font-medium">{profile.attendance_policy.break_duration} mins</span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center p-3 bg-white rounded-lg border border-blue-200">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Work Start</p>
+                        <p className="text-sm font-semibold text-gray-900">{profile.attendance_policy.work_start_time}</p>
                       </div>
-                      <div>
-                        <span className="text-gray-500">Grace Period:</span>
-                        <span className="ml-1 font-medium">{profile.attendance_policy.grace_period} mins</span>
+                      <div className="text-center p-3 bg-white rounded-lg border border-blue-200">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Work End</p>
+                        <p className="text-sm font-semibold text-gray-900">{profile.attendance_policy.work_end_time}</p>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg border border-blue-200">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Break Duration</p>
+                        <p className="text-sm font-semibold text-gray-900">{profile.attendance_policy.break_duration} mins</p>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg border border-blue-200">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Grace Period</p>
+                        <p className="text-sm font-semibold text-gray-900">{profile.attendance_policy.grace_period} mins</p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500">No attendance policy assigned.</p>
+                  <div className="p-8 text-center">
+                    <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500">No attendance policy assigned.</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -321,100 +393,160 @@ const EmployeeProfilePage = () => {
 
           {/* Edit Profile Tab */}
           {activeTab === 'edit' && (
-            <form onSubmit={handleProfileUpdate} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone</label>
-                  <input
-                    type="text"
-                    value={profileForm.phone}
-                    onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Enter phone number"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Emergency Contact</label>
-                  <input
-                    type="text"
-                    value={profileForm.emergency_contact}
-                    onChange={(e) => setProfileForm({...profileForm, emergency_contact: e.target.value})}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Enter emergency contact"
-                  />
-                </div>
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Edit className="w-5 h-5 text-gray-600" />
+                  Update Personal Information
+                </h3>
+                <form onSubmit={handleProfileUpdate} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-gray-500" />
+                        Phone Number
+                      </label>
+                      <input
+                        type="text"
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        placeholder="Enter phone number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-gray-500" />
+                        Emergency Contact
+                      </label>
+                      <input
+                        type="text"
+                        value={profileForm.emergency_contact}
+                        onChange={(e) => setProfileForm({...profileForm, emergency_contact: e.target.value})}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        placeholder="Enter emergency contact"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end pt-4 border-t border-gray-200">
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        <>
+                          <Edit className="w-4 h-4" />
+                          Update Profile
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {isLoading ? 'Updating...' : 'Update Profile'}
-                </button>
-              </div>
-            </form>
+            </div>
           )}
 
           {/* Change Password Tab */}
           {activeTab === 'password' && (
-            <form onSubmit={handlePasswordChange} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Current Password</label>
-                <input
-                  type="password"
-                  value={passwordForm.current_password}
-                  onChange={(e) => setPasswordForm({...passwordForm, current_password: e.target.value})}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Key className="w-5 h-5 text-gray-600" />
+                  Change Password
+                </h3>
+                <form onSubmit={handlePasswordChange} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <Key className="w-4 h-4 text-gray-500" />
+                      Current Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordForm.current_password}
+                      onChange={(e) => setPasswordForm({...passwordForm, current_password: e.target.value})}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                      placeholder="Enter current password"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <Key className="w-4 h-4 text-gray-500" />
+                      New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordForm.password}
+                      onChange={(e) => setPasswordForm({...passwordForm, password: e.target.value})}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                      placeholder="Enter new password"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <Key className="w-4 h-4 text-gray-500" />
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordForm.password_confirmation}
+                      onChange={(e) => setPasswordForm({...passwordForm, password_confirmation: e.target.value})}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                      placeholder="Confirm new password"
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-end pt-4 border-t border-gray-200">
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Changing...
+                        </>
+                      ) : (
+                        <>
+                          <Key className="w-4 h-4" />
+                          Change Password
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">New Password</label>
-                <input
-                  type="password"
-                  value={passwordForm.password}
-                  onChange={(e) => setPasswordForm({...passwordForm, password: e.target.value})}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
-                <input
-                  type="password"
-                  value={passwordForm.password_confirmation}
-                  onChange={(e) => setPasswordForm({...passwordForm, password_confirmation: e.target.value})}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {isLoading ? 'Changing...' : 'Change Password'}
-                </button>
-              </div>
-            </form>
+            </div>
           )}
 
           {/* Attendance Corrections Tab */}
           {activeTab === 'corrections' && (
             <div className="space-y-6">
               {/* Submit Correction Request Form */}
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Submit Correction Request</h3>
-                <form onSubmit={handleCorrectionRequest} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Request Type</label>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-gray-600" />
+                  Submit Correction Request
+                </h3>
+                <form onSubmit={handleCorrectionRequest} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-gray-500" />
+                        Request Type
+                      </label>
                       <select
                         value={correctionForm.type}
                         onChange={(e) => handleTypeChange(e.target.value)}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                       >
                         <option value="missing">Missing Attendance</option>
                         <option value="wrong_checkin">Wrong Check-in Time</option>
@@ -422,95 +554,135 @@ const EmployeeProfilePage = () => {
                       </select>
                     </div>
                     {(correctionForm.type === 'wrong_checkin' || correctionForm.type === 'wrong_checkout') && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Attendance ID</label>
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-gray-500" />
+                          Attendance ID
+                        </label>
                         <input
                           type="text"
                           value={correctionForm.attendance_id}
                           onChange={(e) => setCorrectionForm({...correctionForm, attendance_id: e.target.value})}
-                          className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                           placeholder="Enter attendance ID"
                           required
                         />
                       </div>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Requested Check-in Time</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                        Requested Check-in Time
+                      </label>
                       <input
                         type="time"
                         value={correctionForm.requested_check_in}
                         onChange={(e) => setCorrectionForm({...correctionForm, requested_check_in: e.target.value})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                         required={correctionForm.type === 'missing'}
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Requested Check-out Time</label>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                        Requested Check-out Time
+                      </label>
                       <input
                         type="time"
                         value={correctionForm.requested_check_out}
                         onChange={(e) => setCorrectionForm({...correctionForm, requested_check_out: e.target.value})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                         required={correctionForm.type === 'missing'}
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Reason</label>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-gray-500" />
+                      Reason
+                    </label>
                     <textarea
                       value={correctionForm.reason}
                       onChange={(e) => setCorrectionForm({...correctionForm, reason: e.target.value})}
-                      rows={3}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                      rows={4}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                       placeholder="Please explain the reason for this correction request"
                       required
                     />
                   </div>
-                  <div className="flex justify-end">
+                  <div className="flex justify-end pt-4 border-t border-gray-200">
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                      className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                     >
-                      {isLoading ? 'Submitting...' : 'Submit Request'}
+                      {isLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="w-4 h-4" />
+                          Submit Request
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
               </div>
 
               {/* Correction Requests History */}
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Correction Request History</h3>
-                <div className="space-y-3">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-gray-600" />
+                  Correction Request History
+                </h3>
+                <div className="space-y-4">
                   {loadingRequests ? (
-                    <p className="text-gray-500 text-center py-4">Loading correction requests...</p>
+                    <div className="text-center py-8">
+                      <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-3" />
+                      <p className="text-gray-500">Loading correction requests...</p>
+                    </div>
                   ) : requestsError ? (
-                    <p className="text-red-500 text-center py-4">{requestsError}</p>
+                    <div className="text-center py-8">
+                      <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
+                      <p className="text-red-500">{requestsError}</p>
+                    </div>
                   ) : correctionRequests.length === 0 ? (
-                    <p className="text-gray-500 text-center py-4">No correction requests found.</p>
+                    <div className="text-center py-8">
+                      <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No correction requests found.</p>
+                    </div>
                   ) : (
                     correctionRequests.map((request) => (
-                      <div key={request.id} className="border border-gray-200 rounded-lg p-4">
+                      <div key={request.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                         <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium text-gray-900 capitalize">{request.type.replace('_', ' ')}</p>
-                            <p className="text-sm text-gray-500">Submitted on {request.submitted_at}</p>
-                            <p className="text-sm text-gray-600 mt-1">{request.reason}</p>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FileText className="w-4 h-4 text-gray-500" />
+                              <p className="font-medium text-gray-900 capitalize">{request.type.replace('_', ' ')}</p>
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                request.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {request.status}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-500 mb-2">Submitted on {request.submitted_at}</p>
+                            <p className="text-sm text-gray-600 mb-2">{request.reason}</p>
                             {(request.requested_check_in || request.requested_check_out) && (
-                              <p className="text-sm text-gray-600 mt-1">
-                                Requested: {request.requested_check_in || 'N/A'} - {request.requested_check_out || 'N/A'}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-gray-500" />
+                                <p className="text-sm text-gray-600">
+                                  Requested: {request.requested_check_in || 'N/A'} - {request.requested_check_out || 'N/A'}
+                                </p>
+                              </div>
                             )}
                           </div>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                            request.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {request.status}
-                          </span>
                         </div>
                       </div>
                     ))
@@ -520,6 +692,7 @@ const EmployeeProfilePage = () => {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

@@ -90,7 +90,26 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('faces/enroll', [FaceController::class, 'enroll']); // Enroll a new face for recognition
     Route::post('faces/unenroll', [FaceController::class, 'unenroll']); // Remove a face from recognition system
 
-    // Employee portal protected routes
+    // Admin routes
+    Route::prefix('admin')->group(function () {
+        Route::get('correction-requests', [AdminController::class, 'listCorrectionRequests']);
+        Route::post('correction-requests/{id}/approve', [AdminController::class, 'approveCorrectionRequest']);
+        Route::post('correction-requests/{id}/reject', [AdminController::class, 'rejectCorrectionRequest']);
+        Route::post('manual-checkin', [AdminController::class, 'manualCheckIn']);
+        Route::post('manual-checkout', [AdminController::class, 'manualCheckOut']);
+        Route::put('attendance/{id}', [AdminController::class, 'editAttendance']);
+
+        // New attendance correction routes
+        Route::get('departments', [AdminController::class, 'getDepartments']);
+        Route::get('employees-by-department', [AdminController::class, 'getEmployeesByDepartment']);
+        Route::get('attendance-logs', [AdminController::class, 'getAttendanceLogs']);
+        Route::post('attendance/add-new', [AdminController::class, 'addNewAttendance']);
+        Route::put('attendance/{id}/update', [AdminController::class, 'updateAttendanceRecord']);
+    });
+});
+
+// Employee portal protected routes - These require employee authentication
+Route::middleware('auth:employee')->group(function () {
     Route::post('employee/logout', [EmployeeAuthController::class, 'logout']);
     Route::get('employee/profile', [EmployeeAuthController::class, 'profile']);
 
@@ -105,15 +124,5 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('policies', [EmployeePortalController::class, 'viewPolicies']);
         Route::post('correction-requests', [EmployeePortalController::class, 'submitCorrectionRequest']);
         Route::get('correction-requests', [AdminController::class, 'getCorrectionRequests']);
-    });
-
-    // Admin routes
-    Route::prefix('admin')->group(function () {
-        Route::get('correction-requests', [AdminController::class, 'listCorrectionRequests']);
-        Route::post('correction-requests/{id}/approve', [AdminController::class, 'approveCorrectionRequest']);
-        Route::post('correction-requests/{id}/reject', [AdminController::class, 'rejectCorrectionRequest']);
-        Route::post('manual-checkin', [AdminController::class, 'manualCheckIn']);
-        Route::post('manual-checkout', [AdminController::class, 'manualCheckOut']);
-        Route::put('attendance/{id}', [AdminController::class, 'editAttendance']);
     });
 });

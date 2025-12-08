@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "autoprefixer": "^10.4.21",
+    "axios": "^1.13.2",
     "face-api.js": "^0.22.2",
     "lucide-react": "^0.545.0",
     "postcss": "^8.5.6",

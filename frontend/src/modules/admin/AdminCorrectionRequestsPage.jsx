@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Clock,
+  User,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Edit3,
+  Filter,
+  Calendar,
+  FileText,
+  Send,
+  Loader2,
+  Users,
+  TrendingUp
+} from 'lucide-react';
 
 const AdminCorrectionRequestsPage = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
   const [filter, setFilter] = useState('pending');
-  const [message, setMessage] = useState('');
-
-  // Manual attendance form state
-  const [showManualForm, setShowManualForm] = useState(false);
-  const [manualForm, setManualForm] = useState({
-    employee_id: '',
-    date: '',
-    time: '',
-    type: 'checkin',
-    reason: ''
-  });
+  const [notification, setNotification] = useState({ show: false, type: 'success', message: '' });
 
   // Edit attendance form state
   const [editingAttendance, setEditingAttendance] = useState(null);
@@ -25,15 +31,10 @@ const AdminCorrectionRequestsPage = () => {
     reason: ''
   });
 
-  // Add missing state for correction requests
-  const [correctionRequests, setCorrectionRequests] = useState([]);
-  const [loadingRequests, setLoadingRequests] = useState(false);
-  const [requestsError, setRequestsError] = useState(null);
-
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     if (!token) {
-      setMessage('Authentication required. Please log in again.');
+      setNotification({ show: true, type: 'error', message: 'Authentication required. Please log in again.' });
       return;
     }
     loadCorrectionRequests();
@@ -52,7 +53,7 @@ const AdminCorrectionRequestsPage = () => {
         const data = await response.json();
         setRequests(data.requests || []);
       } else if (response.status === 401) {
-        setMessage('Authentication failed. Please log in again.');
+        setNotification({ show: true, type: 'error', message: 'Authentication failed. Please log in again.' });
         // Clear invalid token
         localStorage.removeItem('authToken');
         localStorage.removeItem('userRole');
@@ -62,19 +63,19 @@ const AdminCorrectionRequestsPage = () => {
           window.location.href = '/login';
         }, 2000);
       } else if (response.status === 403) {
-        setMessage('You do not have permission to access this resource.');
+        setNotification({ show: true, type: 'error', message: 'You do not have permission to access this resource.' });
       } else if (response.status >= 500) {
-        setMessage('Server error. Please try again later.');
+        setNotification({ show: true, type: 'error', message: 'Server error. Please try again later.' });
       } else {
         const errorData = await response.json().catch(() => ({}));
-        setMessage(errorData.message || 'Failed to load correction requests');
+        setNotification({ show: true, type: 'error', message: errorData.message || 'Failed to load correction requests' });
       }
     } catch (error) {
       console.error('Error loading correction requests:', error);
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        setMessage('Network error. Please check your connection and try again.');
+        setNotification({ show: true, type: 'error', message: 'Network error. Please check your connection and try again.' });
       } else {
-        setMessage('An error occurred while loading requests. Please try again.');
+        setNotification({ show: true, type: 'error', message: 'An error occurred while loading requests. Please try again.' });
       }
     } finally {
       setLoading(false);
@@ -94,13 +95,13 @@ const AdminCorrectionRequestsPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage('Correction request approved successfully');
+        setNotification({ show: true, type: 'success', message: 'Correction request approved successfully' });
         loadCorrectionRequests();
       } else {
-        setMessage(data.message || 'Failed to approve request');
+        setNotification({ show: true, type: 'error', message: data.message || 'Failed to approve request' });
       }
     } catch (error) {
-      setMessage('An error occurred while approving request');
+      setNotification({ show: true, type: 'error', message: 'An error occurred while approving request' });
     } finally {
       setProcessingId(null);
     }
@@ -119,147 +120,19 @@ const AdminCorrectionRequestsPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage('Correction request rejected successfully');
+        setNotification({ show: true, type: 'success', message: 'Correction request rejected successfully' });
         loadCorrectionRequests();
       } else {
-        setMessage(data.message || 'Failed to reject request');
+        setNotification({ show: true, type: 'error', message: data.message || 'Failed to reject request' });
       }
     } catch (error) {
-      setMessage('An error occurred while rejecting request');
+      setNotification({ show: true, type: 'error', message: 'An error occurred while rejecting request' });
     } finally {
       setProcessingId(null);
     }
   };
 
-  const validateManualForm = () => {
-    const errors = [];
 
-    // Employee ID validation
-    if (!manualForm.employee_id.trim()) {
-      errors.push('Employee ID is required');
-    } else if (!/^[A-Za-z0-9-_]+$/.test(manualForm.employee_id.trim())) {
-      errors.push('Employee ID contains invalid characters');
-    }
-
-    // Date validation
-    if (!manualForm.date) {
-      errors.push('Date is required');
-    } else {
-      const selectedDate = new Date(manualForm.date);
-      const today = new Date();
-      const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(today.getFullYear() - 1);
-
-      if (selectedDate > today) {
-        errors.push('Date cannot be in the future');
-      } else if (selectedDate < oneYearAgo) {
-        errors.push('Date cannot be more than a year in the past');
-      }
-    }
-
-    // Time validation
-    if (!manualForm.time) {
-      errors.push('Time is required');
-    } else {
-      const [hours, minutes] = manualForm.time.split(':').map(Number);
-      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-        errors.push('Invalid time format');
-      }
-    }
-
-    // Reason validation
-    if (!manualForm.reason.trim()) {
-      errors.push('Reason is required');
-    } else if (manualForm.reason.trim().length < 10) {
-      errors.push('Reason must be at least 10 characters long');
-    } else if (manualForm.reason.trim().length > 500) {
-      errors.push('Reason cannot exceed 500 characters');
-    }
-
-    return errors;
-  };
-
-  const handleManualAttendance = async (e) => {
-    e.preventDefault();
-
-    // Client-side validation
-    const validationErrors = validateManualForm();
-    if (validationErrors.length > 0) {
-      setMessage(`Validation errors: ${validationErrors.join(', ')}`);
-      return;
-    }
-
-    setProcessingId('manual');
-
-    try {
-      const endpoint = manualForm.type === 'checkin' ? '/api/admin/manual-checkin' : '/api/admin/manual-checkout';
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({
-          employee_id: manualForm.employee_id.trim(),
-          date: manualForm.date,
-          time: manualForm.time,
-          reason: manualForm.reason.trim()
-        })
-      });
-
-      let data;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        // If response is not valid JSON (e.g., HTML error page), handle gracefully
-        console.error('Failed to parse response as JSON:', parseError);
-        if (response.status >= 500) {
-          setMessage('Server error occurred. Please try again later or contact support.');
-        } else if (response.status === 404) {
-          setMessage('API endpoint not found. Please check your connection.');
-        } else {
-          setMessage(`Request failed with status ${response.status}. Please try again.`);
-        }
-        return;
-      }
-
-      if (response.ok) {
-        setMessage(`Manual ${manualForm.type} recorded successfully`);
-        setShowManualForm(false);
-        setManualForm({
-          employee_id: '',
-          date: '',
-          time: '',
-          type: 'checkin',
-          reason: ''
-        });
-      } else {
-        if (response.status === 422 && data.errors) {
-          // Validation errors from server
-          const errorMessages = Object.values(data.errors).flat().join(', ');
-          setMessage(`Validation error: ${errorMessages}`);
-        } else if (response.status === 404) {
-          setMessage('Employee not found. Please check the Employee ID.');
-        } else if (response.status === 409) {
-          setMessage('Attendance record already exists for this employee and date.');
-        } else if (response.status >= 500) {
-          setMessage('Server error occurred. Please try again later.');
-        } else {
-          setMessage(data.message || 'Failed to record manual attendance');
-        }
-      }
-    } catch (error) {
-      console.error('Error recording manual attendance:', error);
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        setMessage('Network error. Please check your connection and try again.');
-      } else {
-        setMessage('An error occurred while recording manual attendance. Please try again.');
-      }
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
   const validateEditForm = () => {
     const errors = [];
@@ -307,7 +180,7 @@ const AdminCorrectionRequestsPage = () => {
     // Client-side validation
     const validationErrors = validateEditForm();
     if (validationErrors.length > 0) {
-      setMessage(`Validation errors: ${validationErrors.join(', ')}`);
+      setNotification({ show: true, type: 'error', message: `Validation errors: ${validationErrors.join(', ')}` });
       return;
     }
 
@@ -333,7 +206,7 @@ const AdminCorrectionRequestsPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage('Attendance record updated successfully');
+        setNotification({ show: true, type: 'success', message: 'Attendance record updated successfully' });
         setEditingAttendance(null);
         setEditForm({
           check_in: '',
@@ -346,21 +219,21 @@ const AdminCorrectionRequestsPage = () => {
         if (response.status === 422 && data.errors) {
           // Validation errors from server
           const errorMessages = Object.values(data.errors).flat().join(', ');
-          setMessage(`Validation error: ${errorMessages}`);
+          setNotification({ show: true, type: 'error', message: `Validation error: ${errorMessages}` });
         } else if (response.status === 404) {
-          setMessage('Attendance record not found');
+          setNotification({ show: true, type: 'error', message: 'Attendance record not found' });
         } else if (response.status === 409) {
-          setMessage('Another attendance record exists for this time slot');
+          setNotification({ show: true, type: 'error', message: 'Another attendance record exists for this time slot' });
         } else {
-          setMessage(data.message || 'Failed to update attendance');
+          setNotification({ show: true, type: 'error', message: data.message || 'Failed to update attendance' });
         }
       }
     } catch (error) {
       console.error('Error updating attendance:', error);
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        setMessage('Network error. Please check your connection and try again.');
+        setNotification({ show: true, type: 'error', message: 'Network error. Please check your connection and try again.' });
       } else {
-        setMessage('An error occurred while updating attendance. Please try again.');
+        setNotification({ show: true, type: 'error', message: 'An error occurred while updating attendance. Please try again.' });
       }
     } finally {
       setProcessingId(null);
@@ -377,171 +250,127 @@ const AdminCorrectionRequestsPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-2xl shadow p-6">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-[1400px] mx-auto">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Attendance Correction Requests</h1>
-            <p className="text-sm text-gray-500 mt-1">Manage employee attendance correction requests</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Attendance Correction Requests</h1>
+            <p className="text-sm md:text-base text-gray-600 mt-1">Manage employee attendance correction requests</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link
+              to="/admin/attendance-correction"
+              className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Admin Attendance Correction</span>
+            </Link>
+          </div>
+        </div>
+
+      {/* Notification */}
+      {notification.show && (
+        <div className={`p-4 rounded-xl shadow-lg border-l-4 flex items-center justify-between ${
+          notification.type === 'success'
+            ? 'bg-green-50 text-green-800 border-green-400'
+            : 'bg-red-50 text-red-800 border-red-400'
+        }`}>
+          <div className="flex items-center space-x-3">
+            {notification.type === 'success' ? (
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            ) : (
+              <AlertCircle className="h-6 w-6 text-red-600" />
+            )}
+            <span className="font-medium">{notification.message}</span>
           </div>
           <button
-            onClick={() => setShowManualForm(!showManualForm)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            onClick={() => setNotification({ show: false, type: 'success', message: '' })}
+            className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
           >
-            {showManualForm ? 'Cancel' : 'Manual Attendance'}
-          </button>
-        </div>
-      </div>
-
-      {/* Message */}
-      {message && (
-        <div className={`p-4 rounded-md ${
-          message.includes('successfully')
-            ? 'bg-green-50 text-green-800 border border-green-200'
-            : 'bg-red-50 text-red-800 border border-red-200'
-        }`}>
-          {message}
-          <button
-            onClick={() => setMessage('')}
-            className="float-right ml-4 text-lg font-bold"
-          >
-            ×
+            <XCircle className="h-5 w-5" />
           </button>
         </div>
       )}
 
-      {/* Manual Attendance Form */}
-      {showManualForm && (
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Record Manual Attendance</h2>
-          <form onSubmit={handleManualAttendance} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Employee ID</label>
-                <input
-                  type="text"
-                  value={manualForm.employee_id}
-                  onChange={(e) => setManualForm({...manualForm, employee_id: e.target.value})}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Enter employee ID"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Type</label>
-                <select
-                  value={manualForm.type}
-                  onChange={(e) => setManualForm({...manualForm, type: e.target.value})}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="checkin">Check-in</option>
-                  <option value="checkout">Check-out</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Date</label>
-                <input
-                  type="date"
-                  value={manualForm.date}
-                  onChange={(e) => setManualForm({...manualForm, date: e.target.value})}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Time</label>
-                <input
-                  type="time"
-                  value={manualForm.time}
-                  onChange={(e) => setManualForm({...manualForm, time: e.target.value})}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Reason</label>
-              <textarea
-                value={manualForm.reason}
-                onChange={(e) => setManualForm({...manualForm, reason: e.target.value})}
-                rows={3}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Please explain the reason for manual attendance"
-                required
-              />
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => setShowManualForm(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={processingId === 'manual'}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {processingId === 'manual' ? 'Recording...' : 'Record Attendance'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+
 
       {/* Edit Attendance Form */}
       {editingAttendance && (
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Edit Attendance Record</h2>
-          <form onSubmit={handleEditAttendance} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Check-in Time</label>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Edit3 className="w-5 h-5 text-gray-600" />
+            Edit Attendance Record
+          </h3>
+          <form onSubmit={handleEditAttendance} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-gray-500" />
+                  Check-in Time
+                </label>
                 <input
                   type="time"
                   value={editForm.check_in}
                   onChange={(e) => setEditForm({...editForm, check_in: e.target.value})}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Check-out Time</label>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-gray-500" />
+                  Check-out Time
+                </label>
                 <input
                   type="time"
                   value={editForm.check_out}
                   onChange={(e) => setEditForm({...editForm, check_out: e.target.value})}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Reason for Edit</label>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-gray-500" />
+                Reason for Edit
+              </label>
               <textarea
                 value={editForm.reason}
                 onChange={(e) => setEditForm({...editForm, reason: e.target.value})}
-                rows={3}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                rows={4}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-none"
                 placeholder="Please explain the reason for editing this attendance record"
                 required
               />
             </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => setEditingAttendance(null)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={processingId === 'edit'}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {processingId === 'edit' ? 'Updating...' : 'Update Attendance'}
-              </button>
+            <div className="flex justify-end pt-4 border-t border-gray-200">
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingAttendance(null)}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={processingId === 'edit'}
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {processingId === 'edit' ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="w-4 h-4" />
+                      Update Attendance
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -670,6 +499,7 @@ const AdminCorrectionRequestsPage = () => {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
