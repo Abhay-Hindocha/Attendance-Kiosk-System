@@ -11,6 +11,7 @@ use App\Services\LeaveService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmployeePortalController extends Controller
@@ -680,5 +681,171 @@ class EmployeePortalController extends Controller
             'year' => $year,
             'holidays' => $holidays,
         ]);
+    }
+
+    public function getProfile(Request $request)
+    {
+        $employee = $request->user()->load('policy');
+
+        $leavePolicies = $employee->leavePolicies->map(function ($policy) {
+            return [
+                'id' => $policy->id,
+                'name' => $policy->name,
+                'yearly_quota' => $policy->yearly_quota,
+            ];
+        });
+
+        $attendancePolicy = $employee->policy;
+
+        return response()->json([
+            'employee_id' => $employee->employee_id,
+            'name' => $employee->name,
+            'email' => $employee->email,
+            'phone' => $employee->phone,
+            'emergency_contact' => $employee->emergency_contact,
+            'department' => $employee->department,
+            'designation' => $employee->designation,
+            'join_date' => $employee->join_date,
+            'status' => $employee->status,
+            'leave_policies' => $leavePolicies,
+            'attendance_policy' => $attendancePolicy ? [
+                'id' => $attendancePolicy->id,
+                'name' => $attendancePolicy->name,
+                'work_start_time' => $attendancePolicy->work_start_time,
+                'work_end_time' => $attendancePolicy->work_end_time,
+                'break_duration' => ($attendancePolicy->break_hours * 60) + $attendancePolicy->break_minutes,
+                'grace_period' => $attendancePolicy->late_grace_period,
+            ] : null,
+            'avatar' => $employee->avatar ?: $this->generateAvatar($employee->name),
+        ]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $employee = $request->user();
+
+        $data = $request->validate([
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        $employee->update($data);
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'employee' => $this->getProfile($request)->getData(),
+        ]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $employee = $request->user();
+
+        try {
+            $data = $request->validate([
+                'current_password' => 'required|string',
+                'password' => 'required|string|min:6|confirmed',
+            ]);
+
+            if (!$employee->password || !Hash::check($data['current_password'], $employee->password)) {
+                return response()->json(['message' => 'Current password is incorrect'], 400);
+            }
+
+            $employee->password = Hash::make($data['password']);
+            $employee->save();
+
+            return response()->json(['message' => 'Password changed successfully']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'An error occurred while changing password'], 500);
+        }
+    }
+
+    public function viewPolicies(Request $request)
+    {
+        $employee = $request->user();
+
+        $attendancePolicy = $employee->policy;
+
+        $leavePolicies = $employee->leavePolicies->map(function ($policy) {
+            return [
+                'id' => $policy->id,
+                'name' => $policy->name,
+                'code' => $policy->code,
+                'description' => $policy->description,
+                'yearly_quota' => $policy->yearly_quota,
+                'monthly_accrual_value' => $policy->monthly_accrual_value,
+            ];
+        });
+
+        return response()->json([
+            'attendance_policy' => $attendancePolicy ? [
+                'id' => $attendancePolicy->id,
+                'name' => $attendancePolicy->name,
+                'description' => $attendancePolicy->description,
+                'work_start_time' => $attendancePolicy->work_start_time,
+                'work_end_time' => $attendancePolicy->work_end_time,
+                'break_duration' => $attendancePolicy->break_duration,
+                'grace_period' => $attendancePolicy->grace_period,
+            ] : null,
+            'leave_policies' => $leavePolicies,
+        ]);
+    }
+
+    public function submitCorrectionRequest(Request $request)
+    {
+        $employee = $request->user();
+
+        $data = $request->validate([
+            'attendance_id' => 'nullable|exists:attendances,id',
+            'type' => 'required|in:missing,wrong_checkin,wrong_checkout',
+            'requested_check_in' => 'nullable|date_format:H:i',
+            'requested_check_out' => 'nullable|date_format:H:i',
+            'reason' => 'required|string|max:500',
+        ]);
+
+        if ($data['type'] === 'missing' && (!$data['requested_check_in'] || !$data['requested_check_out'])) {
+            return response()->json(['message' => 'Check-in and check-out times are required for missing attendance'], 400);
+        }
+
+        if (in_array($data['type'], ['wrong_checkin', 'wrong_checkout']) && !$data['attendance_id']) {
+            return response()->json(['message' => 'Attendance ID is required for wrong check-in/out corrections'], 400);
+        }
+
+        $correctionRequest = \App\Models\AttendanceCorrectionRequest::create([
+            'employee_id' => $employee->id,
+            'attendance_id' => $data['attendance_id'] ?? null,
+            'type' => $data['type'],
+            'requested_check_in' => $data['requested_check_in'] ? Carbon::createFromFormat('H:i', $data['requested_check_in'])->toDateTimeString() : null,
+            'requested_check_out' => $data['requested_check_out'] ? Carbon::createFromFormat('H:i', $data['requested_check_out'])->toDateTimeString() : null,
+            'reason' => $data['reason'],
+        ]);
+
+        return response()->json([
+            'message' => 'Correction request submitted successfully',
+            'request' => $correctionRequest->load('employee')
+        ], 201);
+    }
+
+    private function generateAvatar($name)
+    {
+        // Generate initials from name
+        $initials = strtoupper(substr($name, 0, 1));
+        if (strpos($name, ' ') !== false) {
+            $parts = explode(' ', $name);
+            $initials = strtoupper(substr($parts[0], 0, 1) . substr($parts[count($parts) - 1], 0, 1));
+        }
+
+        // Generate a simple SVG avatar with initials
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+            <circle cx="64" cy="64" r="64" fill="#0D8ABC"/>
+            <text x="64" y="64" font-family="Arial, sans-serif" font-size="48" font-weight="600" text-anchor="middle" fill="white" dominant-baseline="middle">' . htmlspecialchars($initials) . '</text>
+        </svg>';
+
+        // Return SVG as base64 encoded data URL for better compatibility
+        return 'data:image/svg+xml;base64,' . base64_encode($svg);
     }
 }

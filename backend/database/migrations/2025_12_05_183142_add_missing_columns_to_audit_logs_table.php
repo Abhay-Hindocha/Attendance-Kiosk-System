@@ -11,8 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('audit_logs', function (Blueprint $table) {
-            $table->id();
+        Schema::table('audit_logs', function (Blueprint $table) {
             $table->foreignId('user_id')->constrained('admins')->onDelete('cascade');
             $table->string('action');
             $table->string('model_type')->nullable();
@@ -21,7 +20,6 @@ return new class extends Migration
             $table->json('new_values')->nullable();
             $table->string('ip_address')->nullable();
             $table->string('user_agent')->nullable();
-            $table->timestamps();
         });
     }
 
@@ -30,6 +28,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('audit_logs');
+        Schema::table('audit_logs', function (Blueprint $table) {
+            //
+        });
     }
 };

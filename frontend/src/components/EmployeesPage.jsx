@@ -608,7 +608,6 @@ const EmployeesPage = ({registerCleanup}) => {
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
-                      <option value="on_leave">On Leave</option>
                     </select>
                   </div>
                   <div>

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
-import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { CalendarCheck, ClipboardList, Home, LogOut, UserCircle, Activity } from 'lucide-react';
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { CalendarCheck, ClipboardList, Home, LogOut, UserCircle, Activity, Menu, X } from 'lucide-react';
 import employeeApi from '../../services/employeeApi';
 
 const EmployeePortalContext = createContext(null);
@@ -21,8 +21,13 @@ const EmployeeLayout = () => {
     return cached ? JSON.parse(cached) : null;
   });
   const [loading, setLoading] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // active state helper (handles nested routes like /employees/123)
+  const isActivePath = (href) =>
+    location.pathname === href || location.pathname.startsWith(`${href}/`);
 
   const fetchProfile = useCallback(async () => {
     if (!token) return;
@@ -79,46 +84,86 @@ const EmployeeLayout = () => {
   return (
     <EmployeePortalContext.Provider value={value}>
       <div className="min-h-screen bg-gray-50">
-        <header className="bg-white border-b border-gray-200">
-          <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-gray-400">Attendance Kiosk System</p>
-              <h1 className="text-2xl font-semibold text-gray-900">Employee Portal</h1>
-              {profile && (
-                <p className="text-sm text-gray-500">
-                  {profile.name} · {profile.department || 'General'}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
-                        isActive ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`
-                    }
+        <header className="bg-white border-b border-gray-200 px-4 py-3 shadow-sm sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <h1 className="text-base md:text-lg font-semibold text-gray-900">Employee Portal</h1>
+                <span className="hidden md:inline-block text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Logged in as {profile?.name || 'Employee'}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="hidden lg:flex items-center gap-2">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActivePath(item.path);
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                  <div className="h-6 w-px bg-gray-300 mx-2" />
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
                   >
-                    <Icon className="w-4 h-4" />
-                    {item.label}
-                  </NavLink>
-                );
-              })}
-              <button
-                onClick={handleLogout}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100"
-              >
-                <LogOut className="w-4 h-4" />
-                Logout
-              </button>
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+                <button className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors ml-auto" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                  {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                </button>
+              </div>
             </div>
           </div>
+
+          {isMenuOpen && (
+            <div className="lg:hidden mt-4 space-y-2">
+              <hr className="border-gray-200" />
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActivePath(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors
+                        ${active
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+              <button
+                onClick={async () => {
+                  await handleLogout();
+                  setIsMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          )}
         </header>
-        <main className="max-w-6xl mx-auto px-4 py-6">
+        <main className="max-w-7xl mx-auto px-2 py-2">
           <Outlet />
         </main>
       </div>

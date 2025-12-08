@@ -91,7 +91,21 @@ class EmployeeApiService {
   }
 
   async getProfile() {
-    return this.request('/employee/profile');
+    return this.request('/employee/portal/profile');
+  }
+
+  async updateProfile(profileData) {
+    return this.request('/employee/portal/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+  }
+
+  async changePassword(passwordData) {
+    return this.request('/employee/portal/change-password', {
+      method: 'POST',
+      body: JSON.stringify(passwordData),
+    });
   }
 
   async getDashboard() {
@@ -135,6 +149,17 @@ class EmployeeApiService {
 
   async getHolidays(year = new Date().getFullYear()) {
     return this.request(`/employee/portal/holidays?year=${year}`);
+  }
+
+  async submitCorrectionRequest(data) {
+    return this.request('/employee/portal/correction-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCorrectionRequests() {
+    return this.request('/employee/portal/correction-requests');
   }
 }
 

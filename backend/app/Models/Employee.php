@@ -21,6 +21,7 @@ class Employee extends Authenticatable
         'name',           // Full name of the employee
         'email',          // Email address for notifications and login
         'phone',          // Phone number for contact
+        'emergency_contact', // Emergency contact information
         'department',     // Department where the employee works
         'designation',    // Job title or position
         'join_date',      // Date when the employee joined the company

@@ -8,6 +8,7 @@ import api from '../services/api';
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isPoliciesDropdownOpen, setIsPoliciesDropdownOpen] = useState(false);
+  const [isRequestsDropdownOpen, setIsRequestsDropdownOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const location = useLocation();
@@ -33,6 +34,7 @@ const Header = () => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsPoliciesDropdownOpen(false);
+        setIsRequestsDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -51,17 +53,26 @@ const Header = () => {
         { name: 'Leave Policies', href: '/leave/policies', icon: Calendar }
       ]
     },
-    { name: 'Leave Approvals', href: '/leave/approvals', icon: ClipboardCheck },
+    {
+      name: 'Requests',
+      icon: ClipboardCheck,
+      dropdown: true,
+      items: [
+        { name: 'Leave Approvals', href: '/leave/approvals', icon: ClipboardCheck },
+        { name: 'Attendance Corrections', href: '/admin/correction-requests', icon: Clock }
+      ]
+    },
     { name: 'Employees', href: '/employees', icon: Users },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
   ];
 
-  // mobile nav 
+  // mobile nav
   const mobileNav = [
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
     { name: 'Attendance Policies', href: '/policies', icon: Settings },
     { name: 'Leave Policies', href: '/leave/policies', icon: Calendar },
     { name: 'Leave Approvals', href: '/leave/approvals', icon: ClipboardCheck },
+    { name: 'Attendance Corrections', href: '/admin/correction-requests', icon: Clock },
     { name: 'Employees', href: '/employees', icon: Users },
     { name: 'Reports', href: '/reports', icon: BarChart3 }, // fixed route
   ];
@@ -131,19 +142,21 @@ const Header = () => {
                   const Icon = item.icon;
                   if (item.dropdown) {
                     const isDropdownActive = item.items.some(subItem => isActivePath(subItem.href));
+                    const isOpen = item.name === 'Policies' ? isPoliciesDropdownOpen : isRequestsDropdownOpen;
+                    const setIsOpen = item.name === 'Policies' ? setIsPoliciesDropdownOpen : setIsRequestsDropdownOpen;
                     return (
                       <div key={item.name} className="relative">
                         <button
-                          onClick={() => setIsPoliciesDropdownOpen(!isPoliciesDropdownOpen)}
+                          onClick={() => setIsOpen(!isOpen)}
                           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                             isDropdownActive ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                         >
                           <Icon className="w-4 h-4" />
                           <span>{item.name}</span>
-                          <ChevronDown className={`w-4 h-4 transition-transform ${isPoliciesDropdownOpen ? 'rotate-180' : ''}`} />
+                          <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                         </button>
-                        {isPoliciesDropdownOpen && (
+                        {isOpen && (
                           <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                             {item.items.map((subItem) => {
                               const SubIcon = subItem.icon;
@@ -152,7 +165,7 @@ const Header = () => {
                                 <Link
                                   key={subItem.name}
                                   to={subItem.href}
-                                  onClick={() => setIsPoliciesDropdownOpen(false)}
+                                  onClick={() => setIsOpen(false)}
                                   className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
                                     subActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
                                   }`}

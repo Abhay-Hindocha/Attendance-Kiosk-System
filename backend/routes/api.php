@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\FaceController;     // Controller for face recognit
 use App\Http\Controllers\Api\AuthController;     // Controller for authentication (login/logout)
 use App\Http\Controllers\Api\EmployeeAuthController;
 use App\Http\Controllers\Api\EmployeePortalController;
+use App\Http\Controllers\Api\AdminController;
 
 
 // Authentication routes - These handle user login and session management
@@ -98,5 +99,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('leave-balances', [EmployeePortalController::class, 'leaveBalances']);
         Route::get('attendance', [EmployeePortalController::class, 'attendanceReport']);
         Route::get('holidays', [EmployeePortalController::class, 'holidays']);
+        Route::get('profile', [EmployeePortalController::class, 'getProfile']);
+        Route::put('profile', [EmployeePortalController::class, 'updateProfile']);
+        Route::post('change-password', [EmployeePortalController::class, 'changePassword']);
+        Route::get('policies', [EmployeePortalController::class, 'viewPolicies']);
+        Route::post('correction-requests', [EmployeePortalController::class, 'submitCorrectionRequest']);
+        Route::get('correction-requests', [AdminController::class, 'getCorrectionRequests']);
+    });
+
+    // Admin routes
+    Route::prefix('admin')->group(function () {
+        Route::get('correction-requests', [AdminController::class, 'listCorrectionRequests']);
+        Route::post('correction-requests/{id}/approve', [AdminController::class, 'approveCorrectionRequest']);
+        Route::post('correction-requests/{id}/reject', [AdminController::class, 'rejectCorrectionRequest']);
+        Route::post('manual-checkin', [AdminController::class, 'manualCheckIn']);
+        Route::post('manual-checkout', [AdminController::class, 'manualCheckOut']);
+        Route::put('attendance/{id}', [AdminController::class, 'editAttendance']);
     });
 });
