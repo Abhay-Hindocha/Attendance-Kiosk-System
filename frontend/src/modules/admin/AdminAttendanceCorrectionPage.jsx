@@ -1,4 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Clock,
+  User,
+  Edit3,
+  Plus,
+  Calendar,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  FileText
+} from 'lucide-react';
 
 const AdminAttendanceCorrectionPage = () => {
   const [departments, setDepartments] = useState([]);
@@ -21,6 +33,16 @@ const AdminAttendanceCorrectionPage = () => {
     reason: '',
     breaks: []
   });
+
+  // Helper function to format date to dd-mm-yyyy
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
 
   useEffect(() => {
     fetchDepartments();
@@ -221,20 +243,38 @@ const AdminAttendanceCorrectionPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Admin Attendance Correction</h1>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-[1400px] mx-auto">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Admin Attendance Correction</h1>
+            <p className="text-sm md:text-base text-gray-600 mt-1">Manual attendance correction and management</p>
+          </div>
         </div>
-      )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="p-4 rounded-xl shadow-lg border-l-4 bg-red-50 text-red-800 border-red-400 flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <AlertCircle className="h-6 w-6 text-red-600" />
+              <span className="font-medium">{error}</span>
+            </div>
+            <button
+              onClick={() => setError('')}
+              className="text-red-400 hover:text-red-600 transition-colors duration-200"
+            >
+              <XCircle className="h-5 w-5" />
+            </button>
+          </div>
+        )}
 
       {/* Filters */}
-      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+              <User className="w-4 h-4 text-gray-500" />
               Department
             </label>
             <select
@@ -244,7 +284,7 @@ const AdminAttendanceCorrectionPage = () => {
                 setSelectedEmployee('');
                 setAttendanceLogs([]);
               }}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
             >
               <option value="">Select Department</option>
               {departments.map((dept) => (
@@ -255,8 +295,9 @@ const AdminAttendanceCorrectionPage = () => {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+              <User className="w-4 h-4 text-gray-500" />
               Employee
             </label>
             <select
@@ -266,7 +307,7 @@ const AdminAttendanceCorrectionPage = () => {
                 setAttendanceLogs([]);
               }}
               disabled={!selectedDepartment}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
             >
               <option value="">Select Employee</option>
               {employees.map((emp) => (
@@ -277,11 +318,12 @@ const AdminAttendanceCorrectionPage = () => {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-gray-500" />
               Date Range
             </label>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center">
                 <input
                   type="radio"
@@ -295,7 +337,7 @@ const AdminAttendanceCorrectionPage = () => {
                     setStartDate(today);
                     setEndDate(today);
                   }}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                 />
                 <label htmlFor="today" className="ml-2 block text-sm text-gray-900">
                   Today
@@ -313,7 +355,7 @@ const AdminAttendanceCorrectionPage = () => {
                     setStartDate('');
                     setEndDate('');
                   }}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                 />
                 <label htmlFor="custom" className="ml-2 block text-sm text-gray-900">
                   Custom Range
@@ -323,40 +365,41 @@ const AdminAttendanceCorrectionPage = () => {
           </div>
 
           {dateRangeOption === 'custom' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
                   End Date
                 </label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                 />
               </div>
-            </>
+            </div>
           )}
         </div>
 
-        <div className="mt-4 flex gap-4">
+        <div className="mt-4 flex flex-col sm:flex-row gap-4">
           <button
             onClick={fetchAttendanceLogs}
             disabled={!selectedEmployee || !startDate || !endDate || loading}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             {loading ? 'Loading...' : 'Fetch Attendance Logs'}
           </button>
 
@@ -368,16 +411,18 @@ const AdminAttendanceCorrectionPage = () => {
               setShowAddModal(true);
             }}
             disabled={!selectedEmployee}
-            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
+            <Plus className="w-4 h-4" />
             Add New Attendance
           </button>
 
           <button
             onClick={handleEditAttendance}
             disabled={attendanceLogs.length === 0}
-            className="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
+            <Edit3 className="w-4 h-4" />
             Edit Attendance Records
           </button>
         </div>
@@ -385,7 +430,7 @@ const AdminAttendanceCorrectionPage = () => {
 
       {/* Attendance Logs Table */}
       {attendanceLogs.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold">Attendance Logs</h2>
           </div>
@@ -414,7 +459,7 @@ const AdminAttendanceCorrectionPage = () => {
                 {attendanceLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {log.date}
+                      {formatDate(log.date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {log.check_in || '-'}
@@ -449,15 +494,16 @@ const AdminAttendanceCorrectionPage = () => {
       {/* Edit Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-full max-w-6xl shadow-lg rounded-md bg-white max-h-screen overflow-y-auto">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-xl bg-white max-h-screen overflow-y-auto">
             <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Edit3 className="w-5 h-5 text-gray-600" />
                   Edit Attendance Records
                 </h3>
                 <button
                   onClick={() => setShowEditModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -465,173 +511,171 @@ const AdminAttendanceCorrectionPage = () => {
                 </button>
               </div>
 
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">
-                  Showing attendance records for {employees.find(emp => emp.id === parseInt(selectedEmployee))?.name || 'Selected Employee'} from {startDate} to {endDate}
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  Showing attendance records for {employees.find(emp => emp.id === parseInt(selectedEmployee))?.name || 'Selected Employee'} from {formatDate(startDate)} to {formatDate(endDate)}
                 </p>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Current Check In
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Current Check Out
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        New Check In
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        New Check Out
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Reason
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Breaks
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {attendanceLogs.map((log) => (
-                      <tr key={log.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {log.date}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {log.check_in || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {log.check_out || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="time"
-                            value={editForm[log.id]?.check_in || ''}
-                            onChange={(e) => setEditForm({
-                              ...editForm,
-                              [log.id]: {
-                                ...editForm[log.id],
-                                check_in: e.target.value,
-                                id: log.id
-                              }
-                            })}
-                            className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="time"
-                            value={editForm[log.id]?.check_out || ''}
-                            onChange={(e) => setEditForm({
-                              ...editForm,
-                              [log.id]: {
-                                ...editForm[log.id],
-                                check_out: e.target.value,
-                                id: log.id
-                              }
-                            })}
-                            className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <textarea
-                            value={editForm[log.id]?.reason || ''}
-                            onChange={(e) => setEditForm({
-                              ...editForm,
-                              [log.id]: {
-                                ...editForm[log.id],
-                                reason: e.target.value,
-                                id: log.id
-                              }
-                            })}
-                            className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            rows="2"
-                            placeholder="Reason for change"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="space-y-2">
-                            {(editForm[log.id]?.breaks || []).map((breakItem, index) => (
-                              <div key={index} className="flex items-center space-x-2">
-                                <input
-                                  type="time"
-                                  value={breakItem.break_start}
-                                  onChange={(e) => {
-                                    const newBreaks = [...editForm[log.id].breaks];
-                                    newBreaks[index].break_start = e.target.value;
-                                    setEditForm({
-                                      ...editForm,
-                                      [log.id]: {
-                                        ...editForm[log.id],
-                                        breaks: newBreaks
-                                      }
-                                    });
-                                  }}
-                                  className="w-20 border border-gray-300 rounded-md px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <span className="text-xs">-</span>
-                                <input
-                                  type="time"
-                                  value={breakItem.break_end}
-                                  onChange={(e) => {
-                                    const newBreaks = [...editForm[log.id].breaks];
-                                    newBreaks[index].break_end = e.target.value;
-                                    setEditForm({
-                                      ...editForm,
-                                      [log.id]: {
-                                        ...editForm[log.id],
-                                        breaks: newBreaks
-                                      }
-                                    });
-                                  }}
-                                  className="w-20 border border-gray-300 rounded-md px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <button
-                                  onClick={() => removeBreak(log.id, index)}
-                                  className="text-red-500 hover:text-red-700 text-xs"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            ))}
+              <div className="space-y-6">
+                {attendanceLogs.map((log) => (
+                  <div key={log.id} className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Calendar className="w-5 h-5 text-gray-500" />
+                        <span className="font-medium text-gray-900">{log.date}</span>
+                      </div>
+                      <div className="flex items-center gap-4 mt-2 lg:mt-0">
+                        <div className="text-sm text-gray-600">
+                          Current: {log.check_in || 'No check-in'} - {log.check_out || 'No check-out'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          New Check In
+                        </label>
+                        <input
+                          type="time"
+                          value={editForm[log.id]?.check_in || ''}
+                          onChange={(e) => setEditForm({
+                            ...editForm,
+                            [log.id]: {
+                              ...editForm[log.id],
+                              check_in: e.target.value,
+                              id: log.id
+                            }
+                          })}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          New Check Out
+                        </label>
+                        <input
+                          type="time"
+                          value={editForm[log.id]?.check_out || ''}
+                          onChange={(e) => setEditForm({
+                            ...editForm,
+                            [log.id]: {
+                              ...editForm[log.id],
+                              check_out: e.target.value,
+                              id: log.id
+                            }
+                          })}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 mb-6">
+                      <label className="block text-sm font-medium text-gray-700">Breaks</label>
+                      <div className="space-y-3">
+                        {(editForm[log.id]?.breaks || []).map((breakItem, index) => (
+                          <div key={index} className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200">
+                            <input
+                              type="time"
+                              value={breakItem.break_start}
+                              onChange={(e) => {
+                                const newBreaks = [...editForm[log.id].breaks];
+                                newBreaks[index].break_start = e.target.value;
+                                setEditForm({
+                                  ...editForm,
+                                  [log.id]: {
+                                    ...editForm[log.id],
+                                    breaks: newBreaks
+                                  }
+                                });
+                              }}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-sm"
+                              placeholder="Start time"
+                            />
+                            <span className="text-gray-500">-</span>
+                            <input
+                              type="time"
+                              value={breakItem.break_end}
+                              onChange={(e) => {
+                                const newBreaks = [...editForm[log.id].breaks];
+                                newBreaks[index].break_end = e.target.value;
+                                setEditForm({
+                                  ...editForm,
+                                  [log.id]: {
+                                    ...editForm[log.id],
+                                    breaks: newBreaks
+                                  }
+                                });
+                              }}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-sm"
+                              placeholder="End time"
+                            />
                             <button
-                              onClick={() => addBreak(log.id)}
-                              className="text-blue-500 hover:text-blue-700 text-xs"
+                              onClick={() => removeBreak(log.id, index)}
+                              className="text-red-500 hover:text-red-700 transition-colors p-1"
+                              type="button"
                             >
-                              + Add Break
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
                             </button>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <button
-                            onClick={() => handleUpdateSingleAttendance(log.id)}
-                            disabled={!editForm[log.id]?.reason || !editForm[log.id]?.check_in && !editForm[log.id]?.check_out && !(editForm[log.id]?.breaks && editForm[log.id].breaks.some(b => b.break_start || b.break_end))}
-                            className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-xs"
-                          >
-                            Update
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        ))}
+                        <button
+                          onClick={() => addBreak(log.id)}
+                          className="text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-2 text-sm font-medium"
+                          type="button"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Break
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 mb-6">
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-gray-500" />
+                        Reason *
+                      </label>
+                      <textarea
+                        value={editForm[log.id]?.reason || ''}
+                        onChange={(e) => setEditForm({
+                          ...editForm,
+                          [log.id]: {
+                            ...editForm[log.id],
+                            reason: e.target.value,
+                            id: log.id
+                          }
+                        })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-none"
+                        rows={3}
+                        placeholder="Please explain the reason for this attendance correction"
+                      />
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => handleUpdateSingleAttendance(log.id)}
+                        disabled={!editForm[log.id]?.reason || !editForm[log.id]?.check_in && !editForm[log.id]?.check_out && !(editForm[log.id]?.breaks && editForm[log.id].breaks.some(b => b.break_start || b.break_end))}
+                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Update Record
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div className="flex justify-end gap-4 mt-6">
+              <div className="flex justify-end pt-4 border-t border-gray-200 mt-6">
                 <button
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                 >
+                  <XCircle className="w-4 h-4" />
                   Close
                 </button>
               </div>
@@ -643,128 +687,155 @@ const AdminAttendanceCorrectionPage = () => {
       {/* Add New Attendance Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-xl bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Add New Attendance
-              </h3>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  value={addForm.date}
-                  onChange={(e) => setAddForm({...addForm, date: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-gray-600" />
+                  Add New Attendance
+                </h3>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
 
-              <div className="mb-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+              <form onSubmit={(e) => { e.preventDefault(); handleAddNewAttendance(); }} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={addForm.date}
+                    onChange={(e) => setAddForm({...addForm, date: e.target.value})}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-gray-500" />
                       Check In
                     </label>
                     <input
                       type="time"
                       value={addForm.check_in}
                       onChange={(e) => setAddForm({...addForm, check_in: e.target.value})}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-gray-500" />
                       Check Out
                     </label>
                     <input
                       type="time"
                       value={addForm.check_out}
                       onChange={(e) => setAddForm({...addForm, check_out: e.target.value})}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                     />
                   </div>
                 </div>
-              </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Breaks</label>
                 <div className="space-y-2">
-                  {(addForm.breaks || []).map((breakItem, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <input
-                        type="time"
-                        value={breakItem.break_start}
-                        onChange={(e) => {
-                          const newBreaks = [...addForm.breaks];
-                          newBreaks[index].break_start = e.target.value;
-                          setAddForm({ ...addForm, breaks: newBreaks });
-                        }}
-                        className="w-24 border border-gray-300 rounded-md px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-xs">-</span>
-                      <input
-                        type="time"
-                        value={breakItem.break_end}
-                        onChange={(e) => {
-                          const newBreaks = [...addForm.breaks];
-                          newBreaks[index].break_end = e.target.value;
-                          setAddForm({ ...addForm, breaks: newBreaks });
-                        }}
-                        className="w-24 border border-gray-300 rounded-md px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        onClick={() => setAddForm({ ...addForm, breaks: addForm.breaks.filter((_, i) => i !== index) })}
-                        className="text-red-500 hover:text-red-700 text-xs"
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => setAddForm({ ...addForm, breaks: [...(addForm.breaks || []), { break_start: '', break_end: '' }] })}
-                    className="text-blue-500 hover:text-blue-700 text-xs"
-                    type="button"
-                  >
-                    + Add Break
-                  </button>
+                  <label className="block text-sm font-medium text-gray-700">Breaks</label>
+                  <div className="space-y-3">
+                    {(addForm.breaks || []).map((breakItem, index) => (
+                      <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <input
+                          type="time"
+                          value={breakItem.break_start}
+                          onChange={(e) => {
+                            const newBreaks = [...addForm.breaks];
+                            newBreaks[index].break_start = e.target.value;
+                            setAddForm({ ...addForm, breaks: newBreaks });
+                          }}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-sm"
+                          placeholder="Start time"
+                        />
+                        <span className="text-gray-500">-</span>
+                        <input
+                          type="time"
+                          value={breakItem.break_end}
+                          onChange={(e) => {
+                            const newBreaks = [...addForm.breaks];
+                            newBreaks[index].break_end = e.target.value;
+                            setAddForm({ ...addForm, breaks: newBreaks });
+                          }}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-sm"
+                          placeholder="End time"
+                        />
+                        <button
+                          onClick={() => setAddForm({ ...addForm, breaks: addForm.breaks.filter((_, i) => i !== index) })}
+                          className="text-red-500 hover:text-red-700 transition-colors p-1"
+                          type="button"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => setAddForm({ ...addForm, breaks: [...(addForm.breaks || []), { break_start: '', break_end: '' }] })}
+                      className="text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-2 text-sm font-medium"
+                      type="button"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Break
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason *
-                </label>
-                <textarea
-                  value={addForm.reason}
-                  onChange={(e) => setAddForm({...addForm, reason: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows="3"
-                  required
-                />
-              </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-gray-500" />
+                    Reason *
+                  </label>
+                  <textarea
+                    value={addForm.reason}
+                    onChange={(e) => setAddForm({...addForm, reason: e.target.value})}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-none"
+                    rows={4}
+                    placeholder="Please explain the reason for adding this attendance record"
+                    required
+                  />
+                </div>
 
-              <div className="flex justify-end gap-4">
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddNewAttendance}
-                  className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-                >
-                  Add Attendance
-                </button>
-              </div>
+                <div className="flex justify-end pt-4 border-t border-gray-200">
+                  <div className="flex space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddModal(false)}
+                      className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Attendance
+                    </button>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
