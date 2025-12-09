@@ -216,7 +216,8 @@ const EmployeeProfilePage = () => {
     try {
       const formData = {
         ...correctionForm,
-        attendance_id: correctionForm.type === 'missing' ? null : selectedLog.id
+        attendance_id: correctionForm.type === 'missing' ? null : selectedLog.id,
+        date: selectedLog.date // Include the selected log date
       };
       await employeeApi.submitCorrectionRequest(formData);
 

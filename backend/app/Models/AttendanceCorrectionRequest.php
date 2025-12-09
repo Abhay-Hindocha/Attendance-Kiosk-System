@@ -10,6 +10,7 @@ class AttendanceCorrectionRequest extends Model
     protected $fillable = [
         'employee_id',
         'attendance_id',
+        'date',
         'type',
         'requested_check_in',
         'requested_check_out',
@@ -22,6 +23,7 @@ class AttendanceCorrectionRequest extends Model
     ];
 
     protected $casts = [
+        'date' => 'date',
         'requested_check_in' => 'datetime',
         'requested_check_out' => 'datetime',
         'requested_breaks' => 'array',

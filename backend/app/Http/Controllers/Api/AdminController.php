@@ -97,14 +97,33 @@ class AdminController extends Controller
         $attendance = null;
 
         if ($correctionRequest->type === 'missing') {
-            // Create new attendance record
-            $attendance = Attendance::create([
-                'employee_id' => $correctionRequest->employee_id,
-                'date' => Carbon::parse($correctionRequest->requested_check_in)->toDateString(),
-                'check_in' => $correctionRequest->requested_check_in,
-                'check_out' => $correctionRequest->requested_check_out,
-                'status' => 'present', // Will be recalculated by AttendanceLogic
-            ]);
+            $attendanceDate = Carbon::parse($correctionRequest->requested_check_in)->toDateString();
+            
+            // Check if an attendance record already exists for this date
+            $attendance = Attendance::where('employee_id', $correctionRequest->employee_id)
+                ->where('date', $attendanceDate)
+                ->first();
+
+            if ($attendance) {
+                // Update existing record
+                $attendance->update([
+                    'check_in' => $correctionRequest->requested_check_in,
+                    'check_out' => $correctionRequest->requested_check_out,
+                    'status' => 'present', // Will be recalculated by AttendanceLogic
+                ]);
+                
+                // Delete old breaks before adding new ones
+                $attendance->breaks()->delete();
+            } else {
+                // Create new attendance record if it doesn't exist
+                $attendance = Attendance::create([
+                    'employee_id' => $correctionRequest->employee_id,
+                    'date' => $attendanceDate,
+                    'check_in' => $correctionRequest->requested_check_in,
+                    'check_out' => $correctionRequest->requested_check_out,
+                    'status' => 'present', // Will be recalculated by AttendanceLogic
+                ]);
+            }
 
             // Create breaks if requested
             $requestedBreaks = $correctionRequest->requested_breaks;
@@ -681,29 +700,31 @@ class AdminController extends Controller
 
         $attendance->update($updates);
 
-        // Handle breaks - only update if breaks data is explicitly provided and not empty
-        if (isset($data['breaks']) && is_array($data['breaks']) && !empty($data['breaks'])) {
-            // Delete existing breaks
+        // Handle breaks - always process breaks even if empty to allow deletion of existing breaks
+        if (isset($data['breaks'])) {
+            // Always delete existing breaks first
             $attendance->breaks()->delete();
 
-            // Create new breaks
-            foreach ($data['breaks'] as $breakData) {
-                if (!empty($breakData['break_start']) || !empty($breakData['break_end'])) {
-                    $breakRecord = [
-                        'attendance_id' => $attendance->id,
-                    ];
+            // Create new breaks only if provided and not empty
+            if (is_array($data['breaks']) && !empty($data['breaks'])) {
+                foreach ($data['breaks'] as $breakData) {
+                    if (!empty($breakData['break_start']) || !empty($breakData['break_end'])) {
+                        $breakRecord = [
+                            'attendance_id' => $attendance->id,
+                        ];
 
-                    if (!empty($breakData['break_start'])) {
-                        $breakStartDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_start']);
-                        $breakRecord['break_start'] = $breakStartDateTime->toDateTimeString();
+                        if (!empty($breakData['break_start'])) {
+                            $breakStartDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_start']);
+                            $breakRecord['break_start'] = $breakStartDateTime->toDateTimeString();
+                        }
+
+                        if (!empty($breakData['break_end'])) {
+                            $breakEndDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_end']);
+                            $breakRecord['break_end'] = $breakEndDateTime->toDateTimeString();
+                        }
+
+                        BreakRecord::create($breakRecord);
                     }
-
-                    if (!empty($breakData['break_end'])) {
-                        $breakEndDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_end']);
-                        $breakRecord['break_end'] = $breakEndDateTime->toDateTimeString();
-                    }
-
-                    BreakRecord::create($breakRecord);
                 }
             }
         }

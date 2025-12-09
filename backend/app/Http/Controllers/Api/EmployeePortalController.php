@@ -802,6 +802,7 @@ class EmployeePortalController extends Controller
 
         $data = $request->validate([
             'attendance_id' => 'nullable|exists:attendances,id',
+            'date' => 'nullable|date',
             'type' => 'required|in:missing,wrong_checkin,wrong_checkout,wrong_break',
             'requested_check_in' => 'nullable|date_format:H:i',
             'requested_check_out' => 'nullable|date_format:H:i',
@@ -834,6 +835,7 @@ class EmployeePortalController extends Controller
         $correctionRequest = \App\Models\AttendanceCorrectionRequest::create([
             'employee_id' => $employee->id,
             'attendance_id' => !empty($data['attendance_id']) ? $data['attendance_id'] : null,
+            'date' => $data['date'] ?? null,
             'type' => $data['type'],
             'requested_check_in' => $data['requested_check_in'] ? Carbon::createFromFormat('H:i', $data['requested_check_in'])->toDateTimeString() : null,
             'requested_check_out' => $data['requested_check_out'] ? Carbon::createFromFormat('H:i', $data['requested_check_out'])->toDateTimeString() : null,
@@ -860,7 +862,9 @@ class EmployeePortalController extends Controller
                     try {
                         // Determine the date for the request
                         $requestDate = null;
-                        if ($request->attendance) {
+                        if ($request->date) {
+                            $requestDate = $request->date;
+                        } elseif ($request->attendance) {
                             $requestDate = $request->attendance->date;
                         } elseif ($request->type === 'missing' && $request->requested_check_in) {
                             $requestDate = Carbon::parse($request->requested_check_in)->toDateString();
