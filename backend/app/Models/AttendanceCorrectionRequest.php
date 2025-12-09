@@ -13,6 +13,7 @@ class AttendanceCorrectionRequest extends Model
         'type',
         'requested_check_in',
         'requested_check_out',
+        'requested_breaks',
         'reason',
         'status',
         'admin_id',
@@ -23,6 +24,7 @@ class AttendanceCorrectionRequest extends Model
     protected $casts = [
         'requested_check_in' => 'datetime',
         'requested_check_out' => 'datetime',
+        'requested_breaks' => 'array',
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
     ];

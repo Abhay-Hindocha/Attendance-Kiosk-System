@@ -438,7 +438,7 @@ const AdminCorrectionRequestsPage = () => {
                         <div>
                           <p className="text-gray-500">Request Type</p>
                           <p className="font-medium text-gray-900 capitalize">
-                            {request.type.replace('_', ' ')}
+                            {request.type ? request.type.replace('_', ' ') : 'Type not specified'}
                           </p>
                         </div>
                         <div>
@@ -451,6 +451,22 @@ const AdminCorrectionRequestsPage = () => {
                             <p className="font-medium text-gray-900">
                               {request.requested_check_in || 'N/A'} - {request.requested_check_out || 'N/A'}
                             </p>
+                          </div>
+                        )}
+                        {request.requested_breaks && Array.isArray(request.requested_breaks) && (
+                          <div>
+                            <p className="text-gray-500">Requested Breaks</p>
+                            {request.requested_breaks.length > 0 ? (
+                              <div className="space-y-1">
+                                {request.requested_breaks.map((breakItem, index) => (
+                                  <p key={index} className="font-medium text-gray-900 text-sm">
+                                    Break {index + 1}: {breakItem?.break_start || 'N/A'} - {breakItem?.break_end || 'N/A'}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="font-medium text-gray-900 text-sm">No breaks requested</p>
+                            )}
                           </div>
                         )}
                         {request.attendance && (

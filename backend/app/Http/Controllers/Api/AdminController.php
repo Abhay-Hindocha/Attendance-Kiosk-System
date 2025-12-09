@@ -8,6 +8,7 @@ use App\Models\Attendance;
 use App\Models\AttendanceCorrectionRequest;
 use App\Models\AuditLog;
 use App\Models\BreakRecord;
+use App\Services\AttendanceLogic;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Carbon\Carbon;
@@ -63,6 +64,7 @@ class AdminController extends Controller
                     'type' => $request->type,
                     'requested_check_in' => $request->requested_check_in ? $request->requested_check_in->format('H:i') : null,
                     'requested_check_out' => $request->requested_check_out ? $request->requested_check_out->format('H:i') : null,
+                    'requested_breaks' => $request->requested_breaks,
                     'reason' => $request->reason,
                     'status' => $request->status,
                     'submitted_at' => $request->created_at->toDateString(),
@@ -85,29 +87,119 @@ class AdminController extends Controller
     public function approveCorrectionRequest(Request $request, $id)
     {
         $admin = $request->user();
-        $correctionRequest = AttendanceCorrectionRequest::findOrFail($id);
+        $correctionRequest = AttendanceCorrectionRequest::with(['employee', 'attendance'])->findOrFail($id);
 
         if ($correctionRequest->status !== 'pending') {
             return response()->json(['message' => 'Request has already been processed'], 400);
         }
 
+        // Initialize attendance variable
+        $attendance = null;
+
         if ($correctionRequest->type === 'missing') {
             // Create new attendance record
-            Attendance::create([
+            $attendance = Attendance::create([
                 'employee_id' => $correctionRequest->employee_id,
                 'date' => Carbon::parse($correctionRequest->requested_check_in)->toDateString(),
                 'check_in' => $correctionRequest->requested_check_in,
                 'check_out' => $correctionRequest->requested_check_out,
                 'status' => 'present', // Will be recalculated by AttendanceLogic
             ]);
+
+            // Create breaks if requested
+            $requestedBreaks = $correctionRequest->requested_breaks;
+            if (!is_array($requestedBreaks) && is_string($requestedBreaks)) {
+                $requestedBreaks = json_decode($requestedBreaks, true);
+            }
+
+            if ($requestedBreaks && is_array($requestedBreaks)) {
+                foreach ($requestedBreaks as $breakData) {
+                    if (!empty($breakData['break_start']) || !empty($breakData['break_end'])) {
+                        $breakRecord = [
+                            'attendance_id' => $attendance->id,
+                        ];
+
+                        if (!empty($breakData['break_start'])) {
+                            try {
+                                $breakStartDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_start']);
+                                $breakRecord['break_start'] = $breakStartDateTime->toDateTimeString();
+                            } catch (\Exception $e) {
+                                \Log::error('Error parsing break start: ' . $e->getMessage());
+                            }
+                        }
+
+                        if (!empty($breakData['break_end'])) {
+                            try {
+                                $breakEndDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_end']);
+                                $breakRecord['break_end'] = $breakEndDateTime->toDateTimeString();
+                            } catch (\Exception $e) {
+                                \Log::error('Error parsing break end: ' . $e->getMessage());
+                            }
+                        }
+
+                        if (!empty($breakRecord['break_start']) || !empty($breakRecord['break_end'])) {
+                            BreakRecord::create($breakRecord);
+                        }
+                    }
+                }
+            }
         } else {
             // Update existing attendance
             $attendance = $correctionRequest->attendance;
+            
             if ($correctionRequest->type === 'wrong_checkin') {
                 $attendance->update(['check_in' => $correctionRequest->requested_check_in]);
             } elseif ($correctionRequest->type === 'wrong_checkout') {
                 $attendance->update(['check_out' => $correctionRequest->requested_check_out]);
+            } elseif ($correctionRequest->type === 'wrong_break') {
+                // Delete existing breaks
+                $attendance->breaks()->delete();
+
+                // Create new breaks
+                $requestedBreaks = $correctionRequest->requested_breaks;
+                if (!is_array($requestedBreaks) && is_string($requestedBreaks)) {
+                    $requestedBreaks = json_decode($requestedBreaks, true);
+                }
+
+                if ($requestedBreaks && is_array($requestedBreaks)) {
+                    foreach ($requestedBreaks as $breakData) {
+                        if (!empty($breakData['break_start']) || !empty($breakData['break_end'])) {
+                            $breakRecord = [
+                                'attendance_id' => $attendance->id,
+                            ];
+
+                            if (!empty($breakData['break_start'])) {
+                                try {
+                                    $breakStartDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_start']);
+                                    $breakRecord['break_start'] = $breakStartDateTime->toDateTimeString();
+                                } catch (\Exception $e) {
+                                    \Log::error('Error parsing break start: ' . $e->getMessage());
+                                }
+                            }
+
+                            if (!empty($breakData['break_end'])) {
+                                try {
+                                    $breakEndDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_end']);
+                                    $breakRecord['break_end'] = $breakEndDateTime->toDateTimeString();
+                                } catch (\Exception $e) {
+                                    \Log::error('Error parsing break end: ' . $e->getMessage());
+                                }
+                            }
+
+                            if (!empty($breakRecord['break_start']) || !empty($breakRecord['break_end'])) {
+                                BreakRecord::create($breakRecord);
+                            }
+                        }
+                    }
+                }
             }
+        }
+
+        // Recalculate attendance status using AttendanceLogic
+        if ($attendance) {
+            $attendanceLogic = new AttendanceLogic();
+            $newStatus = $attendanceLogic->calculateStatus($attendance->employee, $attendance);
+            $attendance->update(['status' => $newStatus]);
         }
 
         $correctionRequest->update([
@@ -128,7 +220,7 @@ class AdminController extends Controller
         ]);
 
         // Send email notification
-        if ($correctionRequest->employee->email) {
+        if ($correctionRequest->employee && $correctionRequest->employee->email) {
             Mail::to($correctionRequest->employee->email)->send(new AttendanceCorrectionRequestMail($correctionRequest, 'approved'));
         }
 
@@ -138,7 +230,7 @@ class AdminController extends Controller
     public function rejectCorrectionRequest(Request $request, $id)
     {
         $admin = $request->user();
-        $correctionRequest = AttendanceCorrectionRequest::findOrFail($id);
+        $correctionRequest = AttendanceCorrectionRequest::with('employee')->findOrFail($id);
 
         if ($correctionRequest->status !== 'pending') {
             return response()->json(['message' => 'Request has already been processed'], 400);
@@ -162,7 +254,7 @@ class AdminController extends Controller
         ]);
 
         // Send email notification
-        if ($correctionRequest->employee->email) {
+        if ($correctionRequest->employee && $correctionRequest->employee->email) {
             Mail::to($correctionRequest->employee->email)->send(new AttendanceCorrectionRequestMail($correctionRequest, 'rejected'));
         }
 
@@ -171,32 +263,55 @@ class AdminController extends Controller
 
     public function getCorrectionRequests(Request $request)
     {
-        $employee = $request->user();
+        try {
+            $employee = $request->user();
 
-        $requests = AttendanceCorrectionRequest::where('employee_id', $employee->id)
-            ->with('attendance')
-            ->orderByDesc('created_at')
-            ->get()
-            ->map(function ($request) {
-                return [
-                    'id' => $request->id,
-                    'type' => $request->type,
-                    'requested_check_in' => $request->requested_check_in ? Carbon::parse($request->requested_check_in)->format('H:i') : null,
-                    'requested_check_out' => $request->requested_check_out ? Carbon::parse($request->requested_check_out)->format('H:i') : null,
-                    'reason' => $request->reason,
-                    'status' => $request->status,
-                    'submitted_at' => $request->created_at->toDateString(),
-                    'processed_at' => $request->approved_at ?? $request->rejected_at,
-                    'attendance' => $request->attendance ? [
-                        'id' => $request->attendance->id,
-                        'date' => $request->attendance->date,
-                        'check_in' => $request->attendance->check_in ? $request->attendance->check_in->format('H:i') : null,
-                        'check_out' => $request->attendance->check_out ? $request->attendance->check_out->format('H:i') : null,
-                    ] : null,
-                ];
-            });
+            $requests = AttendanceCorrectionRequest::where('employee_id', $employee->id)
+                ->with('attendance')
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(function ($request) {
+                    try {
+                        // Determine the date for the request
+                        $requestDate = null;
+                        if ($request->attendance) {
+                            $requestDate = $request->attendance->date;
+                        } elseif ($request->type === 'missing' && $request->requested_check_in) {
+                            $requestDate = Carbon::parse($request->requested_check_in)->toDateString();
+                        }
 
-        return response()->json(['requests' => $requests]);
+                        return [
+                            'id' => $request->id,
+                            'type' => $request->type,
+                            'requested_check_in' => $request->requested_check_in ? Carbon::parse($request->requested_check_in)->format('H:i') : null,
+                            'requested_check_out' => $request->requested_check_out ? Carbon::parse($request->requested_check_out)->format('H:i') : null,
+                            'requested_breaks' => $request->requested_breaks,
+                            'reason' => $request->reason,
+                            'status' => $request->status,
+                            'submitted_at' => $request->created_at->toISOString(),
+                            'processed_at' => $request->approved_at ?? $request->rejected_at,
+                            'date' => $requestDate,
+                            'attendance' => $request->attendance ? [
+                                'id' => $request->attendance->id,
+                                'date' => $request->attendance->date,
+                                'check_in' => $request->attendance->check_in ? $request->attendance->check_in->format('H:i') : null,
+                                'check_out' => $request->attendance->check_out ? $request->attendance->check_out->format('H:i') : null,
+                            ] : null,
+                        ];
+                    } catch (\Exception $e) {
+                        \Log::error('Error processing correction request ' . $request->id . ': ' . $e->getMessage());
+                        return null; // Skip this request
+                    }
+                })
+                ->filter(function ($request) {
+                    return $request !== null;
+                });
+
+            return response()->json(['requests' => $requests]);
+        } catch (\Exception $e) {
+            \Log::error('Error in getCorrectionRequests: ' . $e->getMessage());
+            return response()->json(['message' => 'An error occurred while fetching correction requests'], 500);
+        }
     }
 
     public function manualCheckIn(Request $request)

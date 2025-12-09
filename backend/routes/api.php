@@ -123,6 +123,6 @@ Route::middleware('auth:employee')->group(function () {
         Route::post('change-password', [EmployeePortalController::class, 'changePassword']);
         Route::get('policies', [EmployeePortalController::class, 'viewPolicies']);
         Route::post('correction-requests', [EmployeePortalController::class, 'submitCorrectionRequest']);
-        Route::get('correction-requests', [AdminController::class, 'getCorrectionRequests']);
+        Route::get('correction-requests', [EmployeePortalController::class, 'getCorrectionRequests']);
     });
 });

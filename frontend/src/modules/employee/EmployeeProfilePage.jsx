@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useEmployeePortal } from './EmployeeLayout';
-import { User, Phone, Mail, Building, Calendar, Shield, Edit, Key, FileText, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { User, Phone, Mail, Building, Calendar, Shield, Edit, Key, FileText, RefreshCw, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
 import employeeApi from '../../services/employeeApi';
 
 const EmployeeProfilePage = () => {
@@ -35,12 +35,22 @@ const EmployeeProfilePage = () => {
     type: 'missing',
     requested_check_in: '',
     requested_check_out: '',
-    reason: ''
+    reason: '',
+    breaks: []
   });
 
   const [correctionRequests, setCorrectionRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [requestsError, setRequestsError] = useState(null);
+
+  function getStatusColor(status) {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  }
 
   React.useEffect(() => {
     if (profile) {
@@ -120,7 +130,7 @@ const EmployeeProfilePage = () => {
         end_date: selectedDate
       };
       const data = await employeeApi.getAttendanceReport(params);
-      setAttendanceLogs(data.records || []);
+      setAttendanceLogs(data?.records || []);
       setSelectedLog(null); // Reset selected log when fetching new logs
     } catch (error) {
       console.error('Failed to fetch attendance logs:', error);
@@ -143,20 +153,39 @@ const EmployeeProfilePage = () => {
   };
 
   const handleTypeChange = (newType) => {
+    const formatTime = (dateString) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    };
+
     setCorrectionForm({
       ...correctionForm,
       type: newType,
-      requested_check_in: newType === 'missing' ? correctionForm.requested_check_in : (selectedLog ? selectedLog.check_in : ''),
-      requested_check_out: newType === 'missing' ? correctionForm.requested_check_out : (selectedLog ? selectedLog.check_out : '')
+      requested_check_in: newType === 'missing' ? correctionForm.requested_check_in : (selectedLog ? formatTime(selectedLog.check_in) : ''),
+      requested_check_out: newType === 'missing' ? correctionForm.requested_check_out : (selectedLog ? formatTime(selectedLog.check_out) : '')
     });
   };
 
   const handleLogSelection = (log) => {
     setSelectedLog(log);
+    const formatTime = (dateString) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    };
     setCorrectionForm({
       ...correctionForm,
-      requested_check_in: log.check_in || '',
-      requested_check_out: log.check_out || ''
+      requested_check_in: formatTime(log.check_in),
+      requested_check_out: formatTime(log.check_out),
+      breaks: log.breaks ? log.breaks.map(b => ({
+        break_start: b.break_start ? formatTime(b.break_start) : '',
+        break_end: b.break_end ? formatTime(b.break_end) : ''
+      })) : []
     });
   };
 
@@ -187,7 +216,7 @@ const EmployeeProfilePage = () => {
     try {
       const formData = {
         ...correctionForm,
-        attendance_id: selectedLog?.id || ''
+        attendance_id: correctionForm.type === 'missing' ? null : selectedLog.id
       };
       await employeeApi.submitCorrectionRequest(formData);
 
@@ -196,7 +225,8 @@ const EmployeeProfilePage = () => {
         type: 'missing',
         requested_check_in: '',
         requested_check_out: '',
-        reason: ''
+        reason: '',
+        breaks: []
       });
       setSelectedLog(null);
       setAttendanceLogs([]);
@@ -213,10 +243,11 @@ const EmployeeProfilePage = () => {
     setRequestsError(null);
     try {
       const data = await employeeApi.getCorrectionRequests();
-      setCorrectionRequests(data.requests || []);
+      setCorrectionRequests(Array.isArray(data?.requests) ? data.requests : []);
     } catch (error) {
       console.error('Failed to load correction requests:', error);
       setRequestsError('Failed to load correction requests');
+      setCorrectionRequests([]);
     } finally {
       setLoadingRequests(false);
     }
@@ -378,7 +409,7 @@ const EmployeeProfilePage = () => {
                   Assigned Leave Policies
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {profile.leave_policies?.map((policy) => (
+                  {(profile.leave_policies || []).map((policy) => (
                     <div key={policy.id} className="p-4 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100">
                       <div className="flex items-center gap-3 mb-2">
                         <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
@@ -714,7 +745,7 @@ const EmployeeProfilePage = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {attendanceLogs.map((log) => (
+                        {(attendanceLogs || []).map((log) => (
                           <tr key={log.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {new Date(log.date).toLocaleDateString('en-GB')}
@@ -730,7 +761,7 @@ const EmployeeProfilePage = () => {
                                 <div className="space-y-1">
                                   {log.breaks.map((breakItem, index) => (
                                     <div key={breakItem.id || index} className="text-xs">
-                                      Break {index + 1}: {(breakItem.break_out || breakItem.break_start) ? new Date(breakItem.break_out || breakItem.break_start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'} - {(breakItem.break_in || breakItem.break_end) ? new Date(breakItem.break_in || breakItem.break_end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}
+                                      Break {index + 1}: {breakItem.break_start ? new Date(breakItem.break_start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'} - {breakItem.break_end ? new Date(breakItem.break_end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}
                                     </div>
                                   ))}
                                 </div>
@@ -766,7 +797,7 @@ const EmployeeProfilePage = () => {
                                   selectedLog?.id === log.id
                                     ? 'bg-indigo-600 text-white'
                                     : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                                }`}
+                                   }`}
                               >
                                 {selectedLog?.id === log.id ? 'Selected' : 'Select'}
                               </button>
@@ -779,11 +810,11 @@ const EmployeeProfilePage = () => {
                 </div>
               )}
 
-              {/* Submit Correction Request Form */}
+              {/* Attendance Correction request */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <FileText className="w-5 h-5 text-gray-600" />
-                  Submit Correction Request
+                   Attendance Correction request
                 </h3>
                 {selectedLog ? (
                   <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -801,102 +832,177 @@ const EmployeeProfilePage = () => {
                   </div>
                 )}
                 <form onSubmit={handleCorrectionRequest} className="space-y-6">
-                  <div className="space-y-2">
+                  {/* Correction Type Selection */}
+                  <div className="space-y-3">
                     <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                       <FileText className="w-4 h-4 text-gray-500" />
                       Correction Type *
                     </label>
-                    <select
-                      value={correctionForm.type}
-                      onChange={(e) => handleTypeChange(e.target.value)}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                      required
-                    >
-                      <option value="missing">Missing Attendance</option>
-                      <option value="wrong_checkin">Wrong Check-in Time</option>
-                      <option value="wrong_checkout">Wrong Check-out Time</option>
-                    </select>
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="missing"
+                          name="correctionType"
+                          value="missing"
+                          checked={correctionForm.type === 'missing'}
+                          onChange={(e) => handleTypeChange(e.target.value)}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                        />
+                        <label htmlFor="missing" className="ml-2 block text-sm text-gray-900">
+                          Change Attendance - Request for a completely missing attendance record
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="wrong_checkin"
+                          name="correctionType"
+                          value="wrong_checkin"
+                          checked={correctionForm.type === 'wrong_checkin'}
+                          onChange={(e) => handleTypeChange(e.target.value)}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                        />
+                        <label htmlFor="wrong_checkin" className="ml-2 block text-sm text-gray-900">
+                          Wrong Check-in Time - Correct only the check-in time
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="wrong_checkout"
+                          name="correctionType"
+                          value="wrong_checkout"
+                          checked={correctionForm.type === 'wrong_checkout'}
+                          onChange={(e) => handleTypeChange(e.target.value)}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                        />
+                        <label htmlFor="wrong_checkout" className="ml-2 block text-sm text-gray-900">
+                          Wrong Check-out Time - Correct only the check-out time
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="wrong_break"
+                          name="correctionType"
+                          value="wrong_break"
+                          checked={correctionForm.type === 'wrong_break'}
+                          onChange={(e) => handleTypeChange(e.target.value)}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                        />
+                        <label htmlFor="wrong_break" className="ml-2 block text-sm text-gray-900">
+                          Wrong Break Times - Correct break start and end times
+                        </label>
+                      </div>
+                    </div>
                   </div>
 
-                  {(correctionForm.type === 'missing') && (
-                    <>
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          Date *
-                        </label>
-                        <input
-                          type="date"
-                          value={correctionForm.requested_date || selectedDate}
-                          onChange={(e) => setCorrectionForm({...correctionForm, requested_date: e.target.value})}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                          required
-                        />
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                        Check-in Time {(correctionForm.type === 'missing' || correctionForm.type === 'wrong_checkin') ? '*' : ''}
+                      </label>
+                      <input
+                        type="time"
+                        value={correctionForm.requested_check_in}
+                        onChange={(e) => setCorrectionForm({...correctionForm, requested_check_in: e.target.value})}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        required={correctionForm.type === 'missing' || correctionForm.type === 'wrong_checkin'}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                        Check-out Time {(correctionForm.type === 'missing' || correctionForm.type === 'wrong_checkout') ? '*' : ''}
+                      </label>
+                      <input
+                        type="time"
+                        value={correctionForm.requested_check_out}
+                        onChange={(e) => setCorrectionForm({...correctionForm, requested_check_out: e.target.value})}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        required={correctionForm.type === 'missing' || correctionForm.type === 'wrong_checkout'}
+                      />
+                    </div>
+                  </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Breaks Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                        Breaks
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setCorrectionForm({
+                          ...correctionForm,
+                          breaks: [...(correctionForm.breaks || []), { break_start: '', break_end: '' }]
+                        })}
+                        className="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors"
+                      >
+                        Add Break
+                      </button>
+                    </div>
+                    {(correctionForm.breaks || []).map((breakItem, index) => (
+                      <div key={`break-${index}`} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
                         <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            Check In *
+                          <label className="block text-xs font-medium text-gray-600">
+                            Break Start Time
                           </label>
                           <input
                             type="time"
-                            value={correctionForm.requested_check_in}
-                            onChange={(e) => setCorrectionForm({...correctionForm, requested_check_in: e.target.value})}
+                            value={breakItem.break_start}
+                            onChange={(e) => {
+                              const newBreaks = [...(correctionForm.breaks || [])];
+                              newBreaks[index].break_start = e.target.value;
+                              setCorrectionForm({...correctionForm, breaks: newBreaks});
+                            }}
                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                            required
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            Check Out *
+                          <label className="block text-xs font-medium text-gray-600">
+                            Break End Time
                           </label>
                           <input
                             type="time"
-                            value={correctionForm.requested_check_out}
-                            onChange={(e) => setCorrectionForm({...correctionForm, requested_check_out: e.target.value})}
+                            value={breakItem.break_end}
+                            onChange={(e) => {
+                              const newBreaks = [...(correctionForm.breaks || [])];
+                              newBreaks[index].break_end = e.target.value;
+                              setCorrectionForm({...correctionForm, breaks: newBreaks});
+                            }}
                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                            required
                           />
                         </div>
+                        <div className="flex items-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newBreaks = (correctionForm.breaks || []).filter((_, i) => i !== index);
+                              setCorrectionForm({...correctionForm, breaks: newBreaks});
+                            }}
+                            className="px-3 py-2 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
-                    </>
-                  )}
-
-                  {(correctionForm.type === 'wrong_checkin' || correctionForm.type === 'wrong_checkout') && (
-                    <>
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-gray-500" />
-                          Corrected {correctionForm.type === 'wrong_checkin' ? 'Check-in' : 'Check-out'} Time *
-                        </label>
-                        <input
-                          type="time"
-                          value={correctionForm.type === 'wrong_checkin' ? correctionForm.requested_check_in : correctionForm.requested_check_out}
-                          onChange={(e) => setCorrectionForm({
-                            ...correctionForm,
-                            [correctionForm.type === 'wrong_checkin' ? 'requested_check_in' : 'requested_check_out']: e.target.value
-                          })}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                          required
-                        />
-                      </div>
-                    </>
-                  )}
-
+                    ))}
+                  </div>
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                       <FileText className="w-4 h-4 text-gray-500" />
-                      Reason *
+                      Reason for Edit *
                     </label>
                     <textarea
                       value={correctionForm.reason}
                       onChange={(e) => setCorrectionForm({...correctionForm, reason: e.target.value})}
                       className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-none"
                       rows={4}
-                      placeholder="Please explain the reason for this attendance correction"
+                      placeholder="Please explain the reason for editing this attendance record"
                       required
                     />
                   </div>
@@ -949,15 +1055,17 @@ const EmployeeProfilePage = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {correctionRequests.map((request) => (
-                          <tr key={request.id} className="hover:bg-gray-50">
+                        {(Array.isArray(correctionRequests) ? correctionRequests : []).map((request, index) => (
+                          <tr key={request.id || `correction-${index}`} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {request.attendance ? new Date(request.attendance.date).toLocaleDateString('en-GB') : 'N/A'}
+                              {request.date ? new Date(request.date).toLocaleDateString('en-GB') : 'N/A'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {request.type === 'missing' ? 'Missing Attendance' :
+                              {request.type === 'missing' ? 'Change Attendance' :
                                request.type === 'wrong_checkin' ? 'Wrong Check-in' :
-                               request.type === 'wrong_checkout' ? 'Wrong Check-out' : request.type}
+                               request.type === 'wrong_checkout' ? 'Wrong Check-out' :
+                               request.type === 'wrong_break' ? 'Wrong Break Times' :
+                               request.type === 'break' ? 'Break Correction' : request.type}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {request.requested_check_in || '-'} - {request.requested_check_out || '-'}
@@ -971,7 +1079,7 @@ const EmployeeProfilePage = () => {
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {new Date(request.created_at).toLocaleDateString()}
+                              {request.submitted_at ? new Date(request.submitted_at).toLocaleDateString('en-GB') : 'N/A'}
                             </td>
                           </tr>
                         ))}

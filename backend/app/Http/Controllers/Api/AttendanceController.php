@@ -1055,8 +1055,8 @@ public function markAttendance(Request $request)
                     'total_hours' => $totalHours,
                     'breaks' => $attendance->breaks->map(function($break) {
                         return [
-                            'break_out' => $break->break_start ? $break->break_start->toISOString() : null,
-                            'break_in' => $break->break_end ? $break->break_end->toISOString() : null,
+                            'break_start' => $break->break_start ? $break->break_start->toISOString() : null,
+                            'break_end' => $break->break_end ? $break->break_end->toISOString() : null,
                         ];
                     })->toArray(),
                     'status' => $displayStatus,
@@ -1137,9 +1137,9 @@ public function markAttendance(Request $request)
                     $breaksText = count($attendance['breaks']) . ' times';
                     $breakDetailsArray = [];
                     foreach ($attendance['breaks'] as $index => $break) {
-                        $out = $break['break_out'] ? Carbon::parse($break['break_out'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                        $in = $break['break_in'] ? Carbon::parse($break['break_in'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$out}-{$in}";
+                        $start = $break['break_start'] ? Carbon::parse($break['break_start'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $end = $break['break_end'] ? Carbon::parse($break['break_end'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$start}-{$end}";
                     }
                     $breakDetails = implode(', ', $breakDetailsArray);
                 } elseif (is_numeric($attendance['breaks'])) {
@@ -1401,8 +1401,8 @@ public function markAttendance(Request $request)
                         'total_hours' => $attendance->total_hours,
                         'breaks' => $attendance->breaks->map(function($break) {
                             return [
-                                'break_out' => $break->break_start ? $break->break_start->toISOString() : null,
-                                'break_in' => $break->break_end ? $break->break_end->toISOString() : null,
+                                'break_start' => $break->break_start ? $break->break_start->toISOString() : null,
+                                'break_end' => $break->break_end ? $break->break_end->toISOString() : null,
                             ];
                         })->toArray(),
                         'status' => $attendance->status
@@ -1436,9 +1436,9 @@ public function markAttendance(Request $request)
                 $breaksText = count($attendance['breaks']) . ' times';
                 $breakDetailsArray = [];
                 foreach ($attendance['breaks'] as $index => $break) {
-                    $out = $break['break_out'] ? Carbon::parse($break['break_out'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                    $in = $break['break_in'] ? Carbon::parse($break['break_in'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                    $breakDetailsArray[] = "Break " . ($index + 1) . ": {$out}-{$in}";
+                    $start = $break['break_start'] ? Carbon::parse($break['break_start'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                    $end = $break['break_end'] ? Carbon::parse($break['break_end'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                    $breakDetailsArray[] = "Break " . ($index + 1) . ": {$start}-{$end}";
                 }
                 $breakDetails = implode(', ', $breakDetailsArray);
             } elseif (is_numeric($attendance['breaks'])) {

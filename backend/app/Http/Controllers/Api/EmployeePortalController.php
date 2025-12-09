@@ -418,14 +418,15 @@ class EmployeePortalController extends Controller
                 $displayStatus = $displayStatusMap[$status] ?? ucfirst($status);
 
                 $result[] = [
+                    'id' => $attendance->id,
                     'date' => $dateKey,
                     'check_in' => $checkIn,
                     'check_out' => $checkOut,
                     'total_hours' => $totalHours,
                     'breaks' => $attendance->breaks->map(function($break) {
                         return [
-                            'break_out' => $break->break_start ? $break->break_start->toISOString() : null,
-                            'break_in' => $break->break_end ? $break->break_end->toISOString() : null,
+                            'break_start' => $break->break_start ? $break->break_start->toISOString() : null,
+                            'break_end' => $break->break_end ? $break->break_end->toISOString() : null,
                         ];
                     })->toArray(),
                     'status' => $displayStatus,
@@ -565,8 +566,8 @@ class EmployeePortalController extends Controller
                     'total_hours' => $totalHours,
                     'breaks' => $attendance->breaks->map(function($break) {
                         return [
-                            'break_out' => $break->break_start ? $break->break_start->toISOString() : null,
-                            'break_in' => $break->break_end ? $break->break_end->toISOString() : null,
+                            'break_start' => $break->break_start ? $break->break_start->toISOString() : null,
+                            'break_end' => $break->break_end ? $break->break_end->toISOString() : null,
                         ];
                     })->toArray(),
                     'status' => $displayStatus,
@@ -633,9 +634,9 @@ class EmployeePortalController extends Controller
                     $breaksText = count($record['breaks']) . ' times';
                     $breakDetailsArray = [];
                     foreach ($record['breaks'] as $index => $break) {
-                        $out = $break['break_out'] ? Carbon::parse($break['break_out'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                        $in = $break['break_in'] ? Carbon::parse($break['break_in'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$out}-{$in}";
+                        $start = $break['break_start'] ? Carbon::parse($break['break_start'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $end = $break['break_end'] ? Carbon::parse($break['break_end'])->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$start}-{$end}";
                     }
                     $breakDetails = implode(', ', $breakDetailsArray);
                 } elseif (is_numeric($record['breaks'])) {
@@ -801,9 +802,12 @@ class EmployeePortalController extends Controller
 
         $data = $request->validate([
             'attendance_id' => 'nullable|exists:attendances,id',
-            'type' => 'required|in:missing,wrong_checkin,wrong_checkout',
+            'type' => 'required|in:missing,wrong_checkin,wrong_checkout,wrong_break',
             'requested_check_in' => 'nullable|date_format:H:i',
             'requested_check_out' => 'nullable|date_format:H:i',
+            'breaks' => 'nullable|array',
+            'breaks.*.break_start' => 'nullable|date_format:H:i',
+            'breaks.*.break_end' => 'nullable|date_format:H:i',
             'reason' => 'required|string|max:500',
         ]);
 
@@ -811,16 +815,29 @@ class EmployeePortalController extends Controller
             return response()->json(['message' => 'Check-in and check-out times are required for missing attendance'], 400);
         }
 
-        if (in_array($data['type'], ['wrong_checkin', 'wrong_checkout']) && !$data['attendance_id']) {
-            return response()->json(['message' => 'Attendance ID is required for wrong check-in/out corrections'], 400);
+        if ($data['type'] === 'wrong_checkin' && !$data['requested_check_in']) {
+            return response()->json(['message' => 'Check-in time is required for wrong check-in correction'], 400);
+        }
+
+        if ($data['type'] === 'wrong_checkout' && !$data['requested_check_out']) {
+            return response()->json(['message' => 'Check-out time is required for wrong check-out correction'], 400);
+        }
+
+        if ($data['type'] === 'wrong_break' && empty($data['breaks'])) {
+            return response()->json(['message' => 'Break times are required for wrong break correction'], 400);
+        }
+
+        if (in_array($data['type'], ['wrong_checkin', 'wrong_checkout', 'wrong_break']) && empty($data['attendance_id'])) {
+            return response()->json(['message' => 'Attendance ID is required for wrong check-in/out/break corrections'], 400);
         }
 
         $correctionRequest = \App\Models\AttendanceCorrectionRequest::create([
             'employee_id' => $employee->id,
-            'attendance_id' => $data['attendance_id'] ?? null,
+            'attendance_id' => !empty($data['attendance_id']) ? $data['attendance_id'] : null,
             'type' => $data['type'],
             'requested_check_in' => $data['requested_check_in'] ? Carbon::createFromFormat('H:i', $data['requested_check_in'])->toDateTimeString() : null,
             'requested_check_out' => $data['requested_check_out'] ? Carbon::createFromFormat('H:i', $data['requested_check_out'])->toDateTimeString() : null,
+            'requested_breaks' => isset($data['breaks']) ? json_encode($data['breaks']) : null,
             'reason' => $data['reason'],
         ]);
 
@@ -828,6 +845,59 @@ class EmployeePortalController extends Controller
             'message' => 'Correction request submitted successfully',
             'request' => $correctionRequest->load('employee')
         ], 201);
+    }
+
+    public function getCorrectionRequests(Request $request)
+    {
+        try {
+            $employee = $request->user();
+
+            $requests = \App\Models\AttendanceCorrectionRequest::where('employee_id', $employee->id)
+                ->with('attendance')
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(function ($request) {
+                    try {
+                        // Determine the date for the request
+                        $requestDate = null;
+                        if ($request->attendance) {
+                            $requestDate = $request->attendance->date;
+                        } elseif ($request->type === 'missing' && $request->requested_check_in) {
+                            $requestDate = Carbon::parse($request->requested_check_in)->toDateString();
+                        }
+
+                        return [
+                            'id' => $request->id,
+                            'type' => $request->type,
+                            'requested_check_in' => $request->requested_check_in ? Carbon::parse($request->requested_check_in)->format('H:i') : null,
+                            'requested_check_out' => $request->requested_check_out ? Carbon::parse($request->requested_check_out)->format('H:i') : null,
+                            'requested_breaks' => $request->requested_breaks,
+                            'reason' => $request->reason,
+                            'status' => $request->status,
+                            'submitted_at' => $request->created_at->toISOString(),
+                            'processed_at' => $request->approved_at ?? $request->rejected_at,
+                            'date' => $requestDate,
+                            'attendance' => $request->attendance ? [
+                                'id' => $request->attendance->id,
+                                'date' => $request->attendance->date,
+                                'check_in' => $request->attendance->check_in ? $request->attendance->check_in->format('H:i') : null,
+                                'check_out' => $request->attendance->check_out ? $request->attendance->check_out->format('H:i') : null,
+                            ] : null,
+                        ];
+                    } catch (\Exception $e) {
+                        \Log::error('Error processing correction request ' . $request->id . ': ' . $e->getMessage());
+                        return null; // Skip this request
+                    }
+                })
+                ->filter(function ($request) {
+                    return $request !== null;
+                });
+
+            return response()->json(['requests' => $requests]);
+        } catch (\Exception $e) {
+            \Log::error('Error in getCorrectionRequests: ' . $e->getMessage());
+            return response()->json(['message' => 'An error occurred while fetching correction requests'], 500);
+        }
     }
 
     private function generateAvatar($name)
