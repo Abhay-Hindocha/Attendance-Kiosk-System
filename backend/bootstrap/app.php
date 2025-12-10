@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->use([
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
+
+        $middleware->alias([
+            'auth.admin.or.employee' => \App\Http\Middleware\AuthAdminOrEmployee::class,
+            'api.auth' => \App\Http\Middleware\ApiAuthenticate::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

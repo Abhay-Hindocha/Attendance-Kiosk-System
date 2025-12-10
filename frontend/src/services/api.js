@@ -277,6 +277,21 @@ class ApiService {
     });
   }
 
+  async getEmployeeLeaveRequests(employeeId) {
+    return this.request(`/leave/requests?employee_id=${employeeId}`);
+  }
+
+  async getCorrectionData() {
+    return this.request('/leave/correction-data');
+  }
+
+  async applyLeaveCorrection(payload) {
+    return this.request('/leave/manual-correction', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   // Attendance endpoints
   async getAttendances(params = {}) {
     const queryString = new URLSearchParams(params).toString();

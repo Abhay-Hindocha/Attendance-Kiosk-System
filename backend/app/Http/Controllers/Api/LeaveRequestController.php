@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Storage;
 
 class LeaveRequestController extends Controller
 {
@@ -198,14 +199,21 @@ class LeaveRequestController extends Controller
         return response()->json($leaveRequest->load(['policy', 'employee']), 201);
     }
 
-    public function show(LeaveRequest $leaveRequest)
+    public function show(Request $request, LeaveRequest $leaveRequest)
     {
-        return response()->json(
-            $leaveRequest->load(['employee', 'policy', 'timelines' => fn ($q) => $q->orderBy('created_at')])
-        );
+        $user = $request->user();
+
+        // Employees can only view their own leave requests
+        if ($user instanceof Employee && $leaveRequest->employee_id !== $user->id) {
+            abort(403, 'You can only view your own leave requests.');
+        }
+
+        $leaveRequest->load(['employee', 'policy', 'timelines' => fn ($q) => $q->orderBy('created_at')]);
+
+        return response()->json($leaveRequest);
     }
 
-    public function cancel(LeaveRequest $leaveRequest)
+    public function cancel(Request $request, LeaveRequest $leaveRequest)
     {
         $requestingUser = $request->user();
 
@@ -249,6 +257,23 @@ class LeaveRequestController extends Controller
         });
 
         return response()->json(['message' => 'Leave request cancelled successfully.']);
+    }
+
+    /**
+     * Download the stored attachment for the leave request (public disk)
+     */
+    public function download(Request $request, LeaveRequest $leaveRequest)
+    {
+        if (empty($leaveRequest->attachment_path)) {
+            return response()->json(['error' => 'No attachment found.'], 404);
+        }
+
+        $disk = Storage::disk('public');
+        if (!$disk->exists($leaveRequest->attachment_path)) {
+            return response()->json(['error' => 'File not found.'], 404);
+        }
+
+        return $disk->download($leaveRequest->attachment_path);
     }
 
     protected function calculateEstimatedDays(

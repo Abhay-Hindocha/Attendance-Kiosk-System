@@ -11,8 +11,11 @@ import {
   Info,
   Download,
   Loader2,
+  Edit3,
+  Settings,
 } from 'lucide-react';
 import api from '../../../services/api';
+import AdminLeaveCorrectionModal from './AdminLeaveCorrectionModal';
 
 const statusConfig = {
   pending: { label: 'Pending', className: 'bg-amber-100 text-amber-700' },
@@ -42,11 +45,14 @@ const LeaveApprovalsPage = () => {
   const [actionForm, setActionForm] = useState({ comment: '', from_date: '', to_date: '' });
   const [actionLoading, setActionLoading] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
 
   const baseAssetUrl = useMemo(() => {
     const apiBase = import.meta.env.VITE_APP_API_BASE_URL || '';
     return apiBase.replace(/\/api\/?$/, '');
   }, []);
+
+  const apiBase = import.meta.env.VITE_APP_API_BASE_URL || '';
 
   const fetchPolicies = async () => {
     try {
@@ -169,7 +175,9 @@ const LeaveApprovalsPage = () => {
     }
   };
 
-  const attachmentUrl = (path) => {
+  const attachmentUrl = (path, id) => {
+    // Prefer the download API endpoint when we have the leave request id
+    if (id) return `${apiBase}/leave/requests/${id}/download`;
     if (!path) return null;
     return `${baseAssetUrl}/storage/${path}`;
   };
@@ -191,6 +199,13 @@ const LeaveApprovalsPage = () => {
             <h1 className="text-2xl font-bold text-gray-900">Leave Approvals</h1>
             <p className="text-sm text-gray-600">Review leave requests, apply sandwich rules, and manage workflows.</p>
           </div>
+          <button
+            onClick={() => setShowCorrectionModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            Manual Leave Correction
+          </button>
         </div>
 
         {notification && (
@@ -343,7 +358,7 @@ const LeaveApprovalsPage = () => {
                   <div className="flex flex-wrap items-center gap-2">
                     {request.attachment_path && (
                       <a
-                        href={attachmentUrl(request.attachment_path)}
+                        href={attachmentUrl(request.attachment_path, request.id)}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
@@ -448,7 +463,7 @@ const LeaveApprovalsPage = () => {
                 {detail.attachment_path && (
                   <a
                     className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
-                    href={attachmentUrl(detail.attachment_path)}
+                    href={attachmentUrl(detail.attachment_path, detail.id)}
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -547,6 +562,17 @@ const LeaveApprovalsPage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showCorrectionModal && (
+        <AdminLeaveCorrectionModal
+          onClose={() => setShowCorrectionModal(false)}
+          onSuccess={() => {
+            setShowCorrectionModal(false);
+            fetchRequests();
+            setNotification({ type: 'success', message: 'Leave correction completed successfully.' });
+          }}
+        />
       )}
     </div>
   );

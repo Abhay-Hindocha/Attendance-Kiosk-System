@@ -35,8 +35,8 @@ class LeaveRequest extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
+        'from_date' => 'date',
+        'to_date' => 'date',
         'days_applied' => 'decimal:2',
         'days_counted' => 'decimal:2',
         'total_days' => 'decimal:2',

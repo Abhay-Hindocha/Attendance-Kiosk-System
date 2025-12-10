@@ -21,7 +21,7 @@ use App\Http\Controllers\Api\AdminController;
 
 
 // Authentication routes - These handle user login and session management
-Route::post('/login', [AuthController::class, 'login']); // Endpoint for user login
+Route::post('/login', [AuthController::class, 'login'])->name('login'); // Endpoint for user login
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum'); // Endpoint for user logout (requires authentication)
 Route::get('/user', [AuthController::class, 'user'])->middleware('auth:sanctum'); // Get current authenticated user info
 
@@ -53,18 +53,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('employees/{employee}/leave-policies', [LeaveAssignmentController::class, 'store']);
     Route::delete('employees/{employee}/leave-policies/{leave_policy}', [LeaveAssignmentController::class, 'destroy']);
 
-    // Employee leave requests
-    Route::get('leave/requests', [LeaveRequestController::class, 'index']);
-    Route::post('leave/requests', [LeaveRequestController::class, 'store']);
-    Route::get('leave/requests/{leave_request}', [LeaveRequestController::class, 'show']);
-    Route::post('leave/requests/{leave_request}/cancel', [LeaveRequestController::class, 'cancel']);
+
 
     // Admin approvals
     Route::get('leave/approvals', [LeaveApprovalController::class, 'index']);
+    Route::get('leave/requests/{leave_request}/download', [LeaveRequestController::class, 'download']);
     Route::post('leave/requests/{leave_request}/approve', [LeaveApprovalController::class, 'approve']);
     Route::post('leave/requests/{leave_request}/reject', [LeaveApprovalController::class, 'reject']);
     Route::post('leave/requests/{leave_request}/clarify', [LeaveApprovalController::class, 'requestClarification']);
     Route::post('leave/requests/{leave_request}/overwrite-dates', [LeaveApprovalController::class, 'overwriteDates']);
+
+    // Manual leave correction routes
+    Route::get('leave/correction-data', [LeaveApprovalController::class, 'getCorrectionData']);
+    Route::post('leave/manual-correction', [LeaveApprovalController::class, 'manualCorrection']);
 
 
 
@@ -113,6 +114,12 @@ Route::middleware('auth:employee')->group(function () {
     Route::post('employee/logout', [EmployeeAuthController::class, 'logout']);
     Route::get('employee/profile', [EmployeeAuthController::class, 'profile']);
 
+    // Employee leave requests
+    Route::get('leave/requests', [LeaveRequestController::class, 'index']);
+    Route::post('leave/requests', [LeaveRequestController::class, 'store']);
+    Route::get('leave/requests/{leave_request}/download', [LeaveRequestController::class, 'download']);
+    Route::post('leave/requests/{leave_request}/cancel', [LeaveRequestController::class, 'cancel']);
+
     Route::prefix('employee/portal')->group(function () {
         Route::get('dashboard', [EmployeePortalController::class, 'dashboard']);
         Route::get('leave-balances', [EmployeePortalController::class, 'leaveBalances']);
@@ -125,4 +132,9 @@ Route::middleware('auth:employee')->group(function () {
         Route::post('correction-requests', [EmployeePortalController::class, 'submitCorrectionRequest']);
         Route::get('correction-requests', [EmployeePortalController::class, 'getCorrectionRequests']);
     });
+});
+
+// Shared routes for both admin and employee authentication
+Route::middleware('auth.admin.or.employee')->group(function () {
+    Route::get('leave/requests/{leave_request}', [LeaveRequestController::class, 'show']);
 });

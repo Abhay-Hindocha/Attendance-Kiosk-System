@@ -668,13 +668,13 @@ class EmployeePortalController extends Controller
         $year = $request->input('year', date('Y'));
 
         $holidays = \App\Models\Holiday::whereYear('date', $year)
-            ->get(['id', 'name', 'date', 'type'])
+            ->get(['id', 'name', 'date', 'description'])
             ->map(function ($holiday) {
                 return [
                     'id' => $holiday->id,
                     'name' => $holiday->name,
-                    'date' => $holiday->date->toDateString(),
-                    'type' => $holiday->type,
+                    'date' => Carbon::parse($holiday->date)->toDateString(),
+                    'description' => $holiday->description,
                 ];
             });
 

@@ -267,5 +267,264 @@ class LeaveApprovalController extends Controller
             );
         }
     }
+
+    /**
+     * Get data needed for manual leave corrections
+     */
+    public function getCorrectionData()
+    {
+        $employees = Employee::select('id', 'name', 'department', 'status')
+            ->orderBy('name')
+            ->get();
+
+        $policies = \App\Models\LeavePolicy::where('is_active', true)
+            ->select('id', 'name', 'code')
+            ->orderBy('name')
+            ->get();
+
+        $leaveRequests = LeaveRequest::with(['policy:id,name,code'])
+            ->whereIn('status', ['pending', 'approved'])
+            ->select('id', 'employee_id', 'leave_policy_id', 'from_date', 'to_date', 'reason', 'status')
+            ->orderBy('from_date', 'desc')
+            ->get();
+
+        $departments = Employee::distinct()
+            ->pluck('department')
+            ->filter()
+            ->sort()
+            ->values();
+
+        return response()->json([
+            'employees' => $employees,
+            'policies' => $policies,
+            'leave_requests' => $leaveRequests,
+            'departments' => $departments,
+        ]);
+    }
+
+    /**
+     * Handle manual leave corrections
+     */
+    public function manualCorrection(Request $request)
+    {
+        $data = $request->validate([
+            'leave_request_id' => ['nullable', 'exists:leave_requests,id'],
+            'employee_id' => ['required', 'exists:employees,id'],
+            'leave_policy_id' => ['required', 'exists:leave_policies,id'],
+            'action' => ['required', 'in:create,update,delete,adjust_balance'],
+            'from_date' => ['nullable', 'date'],
+            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
+            'reason' => ['nullable', 'string'],
+            'comment' => ['nullable', 'string'],
+            'adjustment_days' => ['nullable', 'numeric'],
+            'adjustment_reason' => ['nullable', 'string'],
+        ]);
+
+        DB::transaction(function () use ($data, $request) {
+            $action = $data['action'];
+
+            if ($action === 'create') {
+                $this->createLeaveRequest($data, $request);
+            } elseif ($action === 'update') {
+                $this->updateLeaveRequest($data, $request);
+            } elseif ($action === 'delete') {
+                $this->deleteLeaveRequest($data, $request);
+            } elseif ($action === 'adjust_balance') {
+                $this->adjustLeaveBalanceDirectly($data, $request);
+            }
+        });
+
+        return response()->json(['message' => 'Manual correction applied successfully.']);
+    }
+
+    private function createLeaveRequest($data, $request)
+    {
+        $estimatedDays = $this->calculateLeaveDays($data['from_date'], $data['to_date']);
+
+        $leaveRequest = LeaveRequest::create([
+            'employee_id' => $data['employee_id'],
+            'leave_policy_id' => $data['leave_policy_id'],
+            'leave_type' => $data['leave_type'] ?? 'Full Day', // Use provided leave type or default
+            'from_date' => $data['from_date'],
+            'to_date' => $data['to_date'],
+            'estimated_days' => $estimatedDays,
+            'reason' => $data['reason'] ?? '',
+            'status' => 'approved', // Manual corrections are auto-approved
+            'approved_at' => now(),
+            'is_manual_correction' => true,
+        ]);
+
+        // Update leave balance
+        $this->updateLeaveBalance($leaveRequest, 'deduct');
+
+        // Mark attendance
+        $this->markAttendanceForLeave($leaveRequest);
+
+        // Add timeline entry
+        LeaveRequestTimeline::create([
+            'leave_request_id' => $leaveRequest->id,
+            'action' => 'manual_created',
+            'notes' => $data['comment'] ?? 'Manually created leave request.',
+            'performed_by_type' => 'admin',
+            'performed_by_id' => optional($request->user())->id,
+        ]);
+    }
+
+    private function updateLeaveRequest($data, $request)
+    {
+        $leaveRequest = LeaveRequest::findOrFail($data['leave_request_id']);
+
+        $oldEstimatedDays = $leaveRequest->estimated_days + $leaveRequest->sandwich_applied_days;
+        $newEstimatedDays = $this->calculateLeaveDays($data['from_date'], $data['to_date']);
+
+        $leaveRequest->update([
+            'from_date' => $data['from_date'],
+            'to_date' => $data['to_date'],
+            'estimated_days' => $newEstimatedDays,
+            'reason' => $data['reason'] ?? $leaveRequest->reason,
+            'sandwich_applied_days' => 0,
+        ]);
+
+        // Adjust balance if days changed
+        if ($leaveRequest->status === 'approved' && $oldEstimatedDays !== $newEstimatedDays) {
+            $difference = $newEstimatedDays - $oldEstimatedDays;
+            $this->adjustLeaveBalance($leaveRequest->employee_id, $leaveRequest->leave_policy_id, $difference);
+        }
+
+        // Update attendance if dates changed
+        if ($leaveRequest->status === 'approved') {
+            $this->removeAttendanceForLeave($leaveRequest);
+            $this->markAttendanceForLeave($leaveRequest);
+        }
+
+        LeaveRequestTimeline::create([
+            'leave_request_id' => $leaveRequest->id,
+            'action' => 'manual_updated',
+            'notes' => $data['comment'] ?? 'Manually updated leave request.',
+            'performed_by_type' => 'admin',
+            'performed_by_id' => optional($request->user())->id,
+        ]);
+    }
+
+    private function deleteLeaveRequest($data, $request)
+    {
+        $leaveRequest = LeaveRequest::findOrFail($data['leave_request_id']);
+
+        // Restore balance if approved
+        if ($leaveRequest->status === 'approved') {
+            $this->updateLeaveBalance($leaveRequest, 'restore');
+            $this->removeAttendanceForLeave($leaveRequest);
+        }
+
+        LeaveRequestTimeline::create([
+            'leave_request_id' => $leaveRequest->id,
+            'action' => 'manual_deleted',
+            'notes' => $data['comment'] ?? 'Manually deleted leave request.',
+            'performed_by_type' => 'admin',
+            'performed_by_id' => optional($request->user())->id,
+        ]);
+
+        $leaveRequest->delete();
+    }
+
+    private function adjustLeaveBalanceDirectly($data, $request)
+    {
+        $this->adjustLeaveBalance($data['employee_id'], $data['leave_policy_id'], $data['adjustment_days']);
+
+        // Log the adjustment
+        \App\Models\AuditLog::create([
+            'table_name' => 'leave_balances',
+            'record_id' => null, // Direct adjustment, no specific record
+            'action' => 'manual_adjustment',
+            'old_values' => null,
+            'new_values' => [
+                'employee_id' => $data['employee_id'],
+                'leave_policy_id' => $data['leave_policy_id'],
+                'adjustment' => $data['adjustment_days'],
+            ],
+            'user_id' => optional($request->user())->id,
+            'reason' => $data['adjustment_reason'] ?? $data['comment'],
+        ]);
+    }
+
+    private function calculateLeaveDays($fromDate, $toDate)
+    {
+        $from = Carbon::parse($fromDate);
+        $to = Carbon::parse($toDate);
+        $period = CarbonPeriod::create($from, $to);
+
+        $days = 0;
+        foreach ($period as $date) {
+            if (!$date->isWeekend()) {
+                $isHoliday = Holiday::where('date', $date->toDateString())->exists();
+                if (!$isHoliday) {
+                    $days += 1;
+                }
+            }
+        }
+
+        return $days;
+    }
+
+    private function updateLeaveBalance(LeaveRequest $leaveRequest, $action = 'deduct')
+    {
+        $totalDays = $leaveRequest->estimated_days + $leaveRequest->sandwich_applied_days;
+        $this->adjustLeaveBalance($leaveRequest->employee_id, $leaveRequest->leave_policy_id, $action === 'deduct' ? -$totalDays : $totalDays);
+    }
+
+    private function adjustLeaveBalance($employeeId, $policyId, $days)
+    {
+        $balance = LeaveBalance::where('employee_id', $employeeId)
+            ->where('leave_policy_id', $policyId)
+            ->where('year', date('Y'))
+            ->lockForUpdate()
+            ->first();
+
+        if (!$balance) {
+            return; // Balance not initialized
+        }
+
+        $remaining = abs($days);
+        $isDeduction = $days < 0;
+
+        if ($isDeduction) {
+            // Deduct from carry forward first
+            $carryUsage = min($balance->carry_forward_balance, $remaining);
+            $balance->carry_forward_balance -= $carryUsage;
+            $remaining -= $carryUsage;
+
+            if ($remaining > 0) {
+                $policy = \App\Models\LeavePolicy::find($policyId);
+                if ($policy && $policy->monthly_accrual_value > 0) {
+                    $balance->accrued_this_year = max(0, $balance->accrued_this_year - $remaining);
+                } else {
+                    $balance->balance = max(0, $balance->balance - $remaining);
+                }
+                $balance->used += $remaining;
+            }
+        } else {
+            // Addition - add to balance
+            $policy = \App\Models\LeavePolicy::find($policyId);
+            if ($policy && $policy->monthly_accrual_value > 0) {
+                $balance->accrued_this_year += $remaining;
+            } else {
+                $balance->balance += $remaining;
+            }
+        }
+
+        $balance->save();
+    }
+
+    private function removeAttendanceForLeave(LeaveRequest $leaveRequest)
+    {
+        $period = CarbonPeriod::create($leaveRequest->from_date, $leaveRequest->to_date);
+
+        foreach ($period as $date) {
+            Attendance::where('employee_id', $leaveRequest->employee_id)
+                ->where('date', $date->toDateString())
+                ->where('status', 'leave')
+                ->delete();
+        }
+    }
 }
 
