@@ -87,13 +87,13 @@ class LeaveApprovalController extends Controller
                 if ($policy->monthly_accrual_value > 0) {
                     // For monthly accrual policies, deduct from accrued_this_year
                     $balance->accrued_this_year = max(0, $balance->accrued_this_year - $remaining);
-                } else {
-                    // For yearly quota policies, deduct from balance
-                    $balance->balance = max(0, $balance->balance - $remaining);
                 }
+                // Always increment used - balance is calculated from used
                 $balance->used += $remaining;
             }
 
+            // Recalculate and update the balance column
+            $balance->balance = $balance->opening_balance + $balance->accrued_this_year + $balance->carry_forward_balance - $balance->used - ($balance->sandwich_days_charged ?? 0);
             $balance->save();
 
             $leaveRequest->status = 'approved';
@@ -497,8 +497,6 @@ class LeaveApprovalController extends Controller
                 $policy = \App\Models\LeavePolicy::find($policyId);
                 if ($policy && $policy->monthly_accrual_value > 0) {
                     $balance->accrued_this_year = max(0, $balance->accrued_this_year - $remaining);
-                } else {
-                    $balance->balance = max(0, $balance->balance - $remaining);
                 }
                 $balance->used += $remaining;
             }
@@ -508,10 +506,12 @@ class LeaveApprovalController extends Controller
             if ($policy && $policy->monthly_accrual_value > 0) {
                 $balance->accrued_this_year += $remaining;
             } else {
-                $balance->balance += $remaining;
+                $balance->used = max(0, $balance->used - $remaining);
             }
         }
 
+        // Recalculate and update the balance column
+        $balance->balance = $balance->opening_balance + $balance->accrued_this_year + $balance->carry_forward_balance - $balance->used - ($balance->sandwich_days_charged ?? 0);
         $balance->save();
     }
 

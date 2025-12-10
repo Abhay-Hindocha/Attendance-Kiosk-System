@@ -11,7 +11,6 @@ import {
   Info,
   Download,
   Loader2,
-  Edit3,
   Settings,
 } from 'lucide-react';
 import api from '../../../services/api';
@@ -54,10 +53,27 @@ const LeaveApprovalsPage = () => {
 
   const apiBase = import.meta.env.VITE_APP_API_BASE_URL || '';
 
+  // Helper: normalize various date formats and timestamps to "yyyy-MM-dd"
+  const asYMD = (value) => {
+    if (!value) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const s = String(value);
+    const t = s.indexOf('T');
+    if (t > -1) return s.slice(0, t);
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    return '';
+  };
+
   const fetchPolicies = async () => {
     try {
       const data = await api.getLeavePolicies();
-      setPolicies(data);
+      setPolicies(data || []);
     } catch (error) {
       console.error('Failed to load leave policies', error);
     }
@@ -85,7 +101,15 @@ const LeaveApprovalsPage = () => {
       }
 
       const response = await api.getLeaveApprovals(params);
-      setRequests(response.data || []);
+
+      // Normalize dates on incoming requests to ensure consistent display
+      const normalized = (response.data || []).map((r) => ({
+        ...r,
+        from_date: asYMD(r.from_date),
+        to_date: asYMD(r.to_date),
+      }));
+
+      setRequests(normalized);
       setPagination({
         current_page: response.current_page,
         last_page: response.last_page,
@@ -111,7 +135,18 @@ const LeaveApprovalsPage = () => {
     setDetail(null);
     try {
       const data = await api.getLeaveRequest(request.id);
-      setDetail(data);
+      // normalize the date fields in detail too
+      const normalizedDetail = {
+        ...data,
+        from_date: asYMD(data.from_date),
+        to_date: asYMD(data.to_date),
+        timelines: (data.timelines || []).map((t) => ({
+          ...t,
+          created_at: t.created_at, // keep timestamp as-is for display with toLocaleString
+          // if timeline entries include date fields, normalize them here as well
+        })),
+      };
+      setDetail(normalizedDetail);
     } catch (error) {
       console.error('Failed to load leave request detail', error);
       setNotification({ type: 'error', message: 'Unable to load leave details.' });
@@ -127,10 +162,12 @@ const LeaveApprovalsPage = () => {
 
   const openActionModal = (type, request) => {
     setActionModal({ type, request });
+
+    // Prefill actionForm using normalized dates
     setActionForm({
       comment: '',
-      from_date: request.from_date,
-      to_date: request.to_date,
+      from_date: asYMD(request.from_date),
+      to_date: asYMD(request.to_date),
     });
   };
 
@@ -176,19 +213,23 @@ const LeaveApprovalsPage = () => {
   };
 
   const attachmentUrl = (path, id) => {
-    // Prefer the download API endpoint when we have the leave request id
     if (id) return `${apiBase}/leave/requests/${id}/download`;
     if (!path) return null;
     return `${baseAssetUrl}/storage/${path}`;
   };
 
   const statusTabs = Object.keys(statusConfig);
-
   const timeline = detail?.timelines || [];
 
   const renderStatusBadge = (status) => {
     const config = statusConfig[status] || statusConfig.pending;
     return <span className={`px-3 py-1 rounded-full text-xs font-semibold ${config.className}`}>{config.label}</span>;
+  };
+
+  // helper: leave requests filtered by selected employee used in correction modal (kept for parity)
+  // (AdminLeaveCorrectionModal fetches its own correction data; this is just for local mapping if needed)
+  const employeeLeaveRequestsFor = (employeeId) => {
+    return (requests || []).filter((r) => String(r.employee?.id || r.employee_id) === String(employeeId));
   };
 
   return (
@@ -339,7 +380,7 @@ const LeaveApprovalsPage = () => {
                     <div className="bg-gray-50 rounded-xl p-3">
                       <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Dates</p>
                       <p className="font-semibold text-gray-800">
-                        {request.from_date} → {request.to_date}
+                        {asYMD(request.from_date)} → {asYMD(request.to_date)}
                       </p>
                       <p className="text-xs text-gray-500">{request.estimated_days} days</p>
                     </div>
@@ -451,7 +492,7 @@ const LeaveApprovalsPage = () => {
                   <div className="bg-gray-50 rounded-xl p-3">
                     <p className="text-xs text-gray-500 mb-1">Duration</p>
                     <p className="font-semibold text-gray-900">
-                      {detail.from_date} → {detail.to_date}
+                      {asYMD(detail.from_date)} → {asYMD(detail.to_date)}
                     </p>
                     <p className="text-xs text-gray-500">{detail.estimated_days} days + {detail.sandwich_applied_days} sandwich</p>
                   </div>
@@ -579,4 +620,3 @@ const LeaveApprovalsPage = () => {
 };
 
 export default LeaveApprovalsPage;
-

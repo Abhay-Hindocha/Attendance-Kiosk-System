@@ -8,6 +8,13 @@ const EmployeeProfilePage = () => {
   const [activeTab, setActiveTab] = useState('view');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+
+  // Auto-dismiss success/error messages after 2 seconds
+  React.useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(''), 2000);
+    return () => clearTimeout(timer);
+  }, [message]);
   const fileInputRef = useRef(null);
 
   // Profile form state
@@ -267,7 +274,6 @@ const EmployeeProfilePage = () => {
   const tabs = [
     { id: 'view', label: 'Profile', icon: User },
     { id: 'edit', label: 'Edit Profile', icon: Edit },
-    { id: 'password', label: 'Change Password', icon: Key },
     { id: 'corrections', label: 'Attendance Corrections', icon: FileText }
   ];
 
@@ -478,7 +484,7 @@ const EmployeeProfilePage = () => {
             </div>
           )}
 
-          {/* Edit Profile Tab */}
+          {/* Edit Profile Tab (now includes Change Password) */}
           {activeTab === 'edit' && (
             <div className="space-y-6">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
@@ -536,12 +542,8 @@ const EmployeeProfilePage = () => {
                   </div>
                 </form>
               </div>
-            </div>
-          )}
 
-          {/* Change Password Tab */}
-          {activeTab === 'password' && (
-            <div className="space-y-6">
+              {/* Change Password moved into Edit tab */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <Key className="w-5 h-5 text-gray-600" />
@@ -611,6 +613,7 @@ const EmployeeProfilePage = () => {
                   </div>
                 </form>
               </div>
+
             </div>
           )}
 
@@ -1103,4 +1106,3 @@ const EmployeeProfilePage = () => {
 };
 
 export default EmployeeProfilePage;
-

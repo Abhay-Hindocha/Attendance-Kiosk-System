@@ -12,6 +12,21 @@ const EmployeeDashboardPage = () => {
   const [error, setError] = useState('');
   const [selectedBalance, setSelectedBalance] = useState(null);
 
+  // Helper: consistent date formatting (e.g. "10 Dec 2025").
+  // Uses a safe parse and falls back to the original value if parsing fails.
+  const formatDate = (value) => {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const formatRange = (from, to) => {
+    const f = formatDate(from);
+    const t = formatDate(to);
+    return `${f} — ${t}`;
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -204,7 +219,7 @@ const EmployeeDashboardPage = () => {
                     <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-2">
                       <Calendar className="w-3.5 h-3.5" />
                       <span>
-                        {leave.from_date} - {leave.to_date}
+                        {formatRange(leave.from_date, leave.to_date)}
                       </span>
                     </div>
                     {leave.reason && (
@@ -215,12 +230,7 @@ const EmployeeDashboardPage = () => {
                     )}
                     {leave.submitted_at && (
                       <p className="text-xs text-gray-500 mt-2">
-                        Submitted on{' '}
-                        {new Date(leave.submitted_at).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
+                        Submitted on {formatDate(leave.submitted_at)}
                       </p>
                     )}
                   </div>
@@ -269,7 +279,7 @@ const EmployeeDashboardPage = () => {
                     <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-2">
                       <Calendar className="w-3.5 h-3.5" />
                       <span>
-                        {leave.from_date} - {leave.to_date}
+                        {formatRange(leave.from_date, leave.to_date)}
                       </span>
                     </div>
                     {leave.reason && (
@@ -279,12 +289,7 @@ const EmployeeDashboardPage = () => {
                     )}
                     {leave.submitted_at && (
                       <p className="text-xs text-gray-500 mt-2">
-                        Submitted on{' '}
-                        {new Date(leave.submitted_at).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
+                        Submitted on {formatDate(leave.submitted_at)}
                       </p>
                     )}
                   </div>
