@@ -319,7 +319,7 @@ export default function AttendanceReportsPage() {
 
         {/* Controls and Calendar */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="flex-1 max-w-xs">
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Employee</label>
               <div className="relative">

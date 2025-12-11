@@ -56,6 +56,14 @@ const EmployeeDashboardPage = () => {
     });
   };
 
+  const formatWeeklyHours = (hours) => {
+    if (!hours || hours === 0) return '0 h 0 min';
+    const totalMinutes = Math.round(hours * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const min = totalMinutes % 60;
+    return `${h} h ${min} min`;
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
@@ -131,7 +139,7 @@ const EmployeeDashboardPage = () => {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-600">Total Hours This Week</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">{data?.weekly_hours ?? 0}h</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">{formatWeeklyHours(data?.weekly_hours)}</p>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-xs font-medium text-gray-600">Current Week</span>
                 </div>
@@ -196,6 +204,8 @@ const EmployeeDashboardPage = () => {
                   <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
                     activity.action === 'Check-In' ? 'bg-green-100 text-green-700' :
                     activity.action === 'Check-Out' ? 'bg-gray-100 text-gray-700' :
+                    activity.action === 'Break Start' ? 'bg-yellow-100 text-yellow-700' :
+                    activity.action === 'Break End' ? 'bg-blue-100 text-blue-700' :
                     'bg-blue-100 text-blue-700'
                   }`}>
                     {activity.action}

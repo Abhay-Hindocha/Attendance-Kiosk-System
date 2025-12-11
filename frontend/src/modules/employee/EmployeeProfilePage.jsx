@@ -281,28 +281,19 @@ const EmployeeProfilePage = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-[1400px] mx-auto">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Employee Profile</h1>
             <p className="text-sm md:text-base text-gray-600 mt-1">Manage your personal information and account settings</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                {profile?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
-              </div>
-              <div className="hidden md:block">
-                <p className="text-sm font-medium text-gray-900">{profile.name}</p>
-                <p className="text-xs text-gray-500">{profile.employee_id}</p>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              {profile?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
             </div>
-            <button
-              onClick={refreshProfile}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>Refresh</span>
-            </button>
+            <div className="hidden md:block">
+              <p className="text-sm font-medium text-gray-900">{profile.name}</p>
+              <p className="text-xs text-gray-500">{profile.employee_id}</p>
+            </div>
           </div>
         </div>
 
@@ -351,9 +342,9 @@ const EmployeeProfilePage = () => {
                     <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
                       <Mail className="w-5 h-5 text-blue-600" />
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm text-gray-500">Email Address</p>
-                      <p className="font-medium text-gray-900">{profile.email}</p>
+                      <p className="font-medium text-gray-900 break-all">{profile.email}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

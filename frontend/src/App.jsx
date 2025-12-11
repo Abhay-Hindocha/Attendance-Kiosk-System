@@ -11,7 +11,6 @@ import PoliciesPage from './components/PoliciesPage';
 import LeavePoliciesPage from './modules/admin/leave/LeavePoliciesPage';
 import LeaveApprovalsPage from './modules/admin/leave/LeaveApprovalsPage';
 import AdminCorrectionRequestsPage from './modules/admin/AdminCorrectionRequestsPage';
-import AdminAttendanceCorrectionPage from './modules/admin/AdminAttendanceCorrectionPage';
 import EmployeeLoginPage from './modules/employee/EmployeeLoginPage';
 import EmployeeLayout from './modules/employee/EmployeeLayout';
 import EmployeeDashboardPage from './modules/employee/EmployeeDashboardPage';
@@ -81,14 +80,6 @@ function App() {
           element={
             <Layout>
               <AdminCorrectionRequestsPage />
-            </Layout>
-          }
-        />
-        <Route
-          path="/admin/attendance-correction"
-          element={
-            <Layout>
-              <AdminAttendanceCorrectionPage />
             </Layout>
           }
         />

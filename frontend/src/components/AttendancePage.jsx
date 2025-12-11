@@ -30,7 +30,13 @@ const normalizeActivityTime = (activity) => {
 
   if (!possible) return activity;
 
-  const parsed = new Date(possible);
+  let parsed;
+  // Check if it's just "hh:mm" format
+  if (/^\d{1,2}:\d{2}$/.test(possible)) {
+    parsed = new Date(`2000-01-01T${possible}`);
+  } else {
+    parsed = new Date(possible);
+  }
 
   if (isNaN(parsed.getTime())) {
     // If it's not a valid Date, keep original

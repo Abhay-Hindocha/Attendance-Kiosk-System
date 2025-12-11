@@ -88,6 +88,19 @@ const DashboardPage = () => {
     });
   };
 
+  const formatActivityTime = (timeString) => {
+    if (!timeString) return '';
+    try {
+      return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return timeString;
+    }
+  };
+
   const getActionBadgeColor = (action) => {
     if (action === 'Check-In') return 'bg-green-100 text-green-700';
     if (action === 'Re-Check-In') return 'bg-blue-100 text-blue-700';
@@ -265,7 +278,7 @@ const DashboardPage = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900">{activity.name}</p>
-                    <p className="text-xs text-gray-500">{activity.time} ago</p>
+                    <p className="text-xs text-gray-500">{formatActivityTime(activity.time)} </p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getActionBadgeColor(activity.action)}`}>
                     {activity.action}

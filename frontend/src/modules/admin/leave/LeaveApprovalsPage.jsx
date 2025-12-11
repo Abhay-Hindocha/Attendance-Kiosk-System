@@ -14,7 +14,7 @@ import {
   Settings,
 } from 'lucide-react';
 import api from '../../../services/api';
-import AdminLeaveCorrectionModal from './AdminLeaveCorrectionModal';
+import AdminLeaveCorrectionWizardModal from './AdminLeaveCorrectionWizardModal';
 
 const statusConfig = {
   pending: { label: 'Pending', className: 'bg-amber-100 text-amber-700' },
@@ -674,7 +674,7 @@ const LeaveApprovalsPage = () => {
       )}
 
       {showCorrectionModal && (
-        <AdminLeaveCorrectionModal
+        <AdminLeaveCorrectionWizardModal
           onClose={() => setShowCorrectionModal(false)}
           onSuccess={() => {
             setShowCorrectionModal(false);

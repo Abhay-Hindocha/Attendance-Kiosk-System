@@ -13,8 +13,10 @@ import {
   Send,
   Loader2,
   Users,
-  TrendingUp
+  TrendingUp,
+  Settings
 } from 'lucide-react';
+import AdminAttendanceCorrectionWizardModal from './AdminAttendanceCorrectionWizardModal';
 
 const AdminCorrectionRequestsPage = () => {
   const [requests, setRequests] = useState([]);
@@ -22,6 +24,7 @@ const AdminCorrectionRequestsPage = () => {
   const [processingId, setProcessingId] = useState(null);
   const [filter, setFilter] = useState('pending');
   const [notification, setNotification] = useState({ show: false, type: 'success', message: '' });
+  const [showAttendanceWizard, setShowAttendanceWizard] = useState(false);
 
   // Edit attendance form state
   const [editingAttendance, setEditingAttendance] = useState(null);
@@ -259,13 +262,13 @@ const AdminCorrectionRequestsPage = () => {
             <p className="text-sm md:text-base text-gray-600 mt-1">Manage employee attendance correction requests</p>
           </div>
           <div className="flex items-center gap-4">
-            <Link
-              to="/admin/attendance-correction"
+            <button
+              onClick={() => setShowAttendanceWizard(true)}
               className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
             >
-              <Edit3 className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
               <span>Admin Attendance Correction</span>
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -379,7 +382,7 @@ const AdminCorrectionRequestsPage = () => {
       {/* Filter Tabs */}
       <div className="bg-white rounded-2xl shadow">
         <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+          <nav className="flex space-x-4 md:space-x-8 px-4 md:px-6 overflow-x-auto">
             {[
               { id: 'pending', label: 'Pending' },
               { id: 'approved', label: 'Approved' },
@@ -389,7 +392,7 @@ const AdminCorrectionRequestsPage = () => {
               <button
                 key={tab.id}
                 onClick={() => setFilter(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   filter === tab.id
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -516,9 +519,26 @@ const AdminCorrectionRequestsPage = () => {
           )}
         </div>
       </div>
-      </div>
+
+      {/* Attendance Correction Wizard Modal */}
+      {showAttendanceWizard && (
+        <AdminAttendanceCorrectionWizardModal
+          onClose={() => setShowAttendanceWizard(false)}
+          onSuccess={() => {
+            setShowAttendanceWizard(false);
+            // Could refresh correction requests if needed
+            loadCorrectionRequests();
+          }}
+          selectedEmployee=""
+          startDate=""
+          endDate=""
+          attendanceLogs={[]}
+        />
+      )}
+
     </div>
-  );
+  </div>
+);
 };
 
 export default AdminCorrectionRequestsPage;

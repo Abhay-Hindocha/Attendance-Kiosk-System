@@ -26,6 +26,7 @@ class EmployeePortalController extends Controller
             ->first();
 
         $lastAttendances = Attendance::where('employee_id', $employee->id)
+            ->with('breaks')
             ->orderByDesc('date')
             ->limit(10) // get more to have enough activities
             ->get(['id', 'date', 'check_in', 'check_out', 'status']);
@@ -41,6 +42,29 @@ class EmployeePortalController extends Controller
                     'status' => $attendance->status,
                 ];
             }
+
+            // Add break activities
+            foreach ($attendance->breaks as $break) {
+                if ($break->break_start) {
+                    $lastActivities[] = [
+                        'id' => $break->id . '_break_start',
+                        'date' => $attendance->date,
+                        'time' => $break->break_start,
+                        'action' => 'Break Start',
+                        'status' => $attendance->status,
+                    ];
+                }
+                if ($break->break_end) {
+                    $lastActivities[] = [
+                        'id' => $break->id . '_break_end',
+                        'date' => $attendance->date,
+                        'time' => $break->break_end,
+                        'action' => 'Break End',
+                        'status' => $attendance->status,
+                    ];
+                }
+            }
+
             if ($attendance->check_out) {
                 $lastActivities[] = [
                     'id' => $attendance->id . '_out',

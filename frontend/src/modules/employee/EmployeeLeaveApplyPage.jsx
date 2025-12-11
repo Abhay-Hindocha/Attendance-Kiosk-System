@@ -56,6 +56,13 @@ const EmployeeLeaveApplyPage = () => {
     }
   }, [balances]);
 
+  // Sync to_date with from_date when partial day is selected
+  useEffect(() => {
+    if (form.partial_day === 'half_day' && form.from_date) {
+      setForm(prev => ({ ...prev, to_date: form.from_date }));
+    }
+  }, [form.partial_day, form.from_date]);
+
   const selectedPolicy = useMemo(() => {
     return balances.find((b) => Number(b.policy?.id) === Number(form.leave_policy_id))?.policy;
   }, [balances, form.leave_policy_id]);
@@ -232,7 +239,9 @@ const EmployeeLeaveApplyPage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {form.partial_day === 'half_day' ? 'Date' : 'From Date'}
+              </label>
               <input
                 type="date"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -241,16 +250,18 @@ const EmployeeLeaveApplyPage = () => {
                 required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-              <input
-                type="date"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                value={form.to_date}
-                onChange={(e) => handleChange('to_date', e.target.value)}
-                required
-              />
-            </div>
+            {form.partial_day !== 'half_day' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                <input
+                  type="date"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  value={form.to_date}
+                  onChange={(e) => handleChange('to_date', e.target.value)}
+                  required
+                />
+              </div>
+            )}
           </div>
 
           <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-100">
@@ -279,9 +290,8 @@ const EmployeeLeaveApplyPage = () => {
                     value={form.partial_session}
                     onChange={(e) => handleChange('partial_session', e.target.value)}
                   >
-                    <option value="first_half">Morning (First half)</option>
-                    <option value="second_half">Afternoon (Second half)</option>
-                    <option value="custom">Custom</option>
+                    <option value="first_half">First Half</option>
+                    <option value="second_half">Second Half</option>
                   </select>
                 </div>
               )}
