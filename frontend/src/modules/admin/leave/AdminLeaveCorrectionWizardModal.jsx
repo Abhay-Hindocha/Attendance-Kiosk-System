@@ -98,6 +98,7 @@ const AdminLeaveCorrectionWizardModal = ({ onClose, onSuccess }) => {
     } catch (err) {
       console.error('Failed to load correction data', err);
       setErrors({ submit: 'Failed to load required data' });
+      setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
     } finally {
       setLoading(false);
     }
@@ -327,11 +328,16 @@ const AdminLeaveCorrectionWizardModal = ({ onClose, onSuccess }) => {
           newErrors.submit = 'Validation failed';
         }
         setErrors(newErrors);
+        if (newErrors.submit) {
+          setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
+        }
       } else if (err?.response) {
         const serverMsg = respData?.message || respData?.error || `Server error ${err.response.status}`;
         setErrors({ submit: serverMsg });
+        setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
       } else {
         setErrors({ submit: err?.message || 'Failed to apply correction' });
+        setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
       }
     } finally {
       setLoading(false);

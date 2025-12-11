@@ -137,7 +137,7 @@ const Header = () => {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <div className="hidden lg:flex items-center gap-2">
+              <div ref={dropdownRef} className="hidden lg:flex items-center gap-2">
                 {navigation.map((item) => {
                   const Icon = item.icon;
                   if (item.dropdown) {
@@ -185,6 +185,10 @@ const Header = () => {
                       <Link
                         key={item.name}
                         to={item.href}
+                        onClick={() => {
+                          setIsPoliciesDropdownOpen(false);
+                          setIsRequestsDropdownOpen(false);
+                        }}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                           active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}

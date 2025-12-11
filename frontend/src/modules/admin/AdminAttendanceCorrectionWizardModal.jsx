@@ -104,6 +104,7 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
   const fetchWizardAttendanceLogs = async () => {
     if (!wizardSelectedEmployee || !wizardStartDate || !wizardEndDate) {
       setErrors({ submit: 'Please select employee and date range' });
+      setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
       return;
     }
 
@@ -130,9 +131,11 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
         }
       } else {
         setErrors({ submit: 'Failed to fetch attendance logs' });
+        setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
       }
     } catch (error) {
       setErrors({ submit: 'Failed to fetch attendance logs' });
+      setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
     } finally {
       setLoading(false);
     }
@@ -277,9 +280,11 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
       } else {
         const errorData = await response.json();
         setErrors({ submit: errorData.message || 'Failed to update attendance' });
+        setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
       }
     } catch (error) {
       setErrors({ submit: 'Failed to update attendance' });
+      setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
     } finally {
       setLoading(false);
     }

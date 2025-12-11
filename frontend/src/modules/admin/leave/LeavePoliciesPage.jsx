@@ -213,6 +213,16 @@ const LeavePoliciesPage = () => {
     loadMeta();
   }, []);
 
+  // Auto-dismiss notifications after 2 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   const handleModalClose = () => {
     setShowModal(false);
     setEditingPolicy(null);

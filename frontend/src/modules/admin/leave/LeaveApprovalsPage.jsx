@@ -130,6 +130,16 @@ const LeaveApprovalsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
+  // Auto-dismiss notifications after 2 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   const openDetail = async (request) => {
     setDetailLoading(true);
     setDetail(null);

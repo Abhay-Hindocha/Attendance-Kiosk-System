@@ -3,9 +3,6 @@ import { Link } from 'react-router-dom';
 import {
   Clock,
   User,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
   Edit3,
   Filter,
   Calendar,
@@ -42,6 +39,16 @@ const AdminCorrectionRequestsPage = () => {
     }
     loadCorrectionRequests();
   }, [filter]);
+
+  // Auto-dismiss notifications after 2 seconds
+  useEffect(() => {
+    if (notification.show) {
+      const timer = setTimeout(() => {
+        setNotification({ show: false, type: 'success', message: '' });
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification.show]);
 
   const loadCorrectionRequests = async () => {
     setLoading(true);
@@ -274,25 +281,14 @@ const AdminCorrectionRequestsPage = () => {
 
       {/* Notification */}
       {notification.show && (
-        <div className={`p-4 rounded-xl shadow-lg border-l-4 flex items-center justify-between ${
-          notification.type === 'success'
-            ? 'bg-green-50 text-green-800 border-green-400'
-            : 'bg-red-50 text-red-800 border-red-400'
-        }`}>
-          <div className="flex items-center space-x-3">
-            {notification.type === 'success' ? (
-              <CheckCircle className="h-6 w-6 text-green-600" />
-            ) : (
-              <AlertCircle className="h-6 w-6 text-red-600" />
-            )}
-            <span className="font-medium">{notification.message}</span>
-          </div>
-          <button
-            onClick={() => setNotification({ show: false, type: 'success', message: '' })}
-            className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-          >
-            <XCircle className="h-5 w-5" />
-          </button>
+        <div
+          className={`px-4 py-3 rounded-lg text-sm font-medium ${
+            notification.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}
+        >
+          {notification.message}
         </div>
       )}
 

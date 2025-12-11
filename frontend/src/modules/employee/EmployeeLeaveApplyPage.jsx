@@ -63,6 +63,21 @@ const EmployeeLeaveApplyPage = () => {
     }
   }, [form.partial_day, form.from_date]);
 
+  // Auto-dismiss success/error messages after 2 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(''), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(''), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
   const selectedPolicy = useMemo(() => {
     return balances.find((b) => Number(b.policy?.id) === Number(form.leave_policy_id))?.policy;
   }, [balances, form.leave_policy_id]);

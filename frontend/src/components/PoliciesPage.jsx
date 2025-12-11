@@ -151,7 +151,7 @@ const PoliciesPage = () => {
         setPolicies([...policies, newPolicy]);
         setNotification({ show: true, type: 'success', message: 'Policy created successfully!' });
       }
-      setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 3000);
+      setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 2000);
       setShowForm(false);
     } catch (error) {
       console.error('Failed to save policy:', error);
@@ -174,12 +174,12 @@ const PoliciesPage = () => {
       setPolicies(policies.map(pol => pol.id === archiveConfirm.id ? response.policy : pol));
       setArchiveConfirm(null);
       setNotification({ show: true, type: 'success', message: response.message || 'Policy status updated successfully!' });
-      setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 3000);
+      setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 2000);
     } catch (error) {
       console.error('Failed to toggle policy status:', error);
       const errorMessage = error.error || 'Failed to update policy status. Please try again.';
       setNotification({ show: true, type: 'error', message: errorMessage });
-      setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
+      setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 2000);
       setArchiveConfirm(null); // Close the modal on error
     }
   };
@@ -187,7 +187,7 @@ const PoliciesPage = () => {
   const confirmDelete = async () => {
     if (!deleteConfirm.id) {
       setNotification({ show: true, type: 'error', message: 'Invalid policy selected. Please try again.' });
-      setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
+      setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 2000);
       setDeleteConfirm(null);
       return;
     }
@@ -196,7 +196,7 @@ const PoliciesPage = () => {
       setPolicies(policies.filter(pol => pol.id !== deleteConfirm.id));
       setDeleteConfirm(null);
       setNotification({ show: true, type: 'success', message: 'Policy deleted successfully!' });
-      setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 3000);
+      setTimeout(() => setNotification({ show: false, type: 'success', message: '' }), 2000);
     } catch (error) {
       console.error('Failed to delete policy:', error);
       if (error.response && error.response.status === 422 && error.response.data.error) {
@@ -205,7 +205,7 @@ const PoliciesPage = () => {
       } else {
         const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to delete policy. Please try again.';
         setNotification({ show: true, type: 'error', message: errorMessage });
-        setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 3000);
+        setTimeout(() => setNotification({ show: false, type: 'error', message: '' }), 2000);
       }
     }
   };

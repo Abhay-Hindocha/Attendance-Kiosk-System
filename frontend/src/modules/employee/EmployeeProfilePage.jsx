@@ -32,11 +32,12 @@ const EmployeeProfilePage = () => {
 
   // Correction request form state
   const [dateRangeOption, setDateRangeOption] = useState('today');
-  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
   const [selectedLog, setSelectedLog] = useState(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [logsError, setLogsError] = useState(null);
+  const [hasFetched, setHasFetched] = useState(false);
 
   const [correctionForm, setCorrectionForm] = useState({
     type: 'missing',
@@ -139,6 +140,7 @@ const EmployeeProfilePage = () => {
       const data = await employeeApi.getAttendanceReport(params);
       setAttendanceLogs(data?.records || []);
       setSelectedLog(null); // Reset selected log when fetching new logs
+      setHasFetched(true);
     } catch (error) {
       console.error('Failed to fetch attendance logs:', error);
       setLogsError('Failed to fetch attendance logs');
@@ -157,6 +159,7 @@ const EmployeeProfilePage = () => {
     }
     setAttendanceLogs([]);
     setSelectedLog(null);
+    setHasFetched(false);
   };
 
   const handleTypeChange = (newType) => {
@@ -668,7 +671,7 @@ const EmployeeProfilePage = () => {
                           className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                         />
                         <label htmlFor="custom" className="ml-2 block text-sm text-gray-900">
-                          Custom Range
+                          Custom Date
                         </label>
                       </div>
                     </div>
@@ -683,7 +686,10 @@ const EmployeeProfilePage = () => {
                         <input
                           type="date"
                           value={selectedDate}
-                          onChange={(e) => setSelectedDate(e.target.value)}
+                          onChange={(e) => {
+                            setSelectedDate(e.target.value);
+                            setHasFetched(false);
+                          }}
                           className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                         />
                       </div>
@@ -805,6 +811,13 @@ const EmployeeProfilePage = () => {
                 </div>
               )}
 
+              {/* No Logs Message */}
+              {attendanceLogs.length === 0 && hasFetched && !loadingLogs && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
+                  <p className="text-gray-500">No log found</p>
+                </div>
+              )}
+
               {/* Attendance Correction request */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -894,99 +907,105 @@ const EmployeeProfilePage = () => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        Check-in Time {(correctionForm.type === 'missing' || correctionForm.type === 'wrong_checkin') ? '*' : ''}
-                      </label>
-                      <input
-                        type="time"
-                        value={correctionForm.requested_check_in}
-                        onChange={(e) => setCorrectionForm({...correctionForm, requested_check_in: e.target.value})}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                        required={correctionForm.type === 'missing' || correctionForm.type === 'wrong_checkin'}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        Check-out Time {(correctionForm.type === 'missing' || correctionForm.type === 'wrong_checkout') ? '*' : ''}
-                      </label>
-                      <input
-                        type="time"
-                        value={correctionForm.requested_check_out}
-                        onChange={(e) => setCorrectionForm({...correctionForm, requested_check_out: e.target.value})}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                        required={correctionForm.type === 'missing' || correctionForm.type === 'wrong_checkout'}
-                      />
-                    </div>
+                    {(correctionForm.type === 'missing' || correctionForm.type === 'wrong_checkin') && (
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          Check-in Time *
+                        </label>
+                        <input
+                          type="time"
+                          value={correctionForm.requested_check_in}
+                          onChange={(e) => setCorrectionForm({...correctionForm, requested_check_in: e.target.value})}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                          required
+                        />
+                      </div>
+                    )}
+                    {(correctionForm.type === 'missing' || correctionForm.type === 'wrong_checkout') && (
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          Check-out Time *
+                        </label>
+                        <input
+                          type="time"
+                          value={correctionForm.requested_check_out}
+                          onChange={(e) => setCorrectionForm({...correctionForm, requested_check_out: e.target.value})}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                          required
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Breaks Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        Breaks
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setCorrectionForm({
-                          ...correctionForm,
-                          breaks: [...(correctionForm.breaks || []), { break_start: '', break_end: '' }]
-                        })}
-                        className="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors"
-                      >
-                        Add Break
-                      </button>
-                    </div>
-                    {(correctionForm.breaks || []).map((breakItem, index) => (
-                      <div key={`break-${index}`} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-                        <div className="space-y-2">
-                          <label className="block text-xs font-medium text-gray-600">
-                            Break Start Time
-                          </label>
-                          <input
-                            type="time"
-                            value={breakItem.break_start}
-                            onChange={(e) => {
-                              const newBreaks = [...(correctionForm.breaks || [])];
-                              newBreaks[index].break_start = e.target.value;
-                              setCorrectionForm({...correctionForm, breaks: newBreaks});
-                            }}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-xs font-medium text-gray-600">
-                            Break End Time
-                          </label>
-                          <input
-                            type="time"
-                            value={breakItem.break_end}
-                            onChange={(e) => {
-                              const newBreaks = [...(correctionForm.breaks || [])];
-                              newBreaks[index].break_end = e.target.value;
-                              setCorrectionForm({...correctionForm, breaks: newBreaks});
-                            }}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                          />
-                        </div>
-                        <div className="flex items-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newBreaks = (correctionForm.breaks || []).filter((_, i) => i !== index);
-                              setCorrectionForm({...correctionForm, breaks: newBreaks});
-                            }}
-                            className="px-3 py-2 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                          >
-                            Remove
-                          </button>
-                        </div>
+                  {(correctionForm.type === 'missing' || correctionForm.type === 'wrong_break') && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          Breaks
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setCorrectionForm({
+                            ...correctionForm,
+                            breaks: [...(correctionForm.breaks || []), { break_start: '', break_end: '' }]
+                          })}
+                          className="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors"
+                        >
+                          Add Break
+                        </button>
                       </div>
-                    ))}
-                  </div>
+                      {(correctionForm.breaks || []).map((breakItem, index) => (
+                        <div key={`break-${index}`} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-medium text-gray-600">
+                              Break Start Time
+                            </label>
+                            <input
+                              type="time"
+                              value={breakItem.break_start}
+                              onChange={(e) => {
+                                const newBreaks = [...(correctionForm.breaks || [])];
+                                newBreaks[index].break_start = e.target.value;
+                                setCorrectionForm({...correctionForm, breaks: newBreaks});
+                              }}
+                              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-medium text-gray-600">
+                              Break End Time
+                            </label>
+                            <input
+                              type="time"
+                              value={breakItem.break_end}
+                              onChange={(e) => {
+                                const newBreaks = [...(correctionForm.breaks || [])];
+                                newBreaks[index].break_end = e.target.value;
+                                setCorrectionForm({...correctionForm, breaks: newBreaks});
+                              }}
+                              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newBreaks = (correctionForm.breaks || []).filter((_, i) => i !== index);
+                                setCorrectionForm({...correctionForm, breaks: newBreaks});
+                              }}
+                              className="px-3 py-2 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                       <FileText className="w-4 h-4 text-gray-500" />
