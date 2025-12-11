@@ -147,14 +147,38 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
     }
   };
 
-  const handleActionSelect = (actionId) => {
+  const handleActionSelect = async (actionId) => {
     setSelectedAction(actionId);
     resetForm();
+
+    // If selecting edit and no logs are fetched, fetch them first
+    if (actionId === 'edit_attendance' && wizardAttendanceLogs.length === 0) {
+      setLoading(true);
+      try {
+        await fetchWizardAttendanceLogs();
+        // Check if logs were fetched successfully
+        if (wizardAttendanceLogs.length === 0) {
+          setErrors({ action: 'No attendance records found for the selected period. Please check the date range or add a new attendance record instead.' });
+          setTimeout(() => setErrors(prev => ({ ...prev, action: '' })), 3000);
+          setSelectedAction('');
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        setErrors({ action: 'Failed to fetch attendance logs. Please try again.' });
+        setTimeout(() => setErrors(prev => ({ ...prev, action: '' })), 3000);
+        setSelectedAction('');
+        setLoading(false);
+        return;
+      }
+      setLoading(false);
+    }
+
     setCurrentStep(3);
   };
 
   const handleNext = () => {
-    if (currentStep === 1 && wizardAttendanceLogs.length > 0) {
+    if (currentStep === 1) {
       setCurrentStep(2);
     } else if (currentStep === 2 && selectedAction) {
       setCurrentStep(3);
@@ -453,21 +477,6 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
                   {errors.employee && <p className="text-red-600 text-sm mt-1">{errors.employee}</p>}
                 </div>
 
-                {wizardAttendanceLogs.length > 0 && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-800">
-                      Found {wizardAttendanceLogs.length} attendance record(s) for the selected period
-                    </p>
-                  </div>
-                )}
-
-                {noLogsMsg && (
-                  <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                    <p className="text-sm text-orange-800">
-                      {noLogsMsg}
-                    </p>
-                  </div>
-                )}
 
                 {noLogsMsg && (
                   <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
@@ -531,21 +540,32 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
           )}
 
           {/* Step 2: Action Selection */}
-          {currentStep === 2 && wizardAttendanceLogs.length > 0 && (
+          {currentStep === 2 && (
             <div className="border border-gray-200 rounded-lg p-4 md:p-6 bg-gray-50 mb-6">
               <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-blue-600" />
                 Select Correction Type
               </h3>
+
+              {errors.action && (
+                <div className="bg-red-50 p-3 border border-red-200 rounded-lg mb-4">
+                  <p className="text-red-600 text-sm">{errors.action}</p>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {actions.map(a => {
                   const Icon = a.icon;
                   return (
                     <button
                       key={a.id}
-                      onClick={() => handleActionSelect(a.id)}
-                      className={`p-4 border rounded-lg text-left hover:bg-blue-50 transition-colors ${
-                        selectedAction === a.id ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200'
+                      onClick={() => !loading && handleActionSelect(a.id)}
+                      disabled={loading}
+                      className={`p-4 border rounded-lg text-left transition-colors ${
+                        loading
+                          ? 'bg-gray-100 border-gray-200 cursor-not-allowed opacity-50'
+                          : selectedAction === a.id
+                          ? 'bg-blue-50 border-blue-300 hover:bg-blue-50'
+                          : 'bg-white border-gray-200 hover:bg-blue-50'
                       }`}
                     >
                       <div className="flex gap-3">
@@ -612,74 +632,6 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
                     </select>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Date Range</label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="wizard-today"
-                        name="wizard-dateRange"
-                        value="today"
-                        checked={dateRangeOption === 'today'}
-                        onChange={(e) => {
-                          setDateRangeOption(e.target.value);
-                          const today = new Date().toISOString().split('T')[0];
-                          setWizardStartDate(today);
-                          setWizardEndDate(today);
-                        }}
-                      />
-                      <label htmlFor="wizard-today" className="text-sm">Today</label>
-
-                      <input
-                        type="radio"
-                        id="wizard-custom"
-                        name="wizard-dateRange"
-                        value="custom"
-                        checked={dateRangeOption === 'custom'}
-                        onChange={(e) => {
-                          setDateRangeOption(e.target.value);
-                          setWizardStartDate('');
-                          setWizardEndDate('');
-                        }}
-                      />
-                      <label htmlFor="wizard-custom" className="text-sm">Custom</label>
-                    </div>
-                  </div>
-                </div>
-
-                {dateRangeOption === 'custom' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">Start Date</label>
-                      <input
-                        type="date"
-                        value={wizardStartDate}
-                        onChange={(e) => setWizardStartDate(e.target.value)}
-                        className="w-full border px-3 py-2 rounded-lg"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">End Date</label>
-                      <input
-                        type="date"
-                        value={wizardEndDate}
-                        onChange={(e) => setWizardEndDate(e.target.value)}
-                        className="w-full border px-3 py-2 rounded-lg"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-4">
-                  <button
-                    onClick={fetchWizardAttendanceLogs}
-                    disabled={!wizardSelectedEmployee || !wizardStartDate || !wizardEndDate || loading}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                  >
-                    {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                    Fetch Attendance Logs
-                  </button>
-                  {errors.employee && <p className="text-red-600 text-sm mt-1">{errors.employee}</p>}
                 </div>
 
                 {wizardAttendanceLogs.length > 0 && (
@@ -982,7 +934,7 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
           </div>
 
           <div className="flex gap-3">
-            {currentStep === 1 && wizardAttendanceLogs.length > 0 && (
+            {currentStep === 1 && (
               <button
                 type="button"
                 onClick={handleNext}
