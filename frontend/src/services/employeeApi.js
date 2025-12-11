@@ -161,6 +161,13 @@ class EmployeeApiService {
   async getCorrectionRequests() {
     return this.request('/employee/portal/correction-requests');
   }
+
+  async respondToClarification(leaveId, data) {
+    return this.request(`/employee/portal/leave/requests/${leaveId}/respond-clarification`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export default new EmployeeApiService();

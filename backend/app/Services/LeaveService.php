@@ -111,7 +111,7 @@ class LeaveService
 
         $deductions = [];
         foreach ($pendingRequests as $request) {
-            $totalDays = $request->estimated_days + $request->sandwich_applied_days;
+            $totalDays = $request->total_days;
 
             $deductions[$request->leave_policy_id] = ($deductions[$request->leave_policy_id] ?? 0) + $totalDays;
         }

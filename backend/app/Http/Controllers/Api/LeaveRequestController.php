@@ -264,6 +264,37 @@ class LeaveRequestController extends Controller
      */
     public function download(Request $request, LeaveRequest $leaveRequest)
     {
+        $user = null;
+        
+        // Try to get authenticated user from current session/headers
+        if (auth('sanctum')->check()) {
+            $user = auth('sanctum')->user();
+        } elseif (auth('employee')->check()) {
+            $user = auth('employee')->user();
+        }
+        
+        // If no authenticated user, try to get from token query parameter
+        if (!$user && $request->has('token')) {
+            $token = $request->query('token');
+            try {
+                $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+                if ($personalAccessToken) {
+                    $user = $personalAccessToken->tokenable;
+                }
+            } catch (\Exception $e) {
+                // Token validation failed
+            }
+        }
+
+        if (!$user) {
+            return response()->json(['error' => 'Authentication required'], 401);
+        }
+
+        // Check if user can access this leave request
+        if ($user instanceof Employee && $leaveRequest->employee_id !== $user->id) {
+            return response()->json(['error' => 'Access denied.'], 403);
+        }
+
         if (empty($leaveRequest->attachment_path)) {
             return response()->json(['error' => 'No attachment found.'], 404);
         }

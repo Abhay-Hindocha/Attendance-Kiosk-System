@@ -190,11 +190,19 @@ class EmployeePortalController extends Controller
 
         // Recent requests
         $recentRequests = LeaveRequest::where('employee_id', $employee->id)
+            ->with(['timelines' => function ($query) {
+                $query->where('action', 'clarification_requested')->orderByDesc('created_at')->limit(1);
+            }])
             ->orderByDesc('created_at')
             ->limit(10)
             ->get(['id', 'from_date', 'to_date', 'status', 'reason', 'leave_type', 'total_days', 'created_at']);
 
         $recentRequestsFormatted = $recentRequests->map(function ($request) {
+            $clarificationReason = null;
+            if ($request->status === 'clarification') {
+                $timeline = $request->timelines->first();
+                $clarificationReason = $timeline ? $timeline->notes : null;
+            }
             return [
                 'id' => $request->id,
                 'type' => $request->leave_type ?? 'Leave',
@@ -203,6 +211,7 @@ class EmployeePortalController extends Controller
                 'days' => $request->total_days ?? 1,
                 'status' => ucfirst($request->status),
                 'reason' => $request->reason,
+                'clarification_reason' => $clarificationReason,
                 'submitted_at' => $request->created_at->toDateString(),
             ];
         });
@@ -763,6 +772,49 @@ class EmployeePortalController extends Controller
         } catch (\Exception $e) {
             return response()->json(['message' => 'An error occurred while changing password'], 500);
         }
+    }
+
+    public function respondToClarification(Request $request, LeaveRequest $leaveRequest)
+    {
+        $employee = $request->user();
+
+        if ($leaveRequest->employee_id !== $employee->id) {
+            return response()->json(['error' => 'You can only respond to your own leave requests.'], 403);
+        }
+
+        if ($leaveRequest->status !== 'clarification') {
+            return response()->json(['error' => 'This request is not in clarification status.'], 422);
+        }
+
+        $data = $request->validate([
+            'response' => ['nullable', 'string'],
+        ]);
+
+        // Update the request status back to pending
+        $leaveRequest->status = 'pending';
+        $leaveRequest->clarification_requested_at = null; // Clear the clarification timestamp
+
+        // Update the reason with the employee's clarification response
+        if (!empty($data['response'])) {
+            $leaveRequest->reason = $data['response'];
+        }
+
+        $leaveRequest->save();
+
+        // Add timeline entry for the response
+        LeaveRequestTimeline::create([
+            'leave_request_id' => $leaveRequest->id,
+            'action' => 'clarification_responded',
+            'notes' => $data['response'] ?? 'Employee responded to clarification.',
+            'performed_by_type' => 'employee',
+            'performed_by_id' => $employee->id,
+        ]);
+
+        // Update pending deductions since the request is back to pending
+        $leaveService = new LeaveService();
+        $leaveService->updatePendingDeductions($employee->id);
+
+        return response()->json(['message' => 'Clarification response submitted successfully.']);
     }
 
     public function viewPolicies(Request $request)

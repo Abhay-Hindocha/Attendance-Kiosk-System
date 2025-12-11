@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { CheckCircle, Clock, Calendar, AlertCircle, X } from 'lucide-react';
+import { CheckCircle, Clock, Calendar, AlertCircle, X, MessageSquare } from 'lucide-react';
 import employeeApi from '../../services/employeeApi';
 import { useEmployeePortal } from './EmployeeLayout';
 
@@ -11,6 +11,9 @@ const EmployeeDashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedBalance, setSelectedBalance] = useState(null);
+  const [clarificationModal, setClarificationModal] = useState(null);
+  const [clarificationResponse, setClarificationResponse] = useState('');
+  const [submittingClarification, setSubmittingClarification] = useState(false);
 
   // Helper: consistent date formatting (e.g. "10 Dec 2025").
   // Uses a safe parse and falls back to the original value if parsing fails.
@@ -58,6 +61,34 @@ const EmployeeDashboardPage = () => {
 
   const approvedThisMonth = data?.approved_this_month ?? 0;
   const totalLeavesTaken = data?.total_leaves_taken ?? 0;
+
+  const handleClarificationClick = (leave) => {
+    setClarificationModal(leave);
+    setClarificationResponse('');
+  };
+
+  const submitClarification = async () => {
+    if (!clarificationModal || !clarificationResponse.trim()) return;
+
+    setSubmittingClarification(true);
+    try {
+      await employeeApi.respondToClarification(clarificationModal.id, {
+        response: clarificationResponse.trim(),
+      });
+
+      // Refresh dashboard data
+      const response = await employeeApi.getDashboard();
+      setData(response);
+
+      setClarificationModal(null);
+      setClarificationResponse('');
+    } catch (err) {
+      console.error('Failed to submit clarification:', err);
+      // You might want to show an error message here
+    } finally {
+      setSubmittingClarification(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -253,7 +284,10 @@ const EmployeeDashboardPage = () => {
                 recentRequests.slice(0, 3).map((leave) => (
                   <div
                     key={leave.id}
-                    className="border border-gray-200 rounded-lg p-4"
+                    className={`border border-gray-200 rounded-lg p-4 ${
+                      leave.clarification_reason ? 'cursor-pointer hover:bg-gray-50' : ''
+                    }`}
+                    onClick={() => leave.clarification_reason && handleClarificationClick(leave)}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div>
@@ -264,17 +298,24 @@ const EmployeeDashboardPage = () => {
                           {leave.days} day{leave.days > 1 ? 's' : ''}
                         </p>
                       </div>
-                      <span
-                        className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ${
-                          leave.status === 'Approved'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : leave.status === 'Rejected'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {leave.status || 'Pending'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {leave.clarification_reason && (
+                          <MessageSquare className="w-4 h-4 text-blue-500" />
+                        )}
+                        <span
+                          className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ${
+                            leave.status === 'Approved'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : leave.status === 'Rejected'
+                              ? 'bg-red-100 text-red-700'
+                              : leave.clarification_reason
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {leave.clarification_reason ? 'Clarification Needed' : leave.status || 'Pending'}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-2">
                       <Calendar className="w-3.5 h-3.5" />
@@ -353,6 +394,62 @@ const EmployeeDashboardPage = () => {
                     <p className="text-sm text-gray-900">{selectedBalance.description}</p>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Clarification Modal */}
+        {clarificationModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Clarification Required
+                </h3>
+                <button
+                  onClick={() => setClarificationModal(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Admin Message:</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-900">{clarificationModal.clarification_reason}</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Your Response
+                  </label>
+                  <textarea
+                    value={clarificationResponse}
+                    onChange={(e) => setClarificationResponse(e.target.value)}
+                    placeholder="Please provide clarification for your leave request..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={4}
+                    disabled={submittingClarification}
+                  />
+                </div>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setClarificationModal(null)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    disabled={submittingClarification}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitClarification}
+                    disabled={!clarificationResponse.trim() || submittingClarification}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {submittingClarification ? 'Submitting...' : 'Submit Response'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

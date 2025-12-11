@@ -21,6 +21,9 @@ use App\Http\Controllers\Api\AdminController;
 
 
 // Authentication routes - These handle user login and session management
+Route::get('/login', function () {
+    return response()->json(['error' => 'Authentication required'], 401);
+}); // Handle GET requests to login (for API redirects)
 Route::post('/login', [AuthController::class, 'login'])->name('login'); // Endpoint for user login
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum'); // Endpoint for user logout (requires authentication)
 Route::get('/user', [AuthController::class, 'user'])->middleware('auth:sanctum'); // Get current authenticated user info
@@ -34,6 +37,8 @@ Route::post('employee/password/reset', [EmployeeAuthController::class, 'resetPas
 Route::post('faces/recognize', [FaceController::class, 'recognize']); // Recognize faces for attendance (used by kiosk)
 Route::post('attendances/mark', [AttendanceController::class, 'markAttendance']); // Mark attendance (check in/out) - public for kiosk use
 Route::get('attendance/live', [AttendanceController::class, 'getLiveActivity']); // Get live attendance activity - public for kiosk
+
+// Download route - handles authentication internally for direct links (removed public route to avoid conflicts)
 
 // Protected routes - These require authentication and are used by admin users for management
 Route::middleware('auth:sanctum')->group(function () {
@@ -57,7 +62,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Admin approvals
     Route::get('leave/approvals', [LeaveApprovalController::class, 'index']);
-    Route::get('leave/requests/{leave_request}/download', [LeaveRequestController::class, 'download']);
     Route::post('leave/requests/{leave_request}/approve', [LeaveApprovalController::class, 'approve']);
     Route::post('leave/requests/{leave_request}/reject', [LeaveApprovalController::class, 'reject']);
     Route::post('leave/requests/{leave_request}/clarify', [LeaveApprovalController::class, 'requestClarification']);
@@ -117,13 +121,13 @@ Route::middleware('auth:employee')->group(function () {
     // Employee leave requests
     Route::get('leave/requests', [LeaveRequestController::class, 'index']);
     Route::post('leave/requests', [LeaveRequestController::class, 'store']);
-    Route::get('leave/requests/{leave_request}/download', [LeaveRequestController::class, 'download']);
     Route::post('leave/requests/{leave_request}/cancel', [LeaveRequestController::class, 'cancel']);
 
     Route::prefix('employee/portal')->group(function () {
         Route::get('dashboard', [EmployeePortalController::class, 'dashboard']);
         Route::get('leave-balances', [EmployeePortalController::class, 'leaveBalances']);
         Route::get('attendance', [EmployeePortalController::class, 'attendanceReport']);
+        Route::get('attendance/export', [EmployeePortalController::class, 'exportAttendanceReport']);
         Route::get('holidays', [EmployeePortalController::class, 'holidays']);
         Route::get('profile', [EmployeePortalController::class, 'getProfile']);
         Route::put('profile', [EmployeePortalController::class, 'updateProfile']);
@@ -131,6 +135,7 @@ Route::middleware('auth:employee')->group(function () {
         Route::get('policies', [EmployeePortalController::class, 'viewPolicies']);
         Route::post('correction-requests', [EmployeePortalController::class, 'submitCorrectionRequest']);
         Route::get('correction-requests', [EmployeePortalController::class, 'getCorrectionRequests']);
+        Route::post('leave/requests/{leave_request}/respond-clarification', [EmployeePortalController::class, 'respondToClarification']);
     });
 });
 
@@ -138,3 +143,6 @@ Route::middleware('auth:employee')->group(function () {
 Route::middleware('auth.admin.or.employee')->group(function () {
     Route::get('leave/requests/{leave_request}', [LeaveRequestController::class, 'show']);
 });
+
+// Download route - handles both session-based and token-based authentication
+Route::get('leave/requests/{leave_request}/download', [LeaveRequestController::class, 'download']);

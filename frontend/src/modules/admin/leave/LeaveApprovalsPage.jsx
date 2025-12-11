@@ -41,7 +41,7 @@ const LeaveApprovalsPage = () => {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionModal, setActionModal] = useState(null);
-  const [actionForm, setActionForm] = useState({ comment: '', from_date: '', to_date: '' });
+  const [actionForm, setActionForm] = useState({ comment: '', from_date: '', to_date: '', admin_reason: '', reject_choice: 'reject' });
   const [actionLoading, setActionLoading] = useState(false);
   const [notification, setNotification] = useState(null);
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
@@ -82,23 +82,14 @@ const LeaveApprovalsPage = () => {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const params = {
-        ...filters,
-        page,
-      };
+      // build params from filters and page. Only include non-empty values.
+      const params = { page };
 
-      if (!params.start_date || !params.end_date) {
-        delete params.start_date;
-        delete params.end_date;
-      }
-
-      if (!params.department) {
-        delete params.department;
-      }
-
-      if (!params.leave_policy_id) {
-        delete params.leave_policy_id;
-      }
+      if (filters.status) params.status = filters.status;
+      if (filters.department && String(filters.department).trim() !== '') params.department = filters.department.trim();
+      if (filters.leave_policy_id) params.leave_policy_id = filters.leave_policy_id;
+      if (filters.start_date) params.start_date = filters.start_date;
+      if (filters.end_date) params.end_date = filters.end_date;
 
       const response = await api.getLeaveApprovals(params);
 
@@ -127,8 +118,17 @@ const LeaveApprovalsPage = () => {
   }, []);
 
   useEffect(() => {
+    // whenever filters change, ensure we request page 1 if page is >1
+    setPage(1);
     fetchRequests();
-  }, [filters, page]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
+  useEffect(() => {
+    // fetch when page changes
+    fetchRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const openDetail = async (request) => {
     setDetailLoading(true);
@@ -142,8 +142,7 @@ const LeaveApprovalsPage = () => {
         to_date: asYMD(data.to_date),
         timelines: (data.timelines || []).map((t) => ({
           ...t,
-          created_at: t.created_at, // keep timestamp as-is for display with toLocaleString
-          // if timeline entries include date fields, normalize them here as well
+          created_at: t.created_at,
         })),
       };
       setDetail(normalizedDetail);
@@ -157,17 +156,19 @@ const LeaveApprovalsPage = () => {
 
   const closeActionModal = () => {
     setActionModal(null);
-    setActionForm({ comment: '', from_date: '', to_date: '' });
+    setActionForm({ comment: '', from_date: '', to_date: '', admin_reason: '', reject_choice: 'reject' });
   };
 
   const openActionModal = (type, request) => {
+    // type: 'approve' | 'reject'
     setActionModal({ type, request });
 
-    // Prefill actionForm using normalized dates
     setActionForm({
       comment: '',
       from_date: asYMD(request.from_date),
       to_date: asYMD(request.to_date),
+      admin_reason: '',
+      reject_choice: 'reject',
     });
   };
 
@@ -175,9 +176,26 @@ const LeaveApprovalsPage = () => {
     if (!actionModal) return;
     const { type, request } = actionModal;
 
-    if (type === 'clarify' && !actionForm.comment.trim()) {
-      setNotification({ type: 'error', message: 'Clarification comment is required.' });
-      return;
+    // validation
+    if (type === 'approve') {
+      // allow approve without comment but dates must be valid
+      if (!actionForm.from_date || !actionForm.to_date) {
+        setNotification({ type: 'error', message: 'Please provide valid from and to dates.' });
+        return;
+      }
+    }
+
+    if (type === 'reject') {
+      // actionForm.reject_choice decides whether admin wants clarification or reject
+      if (actionForm.reject_choice === 'clarify' && !actionForm.comment.trim()) {
+        setNotification({ type: 'error', message: 'Clarification comment is required.' });
+        return;
+      }
+
+      if (actionForm.reject_choice === 'reject' && !actionForm.admin_reason.trim()) {
+        setNotification({ type: 'error', message: 'Rejection reason is required.' });
+        return;
+      }
     }
 
     setActionLoading(true);
@@ -188,17 +206,21 @@ const LeaveApprovalsPage = () => {
           from_date: actionForm.from_date,
           to_date: actionForm.to_date,
         });
+        setNotification({ type: 'success', message: 'Request approved successfully.' });
       } else if (type === 'reject') {
-        await api.rejectLeaveRequest(request.id, {
-          comment: actionForm.comment,
-        });
-      } else if (type === 'clarify') {
-        await api.requestLeaveClarification(request.id, {
-          comment: actionForm.comment,
-        });
+        if (actionForm.reject_choice === 'clarify') {
+          await api.requestLeaveClarification(request.id, {
+            comment: actionForm.comment,
+          });
+          setNotification({ type: 'success', message: 'Clarification requested successfully.' });
+        } else {
+          await api.rejectLeaveRequest(request.id, {
+            comment: actionForm.admin_reason,
+          });
+          setNotification({ type: 'success', message: 'Request rejected successfully.' });
+        }
       }
 
-      setNotification({ type: 'success', message: `Request ${type}d successfully.` });
       closeActionModal();
       fetchRequests();
       if (detail && detail.id === request.id) {
@@ -213,7 +235,12 @@ const LeaveApprovalsPage = () => {
   };
 
   const attachmentUrl = (path, id) => {
-    if (id) return `${apiBase}/leave/requests/${id}/download`;
+    const token = localStorage.getItem('authToken');
+    if (id) {
+      const url = new URL(`${apiBase}/leave/requests/${id}/download`);
+      url.searchParams.set('token', token);
+      return url.toString();
+    }
     if (!path) return null;
     return `${baseAssetUrl}/storage/${path}`;
   };
@@ -227,7 +254,6 @@ const LeaveApprovalsPage = () => {
   };
 
   // helper: leave requests filtered by selected employee used in correction modal (kept for parity)
-  // (AdminLeaveCorrectionModal fetches its own correction data; this is just for local mapping if needed)
   const employeeLeaveRequestsFor = (employeeId) => {
     return (requests || []).filter((r) => String(r.employee?.id || r.employee_id) === String(employeeId));
   };
@@ -268,7 +294,6 @@ const LeaveApprovalsPage = () => {
                 key={status}
                 onClick={() => {
                   setFilters((prev) => ({ ...prev, status }));
-                  setPage(1);
                 }}
                 className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
                   filters.status === status
@@ -292,7 +317,6 @@ const LeaveApprovalsPage = () => {
                 value={filters.department}
                 onChange={(e) => {
                   setFilters((prev) => ({ ...prev, department: e.target.value }));
-                  setPage(1);
                 }}
                 placeholder="All departments"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2"
@@ -308,7 +332,6 @@ const LeaveApprovalsPage = () => {
                 value={filters.start_date}
                 onChange={(e) => {
                   setFilters((prev) => ({ ...prev, start_date: e.target.value }));
-                  setPage(1);
                 }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2"
               />
@@ -323,7 +346,6 @@ const LeaveApprovalsPage = () => {
                 value={filters.end_date}
                 onChange={(e) => {
                   setFilters((prev) => ({ ...prev, end_date: e.target.value }));
-                  setPage(1);
                 }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2"
               />
@@ -337,7 +359,6 @@ const LeaveApprovalsPage = () => {
                 value={filters.leave_policy_id}
                 onChange={(e) => {
                   setFilters((prev) => ({ ...prev, leave_policy_id: e.target.value }));
-                  setPage(1);
                 }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2"
               >
@@ -432,13 +453,7 @@ const LeaveApprovalsPage = () => {
                         <XCircle className="w-4 h-4" />
                         Reject
                       </button>
-                      <button
-                        onClick={() => openActionModal('clarify', request)}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        Clarify
-                      </button>
+                      {/* Clarify button removed per request; reject now contains option to ask clarification */}
                     </div>
                   )}
                 </div>
@@ -544,7 +559,7 @@ const LeaveApprovalsPage = () => {
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 capitalize">
-                {actionModal.type === 'clarify' ? 'Request clarification' : `${actionModal.type} leave`}
+                {actionModal.type === 'reject' ? 'Reject / Ask clarification' : `${actionModal.type} leave`}
               </h3>
               <p className="text-sm text-gray-500">For {actionModal.request.employee?.name}</p>
             </div>
@@ -571,20 +586,73 @@ const LeaveApprovalsPage = () => {
                   </div>
                 </div>
               )}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Comment</label>
-                <textarea
-                  value={actionForm.comment}
-                  onChange={(e) => setActionForm((prev) => ({ ...prev, comment: e.target.value }))}
-                  rows={3}
-                  placeholder={
-                    actionModal.type === 'clarify'
-                      ? 'Explain what details you need from the employee.'
-                      : 'Optional note to the employee.'
-                  }
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2"
-                />
-              </div>
+
+              {actionModal.type === 'reject' && (
+                <div className="space-y-3">
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Action</label>
+                  <div className="flex gap-2">
+                    <label className={`inline-flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer ${actionForm.reject_choice === 'reject' ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
+                      <input
+                        type="radio"
+                        name="reject_choice"
+                        value="reject"
+                        checked={actionForm.reject_choice === 'reject'}
+                        onChange={(e) => setActionForm((prev) => ({ ...prev, reject_choice: e.target.value }))}
+                      />
+                      Reject
+                    </label>
+                    <label className={`inline-flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer ${actionForm.reject_choice === 'clarify' ? 'bg-blue-50 border-blue-200' : 'bg-white'}`}>
+                      <input
+                        type="radio"
+                        name="reject_choice"
+                        value="clarify"
+                        checked={actionForm.reject_choice === 'clarify'}
+                        onChange={(e) => setActionForm((prev) => ({ ...prev, reject_choice: e.target.value }))}
+                      />
+                      Ask for clarification
+                    </label>
+                  </div>
+
+                  {actionForm.reject_choice === 'reject' ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Reason (required)</label>
+                      <textarea
+                        value={actionForm.admin_reason}
+                        onChange={(e) => setActionForm((prev) => ({ ...prev, admin_reason: e.target.value }))}
+                        rows={3}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Clarification required (required)</label>
+                      <textarea
+                        value={actionForm.comment}
+                        onChange={(e) => setActionForm((prev) => ({ ...prev, comment: e.target.value }))}
+                        rows={3}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {actionModal.type !== 'reject' && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Comment</label>
+                  <textarea
+                    value={actionForm.comment}
+                    onChange={(e) => setActionForm((prev) => ({ ...prev, comment: e.target.value }))}
+                    rows={3}
+                    placeholder={
+                      actionModal.type === 'clarify'
+                        ? 'Explain what details you need from the employee.'
+                        : 'Optional note to the employee.'
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2"
+                  />
+                </div>
+              )}
             </div>
             <div className="px-6 py-4 border-t border-gray-200 flex items-center gap-3 justify-end">
               <button
