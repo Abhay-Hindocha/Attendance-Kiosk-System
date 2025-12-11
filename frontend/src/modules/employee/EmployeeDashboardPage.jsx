@@ -64,6 +64,15 @@ const EmployeeDashboardPage = () => {
     return `${h} h ${min} min`;
   };
 
+  const formatLeaveDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
@@ -169,7 +178,7 @@ const EmployeeDashboardPage = () => {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-600">Profile Status</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">Active</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2 capitalize">{profile?.status || 'Active'}</p>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-xs font-medium text-gray-600">{profile?.designation}</span>
                 </div>
@@ -225,12 +234,11 @@ const EmployeeDashboardPage = () => {
               {data?.pending_leaves?.map((leave) => (
                 <div key={leave.id} className="border border-gray-100 rounded-lg p-3">
                   <p className="text-sm font-medium text-gray-900">
-                    {leave.from_date} → {leave.to_date}
+                    {leave.policy_name || 'Leave'}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">{leave.reason || 'No reason provided'}</p>
-                  <span className="inline-block mt-2 px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-                    Pending
-                  </span>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formatLeaveDate(leave.from_date)} → {formatLeaveDate(leave.to_date)} - {leave.days} day{leave.days > 1 ? 's' : ''}
+                  </p>
                 </div>
               ))}
               {(!data?.pending_leaves || data.pending_leaves.length === 0) && (

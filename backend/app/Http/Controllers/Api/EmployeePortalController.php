@@ -197,13 +197,15 @@ class EmployeePortalController extends Controller
         // Pending requests
         $pendingRequests = LeaveRequest::where('employee_id', $employee->id)
             ->whereIn('status', ['pending', 'clarification'])
+            ->with('policy')
             ->orderByDesc('created_at')
-            ->get(['id', 'from_date', 'to_date', 'status', 'reason', 'leave_type', 'total_days', 'created_at']);
+            ->get(['id', 'from_date', 'to_date', 'status', 'reason', 'leave_type', 'total_days', 'leave_policy_id', 'created_at']);
 
         $pendingRequestsFormatted = $pendingRequests->map(function ($request) {
             return [
                 'id' => $request->id,
                 'type' => $request->leave_type ?? 'Leave',
+                'policy_name' => $request->policy->name ?? 'Leave',
                 'from_date' => $request->from_date,
                 'to_date' => $request->to_date,
                 'days' => $request->total_days ?? 1,
@@ -265,7 +267,7 @@ class EmployeePortalController extends Controller
             'last_check_ins' => $lastActivities,
             'weekly_hours' => round(max(0, $weeklyHours), 2),
             'leave_balances' => $leaveBalancesArray,
-            'pending_requests' => $pendingRequestsFormatted,
+            'pending_leaves' => $pendingRequestsFormatted,
             'recent_leaves' => $recentRequestsFormatted,
             'pending_requests_count' => $pendingRequests->count(),
             'approved_this_month' => (float) $approvedThisMonth,
