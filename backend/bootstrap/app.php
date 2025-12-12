@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
+            'auth' => \App\Http\Middleware\ApiAuthenticate::class,
             'auth.admin.or.employee' => \App\Http\Middleware\AuthAdminOrEmployee::class,
             'api.auth' => \App\Http\Middleware\ApiAuthenticate::class,
         ]);

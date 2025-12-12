@@ -27,6 +27,6 @@ class AuthAdminOrEmployee
         }
 
         // If both fail, return 401
-        return response()->json(['message' => 'Unauthorized'], 401);
+        return response()->json(['message' => 'Unauthenticated.', 'redirect_to' => '/employee/login'], 401);
     }
 }

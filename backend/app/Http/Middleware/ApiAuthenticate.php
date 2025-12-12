@@ -21,6 +21,6 @@ class ApiAuthenticate extends Authenticate
      */
     protected function unauthenticated($request, array $guards): Response
     {
-        return response()->json(['message' => 'Unauthenticated.'], 401);
+        return response()->json(['message' => 'Unauthenticated.', 'redirect_to' => '/login'], 401);
     }
 }
