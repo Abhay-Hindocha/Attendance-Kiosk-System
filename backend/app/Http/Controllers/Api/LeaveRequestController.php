@@ -14,9 +14,12 @@ use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Storage;
+use App\Mail\LeaveRequestSubmittedMail;
+use App\Models\Admin;
 
 class LeaveRequestController extends Controller
 {
@@ -195,6 +198,12 @@ class LeaveRequestController extends Controller
 
             return $leaveRequest;
         });
+
+        // Send email notification to all admins
+        $admins = Admin::all();
+        foreach ($admins as $admin) {
+            Mail::to($admin->email)->send(new LeaveRequestSubmittedMail($leaveRequest));
+        }
 
         return response()->json($leaveRequest->load(['policy', 'employee']), 201);
     }

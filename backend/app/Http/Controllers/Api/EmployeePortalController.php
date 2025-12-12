@@ -12,7 +12,10 @@ use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Mail\AttendanceCorrectionRequestSubmittedMail;
+use App\Models\Admin;
 
 class EmployeePortalController extends Controller
 {
@@ -983,6 +986,12 @@ class EmployeePortalController extends Controller
             'requested_breaks' => isset($data['breaks']) ? json_encode($data['breaks']) : null,
             'reason' => $data['reason'],
         ]);
+
+        // Send email notification to all admins
+        $admins = Admin::all();
+        foreach ($admins as $admin) {
+            Mail::to($admin->email)->send(new AttendanceCorrectionRequestSubmittedMail($correctionRequest));
+        }
 
         return response()->json([
             'message' => 'Correction request submitted successfully',
