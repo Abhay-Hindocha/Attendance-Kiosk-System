@@ -41,7 +41,7 @@ class AdminController extends Controller
     {
         $status = $request->input('status', 'pending');
 
-        $query = AttendanceCorrectionRequest::with(['employee', 'attendance'])->whereHas('employee');
+        $query = AttendanceCorrectionRequest::with(['employee', 'attendance.breaks'])->whereHas('employee');
 
         if ($status !== 'all') {
             $query->where('status', $status);
@@ -73,6 +73,12 @@ class AdminController extends Controller
                         'date' => $request->attendance->date,
                         'check_in' => $request->attendance->check_in ? $request->attendance->check_in->format('H:i') : null,
                         'check_out' => $request->attendance->check_out ? $request->attendance->check_out->format('H:i') : null,
+                        'breaks' => $request->attendance->breaks->map(function ($break) {
+                            return [
+                                'break_start' => $break->break_start ? $break->break_start->format('H:i') : null,
+                                'break_end' => $break->break_end ? $break->break_end->format('H:i') : null,
+                            ];
+                        }),
                     ] : null,
                 ];
             })
@@ -315,6 +321,13 @@ class AdminController extends Controller
                                 'date' => $request->attendance->date,
                                 'check_in' => $request->attendance->check_in ? $request->attendance->check_in->format('H:i') : null,
                                 'check_out' => $request->attendance->check_out ? $request->attendance->check_out->format('H:i') : null,
+                                'breaks' => $request->attendance->breaks->map(function ($break) {
+                                    return [
+                                        'id' => $break->id,
+                                        'break_start' => $break->break_start ? $break->break_start->format('H:i') : null,
+                                        'break_end' => $break->break_end ? $break->break_end->format('H:i') : null,
+                                    ];
+                                }),
                             ] : null,
                         ];
                     } catch (\Exception $e) {

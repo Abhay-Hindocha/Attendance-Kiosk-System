@@ -11,7 +11,8 @@ import {
   Loader2,
   Users,
   TrendingUp,
-  Settings
+  Settings,
+  XCircle
 } from 'lucide-react';
 import AdminAttendanceCorrectionWizardModal from './AdminAttendanceCorrectionWizardModal';
 
@@ -444,7 +445,7 @@ const AdminCorrectionRequestsPage = () => {
                           <p className="text-gray-500">Submitted</p>
                           <p className="font-medium text-gray-900">{request.submitted_at}</p>
                         </div>
-                        {(request.requested_check_in || request.requested_check_out) && (
+                        {(request.type !== 'wrong_break' && (request.requested_check_in || request.requested_check_out)) && (
                           <div>
                             <p className="text-gray-500">Requested Times</p>
                             <p className="font-medium text-gray-900">
@@ -452,35 +453,60 @@ const AdminCorrectionRequestsPage = () => {
                             </p>
                           </div>
                         )}
-                        {request.requested_breaks && Array.isArray(request.requested_breaks) && (
-                          <div>
-                            <p className="text-gray-500">Requested Breaks</p>
-                            {request.requested_breaks.length > 0 ? (
-                              <div className="space-y-1">
-                                {request.requested_breaks.map((breakItem, index) => (
-                                  <p key={index} className="font-medium text-gray-900 text-sm">
-                                    Break {index + 1}: {breakItem?.break_start || 'N/A'} - {breakItem?.break_end || 'N/A'}
-                                  </p>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="font-medium text-gray-900 text-sm">No breaks requested</p>
-                            )}
-                          </div>
-                        )}
+                        <div>
+                          <p className="text-gray-500">Requested Breaks</p>
+                          {request.requested_breaks && Array.isArray(request.requested_breaks) && request.requested_breaks.length > 0 ? (
+                            <div className="space-y-1">
+                              {request.requested_breaks.map((breakItem, index) => (
+                                <p key={index} className="font-medium text-gray-900 text-sm">
+                                  Break {index + 1}: {breakItem?.break_start || 'N/A'} - {breakItem?.break_end || 'N/A'}
+                                </p>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="font-medium text-gray-900 text-sm">No breaks requested</p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Current Breaks</p>
+                          {request.attendance && request.attendance.breaks && Array.isArray(request.attendance.breaks) && request.attendance.breaks.length > 0 ? (
+                            <div className="space-y-1">
+                              {request.attendance.breaks.map((breakItem, index) => (
+                                <p key={index} className="font-medium text-gray-900 text-sm">
+                                  Break {index + 1}: {breakItem?.break_start || 'N/A'} - {breakItem?.break_end || 'N/A'}
+                                </p>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="font-medium text-gray-900 text-sm">No breaks</p>
+                          )}
+                        </div>
                         {request.attendance && (
-                          <div>
-                            <p className="text-gray-500">Current Attendance</p>
-                            <p className="font-medium text-gray-900">
-                              {request.attendance.check_in || 'N/A'} - {request.attendance.check_out || 'N/A'}
-                              <button
-                                onClick={() => openEditForm(request.attendance)}
-                                className="ml-2 text-indigo-600 hover:text-indigo-800 text-xs"
-                              >
-                                Edit
-                              </button>
-                            </p>
-                          </div>
+                          <>
+                            <div>
+                              <p className="text-gray-500">Current Attendance</p>
+                              <p className="font-medium text-gray-900">
+                                {request.attendance.check_in || 'N/A'} - {request.attendance.check_out || 'N/A'}
+
+                              </p>
+                            </div>
+                            {request.attendance && (
+                              <div>
+                                <p className="text-gray-500">Current Breaks</p>
+                                {request.attendance.breaks && Array.isArray(request.attendance.breaks) && request.attendance.breaks.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {request.attendance.breaks.map((breakItem, index) => (
+                                      <p key={index} className="font-medium text-gray-900 text-sm">
+                                        Break {index + 1}: {breakItem?.break_start || 'N/A'} - {breakItem?.break_end || 'N/A'}
+                                      </p>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="font-medium text-gray-900 text-sm">No breaks</p>
+                                )}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
 

@@ -24,9 +24,10 @@ class LeaveApprovalController extends Controller
                 $q->whereHas('employee', fn ($emp) => $emp->where('department', $request->string('department')));
             })
             ->when($request->filled('leave_policy_id'), fn ($q) => $q->where('leave_policy_id', $request->integer('leave_policy_id')))
-            ->when($request->filled('date_range'), function ($q) use ($request) {
-                [$start, $end] = explode(',', $request->string('date_range'));
-                $q->whereBetween('from_date', [$start, $end]);
+            ->when($request->filled('start_date') && $request->filled('end_date'), function ($q) use ($request) {
+                $start = Carbon::parse($request->start_date)->toDateString();
+                $end = Carbon::parse($request->end_date)->toDateString();
+                $q->where('from_date', '<=', $end)->where('to_date', '>=', $start);
             })
             ->orderBy('from_date');
 
