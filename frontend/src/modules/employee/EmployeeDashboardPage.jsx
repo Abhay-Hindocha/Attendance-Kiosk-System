@@ -147,10 +147,10 @@ const EmployeeDashboardPage = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600">Total Hours worked</p>
+                <p className="text-sm font-medium text-gray-600">Total Hours worked this week</p>
                 <p className="text-2xl font-bold text-gray-900 mt-2">{formatWeeklyHours(data?.weekly_hours)}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs font-medium text-gray-600">Current day</span>
+                  <span className="text-xs font-medium text-gray-600">Current week hours</span>
                 </div>
               </div>
               <div className="bg-blue-500 w-12 h-12 rounded-lg flex items-center justify-center">
