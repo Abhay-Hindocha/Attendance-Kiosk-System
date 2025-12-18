@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\LeavePolicy;
+use App\Models\AuditLog;
 use App\Services\LeavePolicyService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
@@ -84,11 +86,33 @@ class LeavePolicyController extends Controller
         return response()->json(['message' => 'Policy deleted successfully.']);
     }
 
-    public function toggleStatus(LeavePolicy $leavePolicy)
+    public function toggleStatus(Request $request, LeavePolicy $leavePolicy)
     {
+        $oldValues = $leavePolicy->toArray();
         $leavePolicy->is_active = !$leavePolicy->is_active;
         $leavePolicy->updated_at = now();
         $leavePolicy->save();
+        $newValues = $leavePolicy->fresh()->toArray();
+
+        Log::info('Leave policy status toggled', [
+            'policy_id' => $leavePolicy->id,
+            'policy_name' => $leavePolicy->name,
+            'new_status' => $leavePolicy->is_active ? 'active' : 'inactive',
+            'admin_id' => auth()->id(),
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'status_toggled',
+            'model_type' => LeavePolicy::class,
+            'model_id' => $leavePolicy->id,
+            'old_values' => $oldValues,
+            'new_values' => $newValues,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         return response()->json([
             'policy' => $leavePolicy,

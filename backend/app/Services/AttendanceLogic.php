@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Attendance;
 use App\Models\Employee;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 /**
  * AttendanceLogic Service
@@ -125,6 +126,11 @@ class AttendanceLogic
     public function calculateWorkMinutes(Attendance $attendance, $policy): int
     {
         if (!$attendance->check_in || !$attendance->check_out) {
+            Log::debug('Cannot calculate work minutes: missing check-in or check-out', [
+                'attendance_id' => $attendance->id,
+                'check_in' => $attendance->check_in,
+                'check_out' => $attendance->check_out
+            ]);
             return 0;
         }
 
@@ -136,6 +142,10 @@ class AttendanceLogic
 
         // If policy includes break time in calculation, return total elapsed
         if ($policy->include_break) {
+            Log::debug('Work minutes calculated (including breaks)', [
+                'attendance_id' => $attendance->id,
+                'total_elapsed_minutes' => $totalElapsedMinutes
+            ]);
             return $totalElapsedMinutes;
         }
 
@@ -151,7 +161,16 @@ class AttendanceLogic
             }
         }
 
-        return max(0, $totalElapsedMinutes - $breakMinutes);
+        $netWorkMinutes = max(0, $totalElapsedMinutes - $breakMinutes);
+
+        Log::debug('Work minutes calculated (excluding breaks)', [
+            'attendance_id' => $attendance->id,
+            'total_elapsed_minutes' => $totalElapsedMinutes,
+            'break_minutes' => $breakMinutes,
+            'net_work_minutes' => $netWorkMinutes
+        ]);
+
+        return $netWorkMinutes;
     }
 
     /**

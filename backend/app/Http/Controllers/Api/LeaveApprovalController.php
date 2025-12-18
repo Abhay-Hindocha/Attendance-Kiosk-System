@@ -99,6 +99,7 @@ class LeaveApprovalController extends Controller
 
             $leaveRequest->status = 'approved';
             $leaveRequest->approved_at = now();
+            $leaveRequest->total_days = $totalDays;
             $leaveRequest->save();
 
             LeaveRequestTimeline::create([
@@ -218,6 +219,7 @@ class LeaveApprovalController extends Controller
             $leaveRequest->from_date = $newFrom;
             $leaveRequest->to_date = $newTo;
             $leaveRequest->estimated_days = $newTotalDays;
+            $leaveRequest->total_days = $newTotalDays;
             $leaveRequest->sandwich_applied_days = 0;
             $leaveRequest->save();
 
@@ -349,6 +351,7 @@ class LeaveApprovalController extends Controller
             'from_date' => $data['from_date'],
             'to_date' => $data['to_date'],
             'estimated_days' => $estimatedDays,
+            'total_days' => $estimatedDays,
             'reason' => $data['reason'] ?? '',
             'status' => 'approved', // Manual corrections are auto-approved
             'approved_at' => now(),
@@ -382,6 +385,7 @@ class LeaveApprovalController extends Controller
             'from_date' => $data['from_date'],
             'to_date' => $data['to_date'],
             'estimated_days' => $newEstimatedDays,
+            'total_days' => $newEstimatedDays,
             'reason' => $data['reason'] ?? $leaveRequest->reason,
             'sandwich_applied_days' => 0,
         ]);

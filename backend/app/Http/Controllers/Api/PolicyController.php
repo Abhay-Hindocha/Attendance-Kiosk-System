@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Policy;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class PolicyController extends Controller
@@ -87,7 +89,29 @@ class PolicyController extends Controller
             'early_grace_period' => 'integer|min:0',
         ]);
 
+        $oldValues = $policy->toArray();
         $policy->update($request->all());
+        $newValues = $policy->fresh()->toArray();
+
+        Log::info('Policy updated', [
+            'policy_id' => $policy->id,
+            'policy_name' => $policy->name,
+            'admin_id' => auth()->id(),
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'updated',
+            'model_type' => Policy::class,
+            'model_id' => $policy->id,
+            'old_values' => $oldValues,
+            'new_values' => $newValues,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
         return response()->json($policy);
     }
 

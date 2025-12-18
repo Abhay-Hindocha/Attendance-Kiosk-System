@@ -15,6 +15,7 @@ use App\Services\AttendanceLogic;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -871,13 +872,19 @@ class AttendanceController extends Controller
         return response()->json($earlyDepartures);
     }
 
-public function markAttendance(Request $request)
-{
-    $request->validate([
-        'employee_id' => 'required|string|exists:employees,employee_id',
-    ]);
+    public function markAttendance(Request $request)
+    {
+        Log::info('Attendance marking attempt', [
+            'employee_id' => $request->input('employee_id'),
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
 
-    $employee = Employee::with('policy')->where('employee_id', $request->employee_id)->first();
+        $request->validate([
+            'employee_id' => 'required|string|exists:employees,employee_id',
+        ]);
+
+        $employee = Employee::with('policy')->where('employee_id', $request->employee_id)->first();
 
     // Added check to disallow inactive employees to mark attendance
     if ($employee->status !== 'active') {
@@ -968,6 +975,13 @@ public function markAttendance(Request $request)
 
     // Invalidate dashboard cache
     \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
+    Log::info('Check-in marked successfully', [
+        'employee_id' => $employee->employee_id,
+        'employee_name' => $employee->name,
+        'attendance_id' => $attendance->id,
+        'scan_count' => 1
+    ]);
 
     return response()->json([
         'message' => 'Check-in marked successfully',
