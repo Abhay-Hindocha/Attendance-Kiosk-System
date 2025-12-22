@@ -48,11 +48,19 @@ class ApiService {
         throw errorData; // Throw the error to be caught by the caller
       }
 
-      // Handle different response types
-      if (options.responseType === 'blob') {
-        return response.blob(); // Return blob for file downloads
+      // Check content-type for success responses
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        // Handle different response types
+        if (options.responseType === 'blob') {
+          return response.blob(); // Return blob for file downloads
+        } else {
+          return response.json(); // Return parsed JSON for regular responses
+        }
       } else {
-        return response.json(); // Return parsed JSON for regular responses
+        // If success response but not JSON (e.g., HTML error page), treat as error
+        const text = await response.text();
+        throw { message: `Server returned HTML instead of JSON: ${text.substring(0, 100)}...` };
       }
     } catch (error) {
       console.error('API request failed:', error); // Log errors for debugging
@@ -433,7 +441,41 @@ class ApiService {
     });
   }
 
+  // Admin endpoints
+  async getDepartments() {
+    return this.request('/admin/departments');
+  }
+
+  async getEmployeesByDepartment(department) {
+    const params = department && department !== 'all' ? `?department=${encodeURIComponent(department)}` : '';
+    return this.request(`/admin/employees-by-department${params}`);
+  }
+
+  async getAttendanceLogs(employeeId, startDate, endDate) {
+    return this.request(`/admin/attendance-logs?employee_id=${employeeId}&start_date=${startDate}&end_date=${endDate}`);
+  }
+
+  async addNewAttendance(attendanceData) {
+    return this.request('/admin/attendance/add-new', {
+      method: 'POST',
+      body: JSON.stringify(attendanceData),
+    });
+  }
+
+  async updateAttendanceRecord(attendanceId, attendanceData) {
+    return this.request(`/admin/attendance/${attendanceId}/update`, {
+      method: 'PUT',
+      body: JSON.stringify(attendanceData),
+    });
+  }
+
 
 }
+
+// Helper function to get full API URL
+export const getApiUrl = (endpoint) => {
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `/api${normalizedEndpoint}`;
+};
 
 export default new ApiService();

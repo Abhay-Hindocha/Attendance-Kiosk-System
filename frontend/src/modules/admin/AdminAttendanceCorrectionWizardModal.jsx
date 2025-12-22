@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, Plus, Edit, CheckCircle, Clock, Calendar, FileText, AlertCircle, User } from 'lucide-react';
+import { getApiUrl } from '../../services/api';
+import apiService from '../../services/api';
 
 const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmployee, startDate, endDate, attendanceLogs }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -69,33 +71,19 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
 
   const loadDepartments = async () => {
     try {
-      const response = await fetch('/api/admin/departments', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setDepartments(data.departments || []);
-      }
+      const data = await apiService.getDepartments();
+      setDepartments(data.departments || []);
     } catch (error) {
       console.error('Failed to load departments:', error);
+      setErrors({ submit: 'Failed to load departments. Please check your authentication and try again.' });
+      setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 5000);
     }
   };
 
   const loadEmployees = async () => {
     try {
-      const response = await fetch(`/api/admin/employees-by-department?department=${encodeURIComponent(selectedDepartment)}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setEmployees(data.employees || []);
-      }
+      const data = await apiService.getEmployeesByDepartment(selectedDepartment);
+      setEmployees(data.employees || []);
     } catch (error) {
       console.error('Failed to load employees:', error);
     }
@@ -111,27 +99,16 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
     setLoading(true);
     setErrors({});
     try {
-      const response = await fetch(`/api/admin/attendance-logs?employee_id=${wizardSelectedEmployee}&start_date=${wizardStartDate}&end_date=${wizardEndDate}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
+      const data = await apiService.getAttendanceLogs(wizardSelectedEmployee, wizardStartDate, wizardEndDate);
+      const logs = data.attendances || [];
+      setWizardAttendanceLogs(logs);
 
-      if (response.ok) {
-        const data = await response.json();
-        const logs = data.attendances || [];
-        setWizardAttendanceLogs(logs);
-
-        if (logs.length > 0) {
-          setSuccessMsg('Attendance logs loaded successfully');
-          setTimeout(() => setSuccessMsg(''), 2000);
-        } else {
-          setNoLogsMsg('No logs found for the selected period');
-          setTimeout(() => setNoLogsMsg(''), 2000);
-        }
+      if (logs.length > 0) {
+        setSuccessMsg('Attendance logs loaded successfully');
+        setTimeout(() => setSuccessMsg(''), 2000);
       } else {
-        setErrors({ submit: 'Failed to fetch attendance logs' });
-        setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
+        setNoLogsMsg('No logs found for the selected period');
+        setTimeout(() => setNoLogsMsg(''), 2000);
       }
     } catch (error) {
       setErrors({ submit: 'Failed to fetch attendance logs' });
@@ -256,7 +233,6 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
     setSuccessMsg('');
 
     try {
-      let response;
       const requestData = {
         reason: formData.reason,
       };
@@ -264,7 +240,7 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
       if (formData.check_in) requestData.check_in = formData.check_in;
       if (formData.check_out) requestData.check_out = formData.check_out;
 
-      if (formData.breaks && Array.isArray(formData.breaks) && formData.breaks.length > 0) {
+      if (formData.breaks && Array.isArray(formData.breaks)) {
         requestData.breaks = formData.breaks.map(b => ({
           break_start: b.break_start || null,
           break_end: b.break_end || null
@@ -275,39 +251,19 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
         requestData.employee_id = wizardSelectedEmployee;
         requestData.date = formData.date;
 
-        response = await fetch('/api/admin/attendance/add-new', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          },
-          body: JSON.stringify(requestData)
-        });
+        await apiService.addNewAttendance(requestData);
       } else if (selectedAction === 'edit_attendance') {
-        response = await fetch(`/api/admin/attendance/${formData.attendance_id}/update`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          },
-          body: JSON.stringify(requestData)
-        });
+        await apiService.updateAttendanceRecord(formData.attendance_id, requestData);
       }
 
-      if (response.ok) {
-        setSuccessMsg('Attendance updated successfully');
-        setTimeout(() => {
-          setSuccessMsg('');
-          if (typeof onSuccess === 'function') onSuccess();
-          onClose();
-        }, 1500);
-      } else {
-        const errorData = await response.json();
-        setErrors({ submit: errorData.message || 'Failed to update attendance' });
-        setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
-      }
+      setSuccessMsg('Attendance updated successfully');
+      setTimeout(() => {
+        setSuccessMsg('');
+        if (typeof onSuccess === 'function') onSuccess();
+        onClose();
+      }, 1500);
     } catch (error) {
-      setErrors({ submit: 'Failed to update attendance' });
+      setErrors({ submit: error.message || 'Failed to update attendance' });
       setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 2000);
     } finally {
       setLoading(false);

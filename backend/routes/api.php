@@ -85,8 +85,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('attendance/on-leave-today', [AttendanceController::class, 'getOnLeaveToday']); // Get employees on leave today
     Route::get('attendance/late-arrivals-today', [AttendanceController::class, 'getLateArrivalsToday']); // Get late arrivals today
     Route::get('attendance/early-departures-today', [AttendanceController::class, 'getEarlyDeparturesToday']); // Get early departures today
-    Route::get('attendance/employee/{employeeId}/{year}/{month}', [AttendanceController::class, 'getEmployeeMonthlyAttendance']); // Get monthly attendance for specific employee
-    Route::get('attendance/export/employee/{employeeId}/{year}/{month}', [AttendanceController::class, 'exportEmployeeMonthlyAttendance']); // Export monthly attendance data
     Route::get('attendance/export/daily/employee/{employeeId}/{date}', [AttendanceController::class, 'exportEmployeeDailyAttendance']); // Export daily attendance data
     Route::get('attendance/export/custom/employee/{employeeId}/{startDate}/{endDate}', [AttendanceController::class, 'exportEmployeeCustomRangeAttendance']); // Export custom range attendance data
     Route::post('attendance/email', [AttendanceController::class, 'emailEmployeeAttendanceReport']); // Email attendance report to employee
@@ -142,6 +140,7 @@ Route::middleware('auth:employee')->group(function () {
 // Shared routes for both admin and employee authentication
 Route::middleware('auth.admin.or.employee')->group(function () {
     Route::get('leave/requests/{leave_request}', [LeaveRequestController::class, 'show']);
+    Route::get('attendance/employee/{employeeId}/{year}/{month}', [AttendanceController::class, 'getEmployeeMonthlyAttendance']);
 });
 
 // Download route - handles both session-based and token-based authentication

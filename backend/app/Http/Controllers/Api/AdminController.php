@@ -146,7 +146,7 @@ class AdminController extends Controller
 
                         if (!empty($breakData['break_start'])) {
                             try {
-                                $breakStartDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_start']);
+                                $breakStartDateTime = Carbon::parse($attendance->date->format('Y-m-d') . ' ' . $breakData['break_start']);
                                 $breakRecord['break_start'] = $breakStartDateTime->toDateTimeString();
                             } catch (\Exception $e) {
                                 \Log::error('Error parsing break start: ' . $e->getMessage());
@@ -155,7 +155,7 @@ class AdminController extends Controller
 
                         if (!empty($breakData['break_end'])) {
                             try {
-                                $breakEndDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_end']);
+                                $breakEndDateTime = Carbon::parse($attendance->date->format('Y-m-d') . ' ' . $breakData['break_end']);
                                 $breakRecord['break_end'] = $breakEndDateTime->toDateTimeString();
                             } catch (\Exception $e) {
                                 \Log::error('Error parsing break end: ' . $e->getMessage());
@@ -525,14 +525,19 @@ class AdminController extends Controller
 
     public function getDepartments()
     {
-        $departments = \App\Models\Employee::distinct()
-            ->whereNotNull('department')
-            ->pluck('department')
-            ->filter()
-            ->sort()
-            ->values();
+        try {
+            $departments = \App\Models\Employee::distinct()
+                ->whereNotNull('department')
+                ->pluck('department')
+                ->filter()
+                ->sort()
+                ->values();
 
-        return response()->json(['departments' => $departments]);
+            return response()->json(['departments' => $departments]);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching departments: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch departments'], 500);
+        }
     }
 
     public function getEmployeesByDepartment(Request $request)
@@ -714,32 +719,37 @@ class AdminController extends Controller
         $attendance->update($updates);
 
         // Handle breaks - always process breaks even if empty to allow deletion of existing breaks
-        if (isset($data['breaks'])) {
-            // Always delete existing breaks first
-            $attendance->breaks()->delete();
+        try {
+            if (isset($data['breaks'])) {
+                // Always delete existing breaks first
+                $attendance->breaks()->delete();
 
-            // Create new breaks only if provided and not empty
-            if (is_array($data['breaks']) && !empty($data['breaks'])) {
-                foreach ($data['breaks'] as $breakData) {
-                    if (!empty($breakData['break_start']) || !empty($breakData['break_end'])) {
-                        $breakRecord = [
-                            'attendance_id' => $attendance->id,
-                        ];
+                // Create new breaks only if provided and not empty
+                if (is_array($data['breaks']) && !empty($data['breaks'])) {
+                    foreach ($data['breaks'] as $breakData) {
+                        if (!empty($breakData['break_start']) || !empty($breakData['break_end'])) {
+                            $breakRecord = [
+                                'attendance_id' => $attendance->id,
+                            ];
 
-                        if (!empty($breakData['break_start'])) {
-                            $breakStartDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_start']);
-                            $breakRecord['break_start'] = $breakStartDateTime->toDateTimeString();
+                            if (!empty($breakData['break_start'])) {
+                                $breakStartDateTime = Carbon::parse($attendance->date->format('Y-m-d') . ' ' . $breakData['break_start']);
+                                $breakRecord['break_start'] = $breakStartDateTime->toDateTimeString();
+                            }
+
+                            if (!empty($breakData['break_end'])) {
+                                $breakEndDateTime = Carbon::parse($attendance->date->format('Y-m-d') . ' ' . $breakData['break_end']);
+                                $breakRecord['break_end'] = $breakEndDateTime->toDateTimeString();
+                            }
+
+                            BreakRecord::create($breakRecord);
                         }
-
-                        if (!empty($breakData['break_end'])) {
-                            $breakEndDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $breakData['break_end']);
-                            $breakRecord['break_end'] = $breakEndDateTime->toDateTimeString();
-                        }
-
-                        BreakRecord::create($breakRecord);
                     }
                 }
             }
+        } catch (\Exception $e) {
+            \Log::error('Error processing breaks: ' . $e->getMessage());
+            return response()->json(['message' => 'Error processing breaks: ' . $e->getMessage()], 500);
         }
 
         // Log the action

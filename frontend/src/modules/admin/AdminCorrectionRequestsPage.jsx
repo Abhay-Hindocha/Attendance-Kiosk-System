@@ -15,6 +15,7 @@ import {
   XCircle
 } from 'lucide-react';
 import AdminAttendanceCorrectionWizardModal from './AdminAttendanceCorrectionWizardModal';
+import ApiService from '../../services/api';
 
 const AdminCorrectionRequestsPage = () => {
   const [requests, setRequests] = useState([]);
@@ -54,16 +55,11 @@ const AdminCorrectionRequestsPage = () => {
   const loadCorrectionRequests = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/correction-requests?status=${filter}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setRequests(data.requests || []);
-      } else if (response.status === 401) {
+      const data = await ApiService.get(`/admin/correction-requests?status=${filter}`);
+      setRequests(data.requests || []);
+    } catch (error) {
+      console.error('Error loading correction requests:', error);
+      if (error.message && error.message.includes('Authentication')) {
         setNotification({ show: true, type: 'error', message: 'Authentication failed. Please log in again.' });
         // Clear invalid token
         localStorage.removeItem('authToken');
@@ -73,20 +69,12 @@ const AdminCorrectionRequestsPage = () => {
         setTimeout(() => {
           window.location.href = '/login';
         }, 2000);
-      } else if (response.status === 403) {
+      } else if (error.message && error.message.includes('permission')) {
         setNotification({ show: true, type: 'error', message: 'You do not have permission to access this resource.' });
-      } else if (response.status >= 500) {
+      } else if (error.message && error.message.includes('Server error')) {
         setNotification({ show: true, type: 'error', message: 'Server error. Please try again later.' });
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        setNotification({ show: true, type: 'error', message: errorData.message || 'Failed to load correction requests' });
-      }
-    } catch (error) {
-      console.error('Error loading correction requests:', error);
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        setNotification({ show: true, type: 'error', message: 'Network error. Please check your connection and try again.' });
-      } else {
-        setNotification({ show: true, type: 'error', message: 'An error occurred while loading requests. Please try again.' });
+        setNotification({ show: true, type: 'error', message: error.message || 'Failed to load correction requests' });
       }
     } finally {
       setLoading(false);
@@ -96,23 +84,11 @@ const AdminCorrectionRequestsPage = () => {
   const handleApprove = async (id) => {
     setProcessingId(id);
     try {
-      const response = await fetch(`/api/admin/correction-requests/${id}/approve`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setNotification({ show: true, type: 'success', message: 'Correction request approved successfully' });
-        loadCorrectionRequests();
-      } else {
-        setNotification({ show: true, type: 'error', message: data.message || 'Failed to approve request' });
-      }
+      await ApiService.post(`/admin/correction-requests/${id}/approve`);
+      setNotification({ show: true, type: 'success', message: 'Correction request approved successfully' });
+      loadCorrectionRequests();
     } catch (error) {
-      setNotification({ show: true, type: 'error', message: 'An error occurred while approving request' });
+      setNotification({ show: true, type: 'error', message: error.message || 'An error occurred while approving request' });
     } finally {
       setProcessingId(null);
     }
@@ -121,23 +97,11 @@ const AdminCorrectionRequestsPage = () => {
   const handleReject = async (id) => {
     setProcessingId(id);
     try {
-      const response = await fetch(`/api/admin/correction-requests/${id}/reject`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setNotification({ show: true, type: 'success', message: 'Correction request rejected successfully' });
-        loadCorrectionRequests();
-      } else {
-        setNotification({ show: true, type: 'error', message: data.message || 'Failed to reject request' });
-      }
+      await ApiService.post(`/admin/correction-requests/${id}/reject`);
+      setNotification({ show: true, type: 'success', message: 'Correction request rejected successfully' });
+      loadCorrectionRequests();
     } catch (error) {
-      setNotification({ show: true, type: 'error', message: 'An error occurred while rejecting request' });
+      setNotification({ show: true, type: 'error', message: error.message || 'An error occurred while rejecting request' });
     } finally {
       setProcessingId(null);
     }
@@ -205,46 +169,29 @@ const AdminCorrectionRequestsPage = () => {
         reason: editForm.reason.trim()
       };
 
-      const response = await fetch(`/api/admin/attendance/${editingAttendance.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify(updateData)
+      await ApiService.put(`/admin/attendance/${editingAttendance.id}`, updateData);
+
+      setNotification({ show: true, type: 'success', message: 'Attendance record updated successfully' });
+      setEditingAttendance(null);
+      setEditForm({
+        check_in: '',
+        check_out: '',
+        reason: ''
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setNotification({ show: true, type: 'success', message: 'Attendance record updated successfully' });
-        setEditingAttendance(null);
-        setEditForm({
-          check_in: '',
-          check_out: '',
-          reason: ''
-        });
-        // Refresh the requests to show updated attendance
-        loadCorrectionRequests();
-      } else {
-        if (response.status === 422 && data.errors) {
-          // Validation errors from server
-          const errorMessages = Object.values(data.errors).flat().join(', ');
-          setNotification({ show: true, type: 'error', message: `Validation error: ${errorMessages}` });
-        } else if (response.status === 404) {
-          setNotification({ show: true, type: 'error', message: 'Attendance record not found' });
-        } else if (response.status === 409) {
-          setNotification({ show: true, type: 'error', message: 'Another attendance record exists for this time slot' });
-        } else {
-          setNotification({ show: true, type: 'error', message: data.message || 'Failed to update attendance' });
-        }
-      }
+      // Refresh the requests to show updated attendance
+      loadCorrectionRequests();
     } catch (error) {
       console.error('Error updating attendance:', error);
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      if (error.message && error.message.includes('Validation error')) {
+        setNotification({ show: true, type: 'error', message: error.message });
+      } else if (error.message && error.message.includes('not found')) {
+        setNotification({ show: true, type: 'error', message: 'Attendance record not found' });
+      } else if (error.message && error.message.includes('exists')) {
+        setNotification({ show: true, type: 'error', message: 'Another attendance record exists for this time slot' });
+      } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
         setNotification({ show: true, type: 'error', message: 'Network error. Please check your connection and try again.' });
       } else {
-        setNotification({ show: true, type: 'error', message: 'An error occurred while updating attendance. Please try again.' });
+        setNotification({ show: true, type: 'error', message: error.message || 'An error occurred while updating attendance. Please try again.' });
       }
     } finally {
       setProcessingId(null);

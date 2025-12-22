@@ -57,35 +57,23 @@ const AdminLeaveCorrectionWizardModal = ({ onClose, onSuccess }) => {
 
   const loadDepartments = async () => {
     try {
-      const response = await fetch('/api/admin/departments', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setDepartments(data.departments || []);
-      }
+      const data = await api.getDepartments();
+      setDepartments(data.departments || []);
     } catch (error) {
       console.error('Failed to load departments:', error);
+      setErrors({ submit: 'Failed to load departments. Please check your authentication and try again.' });
+      setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 5000);
     }
   };
 
   const loadEmployees = async () => {
     try {
-      const response = await fetch(`/api/admin/employees-by-department?department=${encodeURIComponent(selectedDepartment)}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setEmployees(data.employees || []);
-      }
+      const data = await api.getEmployeesByDepartment(selectedDepartment);
+      setEmployees(data.employees || []);
     } catch (error) {
       console.error('Failed to load employees:', error);
+      setErrors({ submit: 'Failed to load employees. Please check your authentication and try again.' });
+      setTimeout(() => setErrors(prev => ({ ...prev, submit: '' })), 5000);
     }
   };
 
