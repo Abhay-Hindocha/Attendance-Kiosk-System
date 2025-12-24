@@ -99,7 +99,7 @@ class LeaveRequestController extends Controller
         $partialDay = $data['partial_day'] ?? 'full_day';
         $isPartial = $partialDay === 'half_day';
         $holidays = $this->sandwichRuleService->getHolidaysForYear($fromDate->year);
-        $estimatedDays = $this->calculateEstimatedDays($fromDate, $toDate, $isPartial, $data['partial_session'] ?? null, $holidays);
+        $estimatedDays = $this->calculateEstimatedDays($fromDate, $toDate, $isPartial, $data['partial_session'] ?? null, $holidays, $policy);
 
         $sandwichResult = $this->sandwichRuleService->applySandwichRule($policy, $fromDate, $toDate);
         $sandwichDays = $sandwichResult['sandwich_days'];
@@ -321,16 +321,21 @@ class LeaveRequestController extends Controller
         Carbon $toDate,
         bool $isPartial,
         ?string $partialSession,
-        array $holidays = []
+        array $holidays = [],
+        ?LeavePolicy $policy = null
     ): float {
         if ($isPartial) {
             return $partialSession === 'custom' ? 0.5 : 0.5;
         }
 
         $period = CarbonPeriod::create($fromDate, $toDate);
-        return collect($period)->reduce(function ($carry, Carbon $date) use ($holidays) {
-            if (!$date->isWeekend() && !in_array($date->toDateString(), $holidays)) {
-                return $carry + 1;
+        $excludeHolidays = !($policy && $policy->sandwich_rule_enabled);
+
+        return collect($period)->reduce(function ($carry, Carbon $date) use ($holidays, $excludeHolidays) {
+            if (!$date->isWeekend()) {
+                if (!$excludeHolidays || !in_array($date->toDateString(), $holidays)) {
+                    return $carry + 1;
+                }
             }
             return $carry;
         }, 0.0);

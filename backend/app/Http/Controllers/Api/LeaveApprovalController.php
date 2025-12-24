@@ -52,13 +52,7 @@ class LeaveApprovalController extends Controller
             if (!empty($data['from_date']) && !empty($data['to_date'])) {
                 $fromDate = Carbon::parse($data['from_date']);
                 $toDate = Carbon::parse($data['to_date']);
-                $period = CarbonPeriod::create($fromDate, $toDate);
-                $totalDays = collect($period)->reduce(function ($carry, Carbon $date) {
-                    if (!$date->isWeekend()) {
-                        return $carry + 1;
-                    }
-                    return $carry;
-                }, 0.0);
+                $totalDays = $this->calculateLeaveDays($data['from_date'], $data['to_date'], !($leaveRequest->policy->sandwich_rule_enabled ?? false));
                 $leaveRequest->from_date = $fromDate;
                 $leaveRequest->to_date = $toDate;
                 $leaveRequest->estimated_days = $totalDays;
@@ -198,13 +192,7 @@ class LeaveApprovalController extends Controller
             $totalDaysOld = $leaveRequest->estimated_days + $leaveRequest->sandwich_applied_days;
             $newFrom = Carbon::parse($data['from_date']);
             $newTo = Carbon::parse($data['to_date']);
-            $period = CarbonPeriod::create($newFrom, $newTo);
-            $newTotalDays = collect($period)->reduce(function ($carry, Carbon $date) {
-                if (!$date->isWeekend()) {
-                    return $carry + 1;
-                }
-                return $carry;
-            }, 0.0);
+            $newTotalDays = $this->calculateLeaveDays($data['from_date'], $data['to_date'], !($leaveRequest->policy->sandwich_rule_enabled ?? false));
 
             $balance = LeaveBalance::where('employee_id', $leaveRequest->employee_id)
                 ->where('leave_policy_id', $leaveRequest->leave_policy_id)
@@ -452,7 +440,7 @@ class LeaveApprovalController extends Controller
         ]);
     }
 
-    private function calculateLeaveDays($fromDate, $toDate)
+    private function calculateLeaveDays($fromDate, $toDate, $excludeHolidays = true)
     {
         $from = Carbon::parse($fromDate);
         $to = Carbon::parse($toDate);
@@ -461,9 +449,13 @@ class LeaveApprovalController extends Controller
         $days = 0;
         foreach ($period as $date) {
             if (!$date->isWeekend()) {
-                $isHoliday = Holiday::where('date', $date->toDateString())->exists();
-                if (!$isHoliday) {
+                if (!$excludeHolidays) {
                     $days += 1;
+                } else {
+                    $isHoliday = Holiday::where('date', $date->toDateString())->exists();
+                    if (!$isHoliday) {
+                        $days += 1;
+                    }
                 }
             }
         }

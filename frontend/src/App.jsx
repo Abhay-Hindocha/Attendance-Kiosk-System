@@ -15,7 +15,6 @@ import EmployeeLoginPage from './modules/employee/EmployeeLoginPage';
 import EmployeeLayout from './modules/employee/EmployeeLayout';
 import EmployeeDashboardPage from './modules/employee/EmployeeDashboardPage';
 import EmployeeLeavesPage from './modules/employee/EmployeeLeavesPage';
-import EmployeeLeaveApplyPage from './modules/employee/EmployeeLeaveApplyPage';
 import EmployeeAttendanceCorrectionPage from './modules/employee/EmployeeAttendancePage';
 import EmployeeProfilePage from './modules/employee/EmployeeProfilePage';
 
@@ -91,7 +90,6 @@ function App() {
           <Route index element={<Navigate to="/employee/dashboard" replace />} />
           <Route path="dashboard" element={<EmployeeDashboardPage />} />
           <Route path="leaves" element={<EmployeeLeavesPage />} />
-          <Route path="apply-leave" element={<EmployeeLeaveApplyPage />} />
           <Route path="attendance" element={<EmployeeAttendanceCorrectionPage />} />
           <Route path="profile" element={<EmployeeProfilePage />} />
         </Route>
