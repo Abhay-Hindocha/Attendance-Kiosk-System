@@ -51,19 +51,25 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Not authenticated'], 401);
+        }
+
         Log::info('Logout attempt', [
-            'admin_id' => $request->user()->id,
-            'admin_email' => $request->user()->email,
+            'admin_id' => $user->id,
+            'admin_email' => $user->email,
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent()
         ]);
 
         // Revoke the token that authenticated this request
-        $request->user()->currentAccessToken()->delete();
+        $user->currentAccessToken()->delete();
 
         Log::info('Admin logged out successfully', [
-            'admin_id' => $request->user()->id,
-            'admin_email' => $request->user()->email
+            'admin_id' => $user->id,
+            'admin_email' => $user->email
         ]);
 
         return response()->json(['message' => 'Logged out successfully']);
