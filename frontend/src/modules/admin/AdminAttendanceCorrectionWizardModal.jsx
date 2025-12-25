@@ -235,10 +235,9 @@ const AdminAttendanceCorrectionWizardModal = ({ onClose, onSuccess, selectedEmpl
     try {
       const requestData = {
         reason: formData.reason,
+        check_in: formData.check_in || null,
+        check_out: formData.check_out || null,
       };
-
-      if (formData.check_in) requestData.check_in = formData.check_in;
-      if (formData.check_out) requestData.check_out = formData.check_out;
 
       if (formData.breaks && Array.isArray(formData.breaks)) {
         requestData.breaks = formData.breaks.map(b => ({

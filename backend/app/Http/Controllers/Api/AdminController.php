@@ -654,6 +654,9 @@ class AdminController extends Controller
             // Log the incoming request data
             \Log::info('Update Attendance Request Data:', $request->all());
 
+            // Store original data to check which fields were provided
+            $originalData = $request->all();
+
             // Clean the data to convert empty strings to null and parse times
             $data = $request->all();
 
@@ -707,13 +710,21 @@ class AdminController extends Controller
         ];
 
         $updates = [];
-        if (isset($data['check_in'])) {
-            $checkInDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $data['check_in']);
-            $updates['check_in'] = $checkInDateTime->toDateTimeString();
+        if (array_key_exists('check_in', $originalData)) {
+            if ($data['check_in'] === null) {
+                $updates['check_in'] = null;
+            } else {
+                $checkInDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $data['check_in']);
+                $updates['check_in'] = $checkInDateTime->toDateTimeString();
+            }
         }
-        if (isset($data['check_out'])) {
-            $checkOutDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $data['check_out']);
-            $updates['check_out'] = $checkOutDateTime->toDateTimeString();
+        if (array_key_exists('check_out', $originalData)) {
+            if ($data['check_out'] === null) {
+                $updates['check_out'] = null;
+            } else {
+                $checkOutDateTime = Carbon::createFromFormat('Y-m-d H:i', $attendance->date->format('Y-m-d') . ' ' . $data['check_out']);
+                $updates['check_out'] = $checkOutDateTime->toDateTimeString();
+            }
         }
 
         $attendance->update($updates);
