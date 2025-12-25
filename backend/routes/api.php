@@ -86,6 +86,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('attendance/late-arrivals-today', [AttendanceController::class, 'getLateArrivalsToday']); // Get late arrivals today
     Route::get('attendance/early-departures-today', [AttendanceController::class, 'getEarlyDeparturesToday']); // Get early departures today
     Route::get('attendance/export/daily/employee/{employeeId}/{date}', [AttendanceController::class, 'exportEmployeeDailyAttendance']); // Export daily attendance data
+    Route::get('attendance/export/employee/{employeeId}/{year}/{month}', [AttendanceController::class, 'exportEmployeeMonthlyAttendance']); // Export monthly attendance data
     Route::get('attendance/export/custom/employee/{employeeId}/{startDate}/{endDate}', [AttendanceController::class, 'exportEmployeeCustomRangeAttendance']); // Export custom range attendance data
     Route::post('attendance/email', [AttendanceController::class, 'emailEmployeeAttendanceReport']); // Email attendance report to employee
 

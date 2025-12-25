@@ -48,15 +48,15 @@ class ApiService {
         throw errorData; // Throw the error to be caught by the caller
       }
 
+      // Handle different response types
+      if (options.responseType === 'blob') {
+        return response.blob(); // Return blob for file downloads
+      }
+
       // Check content-type for success responses
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
-        // Handle different response types
-        if (options.responseType === 'blob') {
-          return response.blob(); // Return blob for file downloads
-        } else {
-          return response.json(); // Return parsed JSON for regular responses
-        }
+        return response.json(); // Return parsed JSON for regular responses
       } else {
         // If success response but not JSON (e.g., HTML error page), treat as error
         const text = await response.text();
