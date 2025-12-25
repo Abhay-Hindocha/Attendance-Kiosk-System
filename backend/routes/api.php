@@ -58,6 +58,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('employees/{employee}/leave-policies', [LeaveAssignmentController::class, 'store']);
     Route::delete('employees/{employee}/leave-policies/{leave_policy}', [LeaveAssignmentController::class, 'destroy']);
 
+    // Manual Leave Balances
+    Route::get('employees/{employee}/leave-balances', [\App\Http\Controllers\Api\LeaveBalanceController::class, 'index']);
+    Route::post('employees/{employee}/leave-balances/adjust', [\App\Http\Controllers\Api\LeaveBalanceController::class, 'adjust']);
+
+
 
 
     // Admin approvals
@@ -141,6 +146,7 @@ Route::middleware('auth:employee')->group(function () {
 // Shared routes for both admin and employee authentication
 Route::middleware('auth.admin.or.employee')->group(function () {
     Route::get('leave/requests/{leave_request}', [LeaveRequestController::class, 'show']);
+    Route::post('leave/estimate', [LeaveRequestController::class, 'estimate']);
     Route::get('attendance/employee/{employeeId}/{year}/{month}', [AttendanceController::class, 'getEmployeeMonthlyAttendance']);
 });
 

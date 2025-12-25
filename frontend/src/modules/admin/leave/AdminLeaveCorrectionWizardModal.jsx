@@ -259,7 +259,24 @@ const AdminLeaveCorrectionWizardModal = ({ onClose, onSuccess }) => {
           setFormData(prev => ({ ...prev, reason: `Deleted leave returned ${daysCount} day(s)` }));
         }
       } else if (selectedAction === 'adjust_balance') {
-        finalAdjustment = computeSignedAdjustment(formData.adjustment_days, formData.adjustment_type);
+        // For adjust_balance, we now use the dedicated endpoint
+        await api.adjustLeaveBalance(formData.employee_id || wizardSelectedEmployee, {
+          leave_policy_id: formData.policy_id,
+          type: formData.adjustment_type === 'add' ? 'credit' : 'debit',
+          amount: formData.adjustment_days,
+          reason: formData.reason
+        });
+
+        // Skip the legacy cleanup call for this action
+        await loadData();
+        setSuccessMsg('Updated successfully');
+        setTimeout(() => {
+          setSuccessMsg('');
+          if (typeof onSuccess === 'function') onSuccess();
+          onClose();
+        }, 1500);
+        setLoading(false);
+        return;
       }
 
       const fromDate = asYMD(formData.from_date);
@@ -371,13 +388,12 @@ const AdminLeaveCorrectionWizardModal = ({ onClose, onSuccess }) => {
                 <button
                   onClick={() => handleStepClick(step)}
                   disabled={step > currentStep && !(step === 2 && selectedAction) && !(step === 3 && selectedAction)}
-                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors ${
-                    currentStep >= step
+                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors ${currentStep >= step
                       ? 'bg-blue-600 text-white'
                       : step === 2 && selectedAction
-                      ? 'bg-blue-100 text-blue-600 border-2 border-blue-600'
-                      : 'bg-gray-200 text-gray-600'
-                  } ${step > currentStep && !(step === 2 && selectedAction) && !(step === 3 && selectedAction) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-blue-700 hover:text-white'}`}
+                        ? 'bg-blue-100 text-blue-600 border-2 border-blue-600'
+                        : 'bg-gray-200 text-gray-600'
+                    } ${step > currentStep && !(step === 2 && selectedAction) && !(step === 3 && selectedAction) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-blue-700 hover:text-white'}`}
                 >
                   {step}
                 </button>
@@ -405,9 +421,8 @@ const AdminLeaveCorrectionWizardModal = ({ onClose, onSuccess }) => {
                     <button
                       key={a.id}
                       onClick={() => handleActionSelect(a.id)}
-                      className={`p-4 border rounded-lg text-left hover:bg-blue-50 transition-colors ${
-                        selectedAction === a.id ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200'
-                      }`}
+                      className={`p-4 border rounded-lg text-left hover:bg-blue-50 transition-colors ${selectedAction === a.id ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200'
+                        }`}
                     >
                       <div className="flex gap-3">
                         <Icon className={`w-6 h-6 ${selectedAction === a.id ? 'text-blue-600' : 'text-gray-600'}`} />

@@ -19,12 +19,14 @@ class AuthAdminOrEmployee
         // Try to authenticate as admin first
         if (Auth::guard('sanctum')->check()) {
             \Log::info('AuthAdminOrEmployee: Admin authentication successful');
+            Auth::shouldUse('sanctum');
             return $next($request);
         }
 
         // If admin auth fails, try employee auth
         if (Auth::guard('employee')->check()) {
             \Log::info('AuthAdminOrEmployee: Employee authentication successful');
+            Auth::shouldUse('employee');
             return $next($request);
         }
 

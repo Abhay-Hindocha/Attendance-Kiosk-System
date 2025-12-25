@@ -219,9 +219,11 @@ class EmployeePortalController extends Controller
 
         // Recent requests
         $recentRequests = LeaveRequest::where('employee_id', $employee->id)
-            ->with(['timelines' => function ($query) {
-                $query->where('action', 'clarification_requested')->orderByDesc('created_at')->limit(1);
-            }])
+            ->with([
+                'timelines' => function ($query) {
+                    $query->where('action', 'clarification_requested')->orderByDesc('created_at')->limit(1);
+                }
+            ])
             ->orderByDesc('created_at')
             ->limit(10)
             ->get(['id', 'from_date', 'to_date', 'status', 'reason', 'leave_type', 'total_days', 'created_at']);
@@ -394,7 +396,7 @@ class EmployeePortalController extends Controller
             ->whereBetween('date', [$start, $end])
             ->with('employee.policy', 'breaks')
             ->get()
-            ->keyBy(function($item) {
+            ->keyBy(function ($item) {
                 return Carbon::parse($item->date)->toDateString();
             });
 
@@ -407,11 +409,11 @@ class EmployeePortalController extends Controller
             ->where('status', 'approved')
             ->where(function ($query) use ($start, $end) {
                 $query->whereBetween('from_date', [$start, $end])
-                      ->orWhereBetween('to_date', [$start, $end])
-                      ->orWhere(function ($q) use ($start, $end) {
-                          $q->where('from_date', '<=', $start)
+                    ->orWhereBetween('to_date', [$start, $end])
+                    ->orWhere(function ($q) use ($start, $end) {
+                        $q->where('from_date', '<=', $start)
                             ->where('to_date', '>=', $end);
-                      });
+                    });
             })
             ->get()
             ->keyBy('from_date');
@@ -461,7 +463,7 @@ class EmployeePortalController extends Controller
                     'check_in' => $checkIn,
                     'check_out' => $checkOut,
                     'total_hours' => $totalHours,
-                    'breaks' => $attendance->breaks->map(function($break) {
+                    'breaks' => $attendance->breaks->map(function ($break) {
                         return [
                             'break_start' => $break->break_start ? $break->break_start->toISOString() : null,
                             'break_end' => $break->break_end ? $break->break_end->toISOString() : null,
@@ -536,7 +538,7 @@ class EmployeePortalController extends Controller
             ->whereBetween('date', [$start, $end])
             ->with('employee.policy', 'breaks')
             ->get()
-            ->keyBy(function($item) {
+            ->keyBy(function ($item) {
                 return Carbon::parse($item->date)->toDateString();
             });
 
@@ -549,11 +551,11 @@ class EmployeePortalController extends Controller
             ->where('status', 'approved')
             ->where(function ($query) use ($start, $end) {
                 $query->whereBetween('from_date', [$start, $end])
-                      ->orWhereBetween('to_date', [$start, $end])
-                      ->orWhere(function ($q) use ($start, $end) {
-                          $q->where('from_date', '<=', $start)
+                    ->orWhereBetween('to_date', [$start, $end])
+                    ->orWhere(function ($q) use ($start, $end) {
+                        $q->where('from_date', '<=', $start)
                             ->where('to_date', '>=', $end);
-                      });
+                    });
             })
             ->get()
             ->keyBy('from_date');
@@ -602,7 +604,7 @@ class EmployeePortalController extends Controller
                     'check_in' => $checkIn,
                     'check_out' => $checkOut,
                     'total_hours' => $totalHours,
-                    'breaks' => $attendance->breaks->map(function($break) {
+                    'breaks' => $attendance->breaks->map(function ($break) {
                         return [
                             'break_start' => $break->break_start ? $break->break_start->toISOString() : null,
                             'break_end' => $break->break_end ? $break->break_end->toISOString() : null,
@@ -661,7 +663,7 @@ class EmployeePortalController extends Controller
 
         $columns = ['Date', 'Check In', 'Check Out', 'Total Hours', 'Breaks', 'Break Details', 'Status'];
 
-        $callback = function() use ($result, $columns) {
+        $callback = function () use ($result, $columns) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
@@ -737,6 +739,7 @@ class EmployeePortalController extends Controller
         $attendancePolicy = $employee->policy;
 
         return response()->json([
+            'id' => $employee->id,
             'employee_id' => $employee->employee_id,
             'name' => $employee->name,
             'email' => $employee->email,
@@ -776,19 +779,19 @@ class EmployeePortalController extends Controller
                 'file_size' => $request->file('profile_photo')->getSize(),
                 'file_name' => $request->file('profile_photo')->getClientOriginalName(),
             ]);
-            
+
             $validated = $request->validate([
                 'profile_photo' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
             ]);
-            
+
             \Log::info('File validation passed');
-            
+
             // Delete old photo if exists
             if ($employee->profile_photo) {
                 \Log::info('Deleting old photo: ' . $employee->profile_photo);
                 \Storage::disk('public')->delete($employee->profile_photo);
             }
-            
+
             $path = $request->file('profile_photo')->store('profile_photos', 'public');
             \Log::info('File stored at: ' . $path);
             $data['profile_photo'] = $path;

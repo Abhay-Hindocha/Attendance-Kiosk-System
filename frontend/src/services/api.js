@@ -302,6 +302,13 @@ class ApiService {
     });
   }
 
+  async adjustLeaveBalance(employeeId, payload) {
+    return this.request(`/employees/${employeeId}/leave-balances/adjust`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   // Attendance endpoints
   async getAttendances(params = {}) {
     const queryString = new URLSearchParams(params).toString();

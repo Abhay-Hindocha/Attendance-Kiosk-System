@@ -77,6 +77,50 @@ class LeaveRequestController extends Controller
             'attachment' => ['nullable', 'file', 'max:4096'],
         ]);
 
+        return $this->processLeaveRequest($request, $data);
+    }
+
+    public function estimate(Request $request)
+    {
+        $data = $request->validate([
+            'employee_id' => ['nullable', 'exists:employees,id'],
+            'leave_policy_id' => ['required', 'exists:leave_policies,id'],
+            'from_date' => ['required', 'date', 'before_or_equal:to_date'],
+            'to_date' => ['required', 'date'],
+            'partial_day' => ['nullable', Rule::in(['full_day', 'half_day'])],
+            'partial_session' => ['nullable', Rule::in(['first_half', 'second_half', 'custom'])],
+        ]);
+
+        $requestingUser = $request->user();
+        $employeeId = $data['employee_id'] ?? ($requestingUser instanceof Employee ? $requestingUser->id : null);
+
+        if (!$employeeId) {
+            return response()->json(['error' => 'Employee ID is required'], 422);
+        }
+
+        $policy = LeavePolicy::findOrFail($data['leave_policy_id']);
+        $fromDate = Carbon::parse($data['from_date'])->startOfDay();
+        $toDate = Carbon::parse($data['to_date'])->startOfDay();
+        $partialDay = $data['partial_day'] ?? 'full_day';
+        $isPartial = $partialDay === 'half_day';
+
+        $holidays = $this->sandwichRuleService->getHolidaysForYear($fromDate->year);
+        $estimatedDays = $this->calculateEstimatedDays($fromDate, $toDate, $isPartial, $data['partial_session'] ?? null, $holidays, $policy);
+
+        $sandwichResult = $this->sandwichRuleService->applySandwichRule($policy, $fromDate, $toDate, $employeeId, $estimatedDays);
+        $sandwichDays = $sandwichResult['sandwich_days'];
+        $totalDays = $estimatedDays + $sandwichDays;
+
+        return response()->json([
+            'estimated_days' => $estimatedDays,
+            'sandwich_days' => $sandwichDays,
+            'total_days' => $totalDays,
+            'sandwich_applied' => $sandwichDays > 0
+        ]);
+    }
+
+    private function processLeaveRequest(Request $request, array $data)
+    {
         $requestingUser = $request->user();
 
         if ($requestingUser instanceof Employee) {
@@ -101,7 +145,7 @@ class LeaveRequestController extends Controller
         $holidays = $this->sandwichRuleService->getHolidaysForYear($fromDate->year);
         $estimatedDays = $this->calculateEstimatedDays($fromDate, $toDate, $isPartial, $data['partial_session'] ?? null, $holidays, $policy);
 
-        $sandwichResult = $this->sandwichRuleService->applySandwichRule($policy, $fromDate, $toDate);
+        $sandwichResult = $this->sandwichRuleService->applySandwichRule($policy, $fromDate, $toDate, $employee->id, $estimatedDays);
         $sandwichDays = $sandwichResult['sandwich_days'];
         $totalDays = $estimatedDays + $sandwichDays;
 
@@ -135,18 +179,7 @@ class LeaveRequestController extends Controller
             $attachmentPath = $request->file('attachment')->store('leave-documents', 'public');
         }
 
-        $leaveRequest = DB::transaction(function () use (
-            $employee,
-            $policy,
-            $totalDays,
-            $estimatedDays,
-            $sandwichDays,
-            $partialDay,
-            $data,
-            $attachmentPath,
-            $requiresDocument,
-            $request
-        ) {
+        $leaveRequest = DB::transaction(function () use ($employee, $policy, $totalDays, $estimatedDays, $sandwichDays, $partialDay, $data, $attachmentPath, $requiresDocument, $request) {
             $balance = LeaveBalance::firstOrCreate(
                 [
                     'employee_id' => $employee->id,
@@ -217,7 +250,7 @@ class LeaveRequestController extends Controller
             abort(403, 'You can only view your own leave requests.');
         }
 
-        $leaveRequest->load(['employee', 'policy', 'timelines' => fn ($q) => $q->orderBy('created_at')]);
+        $leaveRequest->load(['employee', 'policy', 'timelines' => fn($q) => $q->orderBy('created_at')]);
 
         return response()->json($leaveRequest);
     }
@@ -274,14 +307,14 @@ class LeaveRequestController extends Controller
     public function download(Request $request, LeaveRequest $leaveRequest)
     {
         $user = null;
-        
+
         // Try to get authenticated user from current session/headers
         if (auth('sanctum')->check()) {
             $user = auth('sanctum')->user();
         } elseif (auth('employee')->check()) {
             $user = auth('employee')->user();
         }
-        
+
         // If no authenticated user, try to get from token query parameter
         if (!$user && $request->has('token')) {
             $token = $request->query('token');
@@ -329,7 +362,9 @@ class LeaveRequestController extends Controller
         }
 
         $period = CarbonPeriod::create($fromDate, $toDate);
-        $excludeHolidays = !($policy && $policy->sandwich_rule_enabled);
+        // Always exclude holidays from the base estimation
+        // Sandwich rule additional days will be calculated separately by the service
+        $excludeHolidays = true;
 
         return collect($period)->reduce(function ($carry, Carbon $date) use ($holidays, $excludeHolidays) {
             if (!$date->isWeekend()) {

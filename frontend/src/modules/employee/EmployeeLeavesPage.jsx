@@ -36,6 +36,8 @@ const EmployeeDashboardPage = () => {
   const [wizardError, setWizardError] = useState('');
   const [wizardSuccess, setWizardSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [estimation, setEstimation] = useState({ estimated_days: 0, sandwich_days: 0, total_days: 0 });
+  const [estimating, setEstimating] = useState(false);
 
   // Helper: consistent date formatting (e.g. "10 Dec 2025").
   // Uses a safe parse and falls back to the original value if parsing fails.
@@ -294,50 +296,54 @@ const EmployeeDashboardPage = () => {
     return record.available;
   }, [balances, form.leave_policy_id]);
 
-  const estimatedDays = useMemo(() => {
-    if (!form.from_date || !form.to_date) return 0;
+  // Backend Estimation
+  useEffect(() => {
+    let active = true;
+    const fetchEstimate = async () => {
+      if (!form.from_date || !form.to_date || !form.leave_policy_id) {
+        setEstimation({ estimated_days: 0, sandwich_days: 0, total_days: 0 });
+        return;
+      }
 
-    const parseYMD = (s) => {
-      if (!s) return null;
-      const [y, m, d] = s.split('-').map(Number);
-      if (!y || !m || !d) return null;
-      return new Date(Date.UTC(y, m - 1, d));
+      const parseYMD = (s) => {
+        if (!s) return null;
+        const [y, m, d] = s.split('-').map(Number);
+        if (!y || !m || !d) return null;
+        return new Date(Date.UTC(y, m - 1, d));
+      };
+      const from = parseYMD(form.from_date);
+      const to = parseYMD(form.to_date);
+      if (!from || !to || from > to) {
+        setEstimation({ estimated_days: 0, sandwich_days: 0, total_days: 0 });
+        return;
+      }
+
+      setEstimating(true);
+      try {
+        const res = await employeeApi.estimateLeave({
+          employee_id: profile?.id,
+          leave_policy_id: form.leave_policy_id,
+          from_date: form.from_date,
+          to_date: form.to_date,
+          partial_day: form.partial_day,
+          partial_session: form.partial_session
+        });
+        if (active) {
+          setEstimation(res);
+        }
+      } catch (err) {
+        console.error("Estimation failed", err);
+      } finally {
+        if (active) setEstimating(false);
+      }
     };
 
-    const from = parseYMD(form.from_date);
-    const to = parseYMD(form.to_date);
-    if (!from || !to || from > to) return 0;
+    // Debounce slightly or just call
+    const timer = setTimeout(fetchEstimate, 500);
+    return () => { active = false; clearTimeout(timer); };
+  }, [form.from_date, form.to_date, form.leave_policy_id, form.partial_day, form.partial_session, profile]);
 
-    if (form.partial_day === 'half_day') return 0.5;
-
-    // Calculate days based on sandwich rule:
-    // - Always exclude weekends
-    // - If sandwich rule is disabled: exclude holidays
-    // - If sandwich rule is enabled: include holidays
-    let leaveDays = 0;
-    const currentDate = new Date(from);
-    const holidayDates = Array.isArray(holidays) ? holidays.map((h) => h.date) : [];
-    const sandwichRuleEnabled = selectedPolicy?.sandwich_rule_enabled === true;
-
-    const toYMD = (d) => `${d.getUTCFullYear().toString().padStart(4, '0')}-${(d.getUTCMonth() + 1).toString().padStart(2, '0')}-${d.getUTCDate().toString().padStart(2, '0')}`;
-
-    while (currentDate <= to) {
-      const dateString = toYMD(currentDate);
-      const isWeekend = currentDate.getUTCDay() === 0 || currentDate.getUTCDay() === 6;
-      const isHoliday = holidayDates.includes(dateString);
-
-      // Always exclude weekends
-      // Exclude holidays only if sandwich rule is disabled
-      const isLeaveDay = !isWeekend && (sandwichRuleEnabled || !isHoliday);
-
-      if (isLeaveDay) {
-        leaveDays++;
-      }
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return leaveDays;
-  }, [form.from_date, form.to_date, form.partial_day, selectedPolicy, holidays]);
+  const estimatedDays = estimation.total_days;
 
   if (loading) {
     return (
@@ -533,9 +539,8 @@ const EmployeeDashboardPage = () => {
                 recentRequests.slice(0, 3).map((leave) => (
                   <div
                     key={leave.id}
-                    className={`border border-gray-200 rounded-lg p-4 ${
-                      leave.clarification_reason ? 'cursor-pointer hover:bg-gray-50' : ''
-                    }`}
+                    className={`border border-gray-200 rounded-lg p-4 ${leave.clarification_reason ? 'cursor-pointer hover:bg-gray-50' : ''
+                      }`}
                     onClick={() => leave.clarification_reason && handleClarificationClick(leave)}
                   >
                     <div className="flex items-start justify-between mb-2">
@@ -552,15 +557,14 @@ const EmployeeDashboardPage = () => {
                           <MessageSquare className="w-4 h-4 text-blue-500" />
                         )}
                         <span
-                          className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ${
-                            leave.status === 'Approved'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : leave.status === 'Rejected'
+                          className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ${leave.status === 'Approved'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : leave.status === 'Rejected'
                               ? 'bg-red-100 text-red-700'
                               : leave.clarification_reason
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}
                         >
                           {leave.clarification_reason ? 'Clarification Needed' : leave.status || 'Pending'}
                         </span>
@@ -734,26 +738,23 @@ const EmployeeDashboardPage = () => {
                     return (
                       <div key={step} className="flex flex-col items-center">
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                            step < currentStep
-                              ? 'bg-green-500 text-white'
-                              : step === currentStep
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step < currentStep
+                            ? 'bg-green-500 text-white'
+                            : step === currentStep
                               ? 'bg-blue-500 text-white'
                               : 'bg-gray-300 text-gray-600'
-                          }`}
+                            }`}
                         >
                           {step < currentStep ? <Check className="w-4 h-4" /> : step}
                         </div>
-                        <p className={`text-xs mt-2 text-center ${
-                          step === currentStep ? 'text-blue-600 font-medium' : 'text-gray-500'
-                        }`}>
+                        <p className={`text-xs mt-2 text-center ${step === currentStep ? 'text-blue-600 font-medium' : 'text-gray-500'
+                          }`}>
                           {stepLabels[step]}
                         </p>
                         {step < totalSteps && (
                           <div
-                            className={`w-12 h-0.5 mx-2 mt-4 ${
-                              step < currentStep ? 'bg-green-500' : 'bg-gray-300'
-                            }`}
+                            className={`w-12 h-0.5 mx-2 mt-4 ${step < currentStep ? 'bg-green-500' : 'bg-gray-300'
+                              }`}
                           />
                         )}
                       </div>
@@ -862,18 +863,30 @@ const EmployeeDashboardPage = () => {
                         </div>
                       )}
 
-                      {estimatedDays > 0 && (
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-sm text-blue-900">
-                            Estimated days: {estimatedDays} {estimatedDays === 0.5 ? 'half day' : 'days'}
-                          </p>
-                          {availableBalance < estimatedDays && (
-                            <p className="text-sm text-red-600 mt-1">
-                              Warning: Insufficient balance. Available: {availableBalance} days
+                      <div className="min-h-[60px]">
+                        {estimating ? (
+                          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-sm text-gray-600">Calculating days...</span>
+                          </div>
+                        ) : estimatedDays > 0 ? (
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-900">
+                              Estimated days: {estimatedDays} {estimatedDays === 0.5 ? 'half day' : 'days'}
                             </p>
-                          )}
-                        </div>
-                      )}
+                            {estimation.sandwich_days > 0 && (
+                              <p className="text-xs text-blue-700 mt-0.5">
+                                (Includes {estimation.sandwich_days} sandwich days)
+                              </p>
+                            )}
+                            {availableBalance < estimatedDays && (
+                              <p className="text-sm text-red-600 mt-1">
+                                Warning: Insufficient balance. Available: {availableBalance} days
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 )}

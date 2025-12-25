@@ -216,7 +216,24 @@ const AdminLeaveCorrectionModal = ({ onClose, onSuccess }) => {
           setFormData(prev => ({ ...prev, reason: `Deleted leave returned ${daysCount} day(s)` }));
         }
       } else if (selectedAction === 'adjust_balance') {
-        finalAdjustment = computeSignedAdjustment(formData.adjustment_days, formData.adjustment_type);
+        // For adjust_balance, we now use the dedicated endpoint
+        await api.adjustLeaveBalance(formData.employee_id, {
+          leave_policy_id: formData.policy_id,
+          type: formData.adjustment_type === 'add' ? 'credit' : 'debit',
+          amount: formData.adjustment_days,
+          reason: formData.reason
+        });
+
+        // Skip the legacy cleanup call for this action
+        await loadData();
+        setSuccessMsg('Updated successfully');
+        setTimeout(() => {
+          setSuccessMsg('');
+          if (typeof onSuccess === 'function') onSuccess();
+          onClose();
+        }, 1500);
+        setLoading(false);
+        return;
       }
 
       const fromDate = asYMD(formData.from_date);

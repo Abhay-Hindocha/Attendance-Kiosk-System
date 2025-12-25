@@ -33,11 +33,11 @@ class LeaveAccrualService
             ->where('is_active', true)
             ->where(function ($query) use ($runDate) {
                 $query->whereNull('effective_from')
-                      ->orWhere('effective_from', '<=', $runDate);
+                    ->orWhere('effective_from', '<=', $runDate);
             })
             ->where(function ($query) use ($runDate) {
                 $query->whereNull('effective_to')
-                      ->orWhere('effective_to', '>=', $runDate);
+                    ->orWhere('effective_to', '>=', $runDate);
             })
             ->get();
 
@@ -267,7 +267,10 @@ class LeaveAccrualService
             $unused = max(0, $accrued - $used);
             // For quarterly reset, carry forward is 0, reset all unused
             $carryForward = 0;
-            $reset = $unused;
+            if ($policy->carry_forward_allowed) {
+                $carryForward = min($unused, $policy->carry_forward_max_per_quarter);
+            }
+            $reset = $unused - $carryForward;
 
             // Calculate previous quarter
             $previousQuarter = $quarter - 1;
@@ -275,6 +278,17 @@ class LeaveAccrualService
             if ($previousQuarter == 0) {
                 $previousQuarter = 4;
                 $previousYear = $year - 1;
+            }
+
+            if ($carryForward > 0) {
+                LeaveAccrualLog::create([
+                    'employee_id' => $employee->id,
+                    'leave_policy_id' => $policy->id,
+                    'accrual_date' => $quarterEndDate,
+                    'quantity' => $carryForward,
+                    'type' => 'CARRY_FORWARD',
+                    'notes' => "Carried forward from Q{$previousQuarter} {$previousYear}",
+                ]);
             }
 
             if ($reset > 0) {
@@ -288,12 +302,12 @@ class LeaveAccrualService
                 ]);
             }
 
-            // Update balance - reset to zero
+            // Update balance
             $balance = LeaveBalance::firstOrCreate(
                 ['employee_id' => $employee->id, 'leave_policy_id' => $policy->id, 'year' => $year],
                 ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
             );
-            $balance->carry_forward_balance = 0;
+            $balance->carry_forward_balance = $carryForward;
             $balance->accrued_this_year = 0;
             $balance->updateBalance();
         }
@@ -617,5 +631,21 @@ class LeaveAccrualService
         // Reset accrued_this_year to 0 for the new month, regardless of carry forward
         $balance->accrued_this_year = 0;
         $balance->updateBalance();
+    }
+
+    private function processYearEndForLumpSumPolicy(LeavePolicy $policy, int $year, string $quarterEndDate)
+    {
+        $nextYear = $year + 1;
+        $employees = \App\Models\Employee::whereHas('leavePolicies', function ($query) use ($policy) {
+            $query->where('leave_policies.id', $policy->id);
+        })->get();
+
+        foreach ($employees as $employee) {
+            // Create opening balance for next year
+            LeaveBalance::firstOrCreate(
+                ['employee_id' => $employee->id, 'leave_policy_id' => $policy->id, 'year' => $nextYear],
+                ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
+            );
+        }
     }
 }

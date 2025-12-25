@@ -142,6 +142,13 @@ class EmployeeApiService {
     });
   }
 
+  async estimateLeave(data) {
+    return this.request('/leave/estimate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async cancelLeaveRequest(id) {
     return this.request(`/leave/requests/${id}/cancel`, {
       method: 'POST',
