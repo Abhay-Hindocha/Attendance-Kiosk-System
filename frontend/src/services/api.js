@@ -21,7 +21,7 @@ class ApiService {
       headers: {
         'Accept': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` }),
-        ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
+        ...((!isFormData && restOptions.body) ? { 'Content-Type': 'application/json' } : {}),
         ...extraHeaders,
       },
       ...restOptions,
@@ -383,7 +383,7 @@ class ApiService {
   }
 
   async getLiveActivity() {
-    return this.request('/attendance/live');
+    return this.request(`/attendance/live?t=${Date.now()}`);
   }
 
   async getPresentToday() {

@@ -7,6 +7,7 @@ import ReportsPage from './components/ReportsPage';
 // import SettingsPage from './components/SettingsPage';
 import LoginPage from './components/LoginPage';
 import EmployeesPage from './components/EmployeesPage';
+import FaceModelService from './services/FaceModelService';
 import PoliciesPage from './components/PoliciesPage';
 import LeavePoliciesPage from './modules/admin/leave/LeavePoliciesPage';
 import LeaveApprovalsPage from './modules/admin/leave/LeaveApprovalsPage';
@@ -34,6 +35,13 @@ function RouteChangeHandler({ cleanupRef }) {
 
 function App() {
   const cleanupRef = useRef(null);
+
+  useEffect(() => {
+    // Start pre-loading models globally as soon as the app starts
+    FaceModelService.loadModels().catch(err => {
+      console.warn('App: Initial model pre-load failed (will retry on usage):', err);
+    });
+  }, []);
 
   return (
     <Router>

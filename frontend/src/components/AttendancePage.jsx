@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import * as faceapi from "face-api.js";
 import ApiService from "../services/api";
+import FaceModelService from "../services/FaceModelService";
 import Header from "./Header";
 import Footer from "./Footer";
 
@@ -89,7 +90,13 @@ const AttendancePage = ({ registerCleanup }) => {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
+  const hasInitializedRef = useRef(false);
+
   useEffect(() => {
+    // Prevent double execution in StrictMode/Development
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
     // Remove localStorage token when coming to attendance page
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRole");
@@ -97,11 +104,7 @@ const AttendancePage = ({ registerCleanup }) => {
 
     const loadModelsAndCamera = async () => {
       try {
-        await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
-        await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
-        await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
-        await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
-        await faceapi.nets.faceExpressionNet.loadFromUri("/models");
+        await FaceModelService.loadModels();
         setModelsLoaded(true);
 
         // Pre-acquire camera stream after models are loaded
@@ -120,10 +123,7 @@ const AttendancePage = ({ registerCleanup }) => {
     const fetchLiveActivity = async () => {
       try {
         const activities = await ApiService.getLiveActivity();
-        // Reverse to show latest first, then normalize time to AM/PM
-        const normalized = activities
-          .reverse()
-          .map((a) => normalizeActivityTime(a));
+        const normalized = activities.map((a) => normalizeActivityTime(a));
         setRecentActivities(normalized);
       } catch (error) {
         console.error("Failed to fetch live activity:", error);
@@ -150,7 +150,7 @@ const AttendancePage = ({ registerCleanup }) => {
         streamRef.current = null;
       }
     };
-  }, []);
+  }, [registerCleanup]);
 
   const startVideo = async () => {
     if (streamRef.current && videoRef.current) {
@@ -220,41 +220,28 @@ const AttendancePage = ({ registerCleanup }) => {
       });
     }, 1000);
 
+    let isProcessing = false;
+
     const attemptRecognition = async () => {
-      if (recognitionAttempted || scanCompleted) return;
+      if (recognitionAttempted || scanCompleted || isProcessing) return;
 
       try {
-        // Try TinyFaceDetector first for speed, fallback to SSD Mobilenet for accuracy
+        // Use SSD MobileNet directly for better accuracy and privacy (client-side only)
         notify("Detecting face...");
-        let detection = await faceapi
+        const detection = await faceapi
           .detectSingleFace(
             videoRef.current,
-            new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.1 })
+            new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
           )
           .withFaceLandmarks()
-          .withFaceDescriptor()
-          .withFaceExpressions();
-
-        if (!detection) {
-          notify("TinyFace detection failed, trying SSD Mobilenet...");
-          detection = await faceapi
-            .detectSingleFace(
-              videoRef.current,
-              new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 })
-            )
-            .withFaceLandmarks()
-            .withFaceDescriptor()
-            .withFaceExpressions();
-        }
+          .withFaceDescriptor();
 
         if (detection) {
           notify("Face detected, extracting features...");
           const descriptor = Array.from(detection.descriptor);
-          const expressions = detection.expressions;
-          const dominantExpression = Object.keys(expressions).reduce((a, b) =>
-            expressions[a] > expressions[b] ? a : b
-          );
           notify("Recognizing face...");
+
+          isProcessing = true;
           // Lower threshold to 0.4 for stricter matching, aligned with backend default
           const result = await ApiService.recognizeFace(descriptor, 0.4);
 
@@ -264,18 +251,19 @@ const AttendancePage = ({ registerCleanup }) => {
             attendanceMarked = true;
             isMarkingAttendance = true;
 
-            // Stop scanning immediately on recognition
+            // Stop scanning immediately on recognition to prevent any overlapping intervals
             clearInterval(countdownInterval);
-            clearInterval(recognitionInterval);
-            clearTimeout(timeoutId);
+            if (recognitionInterval) clearInterval(recognitionInterval);
+            if (timeoutId) clearTimeout(timeoutId);
+
             setIsScanning(false);
             setCountdown(0);
             stopVideo();
 
-            setRecognizedEmployee({ ...result, mood: dominantExpression });
+            setRecognizedEmployee({ ...result });
             setStatus("Face recognized");
             notify(
-              `Recognized ${result.employee_name} (ID: ${result.employee_id}) - Mood: ${dominantExpression}`
+              `Recognized ${result.employee_name} (ID: ${result.employee_id})`
             );
 
             // Mark attendance
@@ -317,9 +305,8 @@ const AttendancePage = ({ registerCleanup }) => {
                 action: action,
                 time: timeString,
                 employee_id: result.employee_id,
-                mood: dominantExpression,
               };
-              setRecentActivities((prev) => [newActivity, ...prev.slice(0, 9)]); // Keep only last 10
+              setRecentActivities((prev) => [newActivity, ...prev.slice(0, 19)]); // Show up to 20
 
               // Reset to ready state after 2 seconds
               setTimeout(() => {
@@ -370,9 +357,8 @@ const AttendancePage = ({ registerCleanup }) => {
                     action: "Already Checked-In",
                     time: timeString,
                     employee_id: result.employee_id,
-                    mood: dominantExpression,
                   };
-                  setRecentActivities((prev) => [newActivity, ...prev.slice(0, 9)]);
+                  setRecentActivities((prev) => [newActivity, ...prev.slice(0, 19)]); // Show up to 20
 
                   // Reset to ready state after 2 seconds
                   setTimeout(() => {
@@ -408,9 +394,8 @@ const AttendancePage = ({ registerCleanup }) => {
                   action: "Already Checked-In",
                   time: timeString,
                   employee_id: result.employee_id,
-                  mood: dominantExpression,
                 };
-                setRecentActivities((prev) => [newActivity, ...prev.slice(0, 9)]);
+                setRecentActivities((prev) => [newActivity, ...prev.slice(0, 19)]); // Show up to 20
 
                 // Reset to ready state after 2 seconds
                 setTimeout(() => {
@@ -442,6 +427,8 @@ const AttendancePage = ({ registerCleanup }) => {
       } catch (error) {
         console.error("Recognition error:", error);
         notify("Recognition attempt failed: " + error.message);
+      } finally {
+        isProcessing = false;
       }
     };
 
@@ -499,15 +486,14 @@ const AttendancePage = ({ registerCleanup }) => {
 
               <div className="flex justify-between p-4 z-20">
                 <div
-                  className={`px-4 py-2 rounded-full text-sm font-medium text-white ${
-                    status === "success" || status.includes("successfully")
-                      ? "bg-green-600"
-                      : status === "Face not recognized" ||
-                        status === "No face detected" ||
-                        status.includes("failed")
+                  className={`px-4 py-2 rounded-full text-sm font-medium text-white ${status === "success" || status.includes("successfully")
+                    ? "bg-green-600"
+                    : status === "Face not recognized" ||
+                      status === "No face detected" ||
+                      status.includes("failed")
                       ? "bg-red-600"
                       : "bg-black/50"
-                  }`}
+                    }`}
                 >
                   {status === "ready" ? "Ready" : status}
                 </div>
@@ -633,6 +619,7 @@ const AttendancePage = ({ registerCleanup }) => {
                             h-full
                             object-cover
                           "
+                          style={{ transform: "scaleX(1)" }}
                         />
 
                         {/* CANVAS OVERLAY */}
@@ -645,6 +632,7 @@ const AttendancePage = ({ registerCleanup }) => {
                             h-full
                             pointer-events-none
                           "
+                          style={{ transform: "scaleX(1)" }}
                         />
                       </div>
                     </div>
@@ -673,9 +661,6 @@ const AttendancePage = ({ registerCleanup }) => {
                         <p className="text-gray-300 text-sm">
                           Employee ID: {recognizedEmployee.employee_id}
                         </p>
-                        <p className="text-gray-300 text-sm">
-                          Mood: {recognizedEmployee.mood}
-                        </p>
                       </div>
                     )}
                   </div>
@@ -686,9 +671,8 @@ const AttendancePage = ({ registerCleanup }) => {
             <div className="p-4 md:p-6 text-center">
               <button
                 onClick={handleScan}
-                className={`bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-2 md:py-3 rounded-lg font-semibold transition-colors text-sm md:text-base ${
-                  !modelsLoaded ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                className={`bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-2 md:py-3 rounded-lg font-semibold transition-colors text-sm md:text-base ${!modelsLoaded ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
                 disabled={!modelsLoaded}
               >
                 Simulate Face Recognition
@@ -708,7 +692,7 @@ const AttendancePage = ({ registerCleanup }) => {
               Recent Activity
             </h2>
 
-          <div className="space-y-3 h-60 overflow-y-auto scrollbar-w-1 scrollbar-thumb-white/20 scrollbar-track-transparent">
+            <div className="space-y-3 h-60 overflow-y-auto scrollbar-w-1 scrollbar-thumb-white/20 scrollbar-track-transparent">
               {recentActivities.map((a, index) => (
                 <div
                   key={index}

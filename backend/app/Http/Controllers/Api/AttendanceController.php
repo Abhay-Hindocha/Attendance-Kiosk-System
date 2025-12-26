@@ -43,7 +43,7 @@ class AttendanceController extends Controller
         // Filter by month and year if both are provided
         if ($request->has('month') && $request->has('year')) {
             $query->whereMonth('date', $request->month)
-                  ->whereYear('date', $request->year);
+                ->whereYear('date', $request->year);
         }
 
         // Filter by specific date if provided
@@ -117,25 +117,25 @@ class AttendanceController extends Controller
                 ->count(),
             'absent_today' => DB::table('employees')
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
-                ->leftJoin('attendances', function($join) use ($today) {
+                ->leftJoin('attendances', function ($join) use ($today) {
                     $join->on('employees.id', '=', 'attendances.employee_id')
-                         ->where('attendances.date', $today);
+                        ->where('attendances.date', $today);
                 })
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_to', '>=', $today)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_from', '<=', $today)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_absence_tracking', true)
-                ->where(function($query) {
+                ->where(function ($query) {
                     $query->whereNull('attendances.id')
-                        ->orWhere(function($q) {
+                        ->orWhere(function ($q) {
                             $q->whereNull('attendances.check_in')
-                              ->whereNull('attendances.check_out')
-                              ->orWhere('attendances.status', 'absent');
+                                ->whereNull('attendances.check_out')
+                                ->orWhere('attendances.status', 'absent');
                         });
                 })
                 ->count(),
@@ -145,13 +145,13 @@ class AttendanceController extends Controller
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
                 ->where('attendances.date', $today)
                 ->whereNotNull('attendances.check_in')
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_to', '>=', $today)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_from', '<=', $today)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_late_tracking', true)
                 ->whereRaw("TIME(attendances.check_in) > DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE)")
@@ -161,13 +161,13 @@ class AttendanceController extends Controller
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
                 ->where('attendances.date', $today)
                 ->whereNotNull('attendances.check_out')
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_to', '>=', $today)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_from', '<=', $today)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_early_tracking', true)
                 ->whereRaw("TIME(attendances.check_out) < DATE_SUB(policies.work_end_time, INTERVAL COALESCE(policies.early_grace_period, 0) MINUTE)")
@@ -183,24 +183,24 @@ class AttendanceController extends Controller
                 ->count(),
             'absent_yesterday' => DB::table('employees')
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
-                ->leftJoin('attendances', function($join) use ($yesterday) {
+                ->leftJoin('attendances', function ($join) use ($yesterday) {
                     $join->on('employees.id', '=', 'attendances.employee_id')
-                         ->where('attendances.date', $yesterday);
+                        ->where('attendances.date', $yesterday);
                 })
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_to', '>=', $yesterday)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_from', '<=', $yesterday)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_absence_tracking', true)
-                ->where(function($query) {
+                ->where(function ($query) {
                     $query->whereNull('attendances.id')
-                        ->orWhere(function($q) {
+                        ->orWhere(function ($q) {
                             $q->whereNull('attendances.check_in')
-                              ->whereNull('attendances.check_out');
+                                ->whereNull('attendances.check_out');
                         });
                 })
                 ->count(),
@@ -210,13 +210,13 @@ class AttendanceController extends Controller
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
                 ->where('attendances.date', $yesterday)
                 ->whereNotNull('attendances.check_in')
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_to', '>=', $yesterday)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_from', '<=', $yesterday)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_late_tracking', true)
                 ->whereRaw("DATE_FORMAT(check_in, '%H:%i:%s') > DATE_FORMAT(DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE), '%H:%i:%s')")
@@ -226,13 +226,13 @@ class AttendanceController extends Controller
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
                 ->where('attendances.date', $yesterday)
                 ->whereNotNull('attendances.check_out')
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_to', '>=', $yesterday)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_from', '<=', $yesterday)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_early_tracking', true)
                 ->whereRaw("TIME(attendances.check_out) < DATE_SUB(policies.work_end_time, INTERVAL COALESCE(policies.early_grace_period, 0) MINUTE)")
@@ -263,7 +263,7 @@ class AttendanceController extends Controller
                 DB::raw('COUNT(DISTINCT employees.id) as total_employees'),
                 DB::raw("COUNT(DISTINCT CASE WHEN attendances.status IN ('present', 'late', 'half_day', 'early_departure') THEN employees.id END) as present_employees")
             )
-            ->leftJoin('attendances', function($join) use ($today) {
+            ->leftJoin('attendances', function ($join) use ($today) {
                 $join->on('employees.id', '=', 'attendances.employee_id')
                     ->where('attendances.date', '=', $today);
             })
@@ -313,15 +313,15 @@ class AttendanceController extends Controller
             'punctuality_rate' => Attendance::whereBetween('date', [$lastWeek, $today])
                 ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
                 ->count() > 0
-                    ? round(
-                        (Attendance::whereBetween('date', [$lastWeek, $today])
-                            ->where('status', 'present')
-                            ->count() * 100.0) /
-                        Attendance::whereBetween('date', [$lastWeek, $today])
-                            ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
-                            ->count()
-                    )
-                    : 0
+                ? round(
+                    (Attendance::whereBetween('date', [$lastWeek, $today])
+                        ->where('status', 'present')
+                        ->count() * 100.0) /
+                    Attendance::whereBetween('date', [$lastWeek, $today])
+                        ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
+                        ->count()
+                )
+                : 0
         ];
 
         return response()->json($trends);
@@ -330,92 +330,120 @@ class AttendanceController extends Controller
     public function getLiveActivity()
     {
         $today = Carbon::today()->toDateString();
+        $todayDate = Carbon::today();
 
-        $attendances = Attendance::with(['employee:id,name,department', 'breaks'])
-            ->where('date', $today)
+        // Optimized query: Fetch ALL records for today to ensure we don't miss any recent updates
+        $attendances = Attendance::select('id', 'employee_id', 'check_in', 'check_out', 'status', 'date', 'updated_at', 'created_at')
+            ->with([
+                'employee:id,name,employee_id,policy_id',
+                'employee.policy',
+                'breaks:id,attendance_id,break_start,break_end'
+            ])
+            ->whereDate('date', $today)
             ->where(function ($query) {
                 $query->whereNotNull('check_in')
-                      ->orWhereNotNull('check_out');
+                    ->orWhereNotNull('check_out');
             })
-            ->orderBy('check_in', 'desc')
             ->get();
 
         $activities = [];
 
         foreach ($attendances as $attendance) {
-            // Add Check-In activity if exists
+            $employee = $attendance->employee;
+            if (!$employee)
+                continue;
+
+            $name = $employee->name;
+            $badge = strtoupper(substr($name, 0, 2));
+
+            // Check-In
             if ($attendance->check_in) {
-                $action = $attendance->status === 'late' ? 'Late Entry' : 'Check-In';
                 $activities[] = [
-                    'name' => $attendance->employee->name,
-                    'action' => $action,
+                    'name' => $name,
+                    'action' => $attendance->status === 'late' ? 'Late Entry' : 'Check-In',
                     'time' => Carbon::parse($attendance->check_in)->format('H:i'),
                     'date' => Carbon::parse($attendance->check_in)->format('M d'),
-                    'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
+                    'badge' => $badge,
                     'badgeColor' => 'bg-blue-500',
-                    'employee_id' => $attendance->employee->employee_id,
-                    'mood' => 'neutral' // Default mood since not stored
+                    'employee_id' => $employee->employee_id,
+                    'timestamp' => Carbon::parse($attendance->check_in)->timestamp ?? $attendance->updated_at->timestamp
                 ];
             }
 
-            // Add break activities
+            // Breaks
             foreach ($attendance->breaks as $break) {
-                // Break start activity
-                $activities[] = [
-                    'name' => $attendance->employee->name,
-                    'action' => 'Break Start',
-                    'time' => Carbon::parse($break->break_start)->format('H:i'),
-                    'date' => Carbon::parse($break->break_start)->format('M d'),
-                    'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
-                    'badgeColor' => 'bg-yellow-500'
-                ];
+                if ($break->break_start) {
+                    $activities[] = [
+                        'name' => $name,
+                        'action' => 'Break Start',
+                        'time' => Carbon::parse($break->break_start)->format('H:i'),
+                        'date' => Carbon::parse($break->break_start)->format('M d'),
+                        'badge' => $badge,
+                        'badgeColor' => 'bg-yellow-500',
+                        'timestamp' => Carbon::parse($break->break_start)->timestamp ?? $attendance->updated_at->timestamp
+                    ];
+                }
 
-                // Break end activity if exists
                 if ($break->break_end) {
                     $activities[] = [
-                        'name' => $attendance->employee->name,
+                        'name' => $name,
                         'action' => 'Break End',
                         'time' => Carbon::parse($break->break_end)->format('H:i'),
                         'date' => Carbon::parse($break->break_end)->format('M d'),
-                        'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
-                        'badgeColor' => 'bg-green-500'
+                        'badge' => $badge,
+                        'badgeColor' => 'bg-green-500',
+                        'timestamp' => Carbon::parse($break->break_end)->timestamp ?? $attendance->updated_at->timestamp
                     ];
                 }
             }
 
-            // Add Check-Out activity if exists
+            // Check-Out / Early Departure
             if ($attendance->check_out) {
                 $action = 'Check-Out';
-                if ($attendance->employee->policy
-                    && $attendance->employee->policy->enable_early_tracking
-                    && (!$attendance->employee->policy->effective_to || Carbon::parse($attendance->employee->policy->effective_to)->gte(Carbon::today()))
-                    && (!$attendance->employee->policy->effective_from || Carbon::parse($attendance->employee->policy->effective_from)->lte(Carbon::today()))) {
-                    $workEndTime = Carbon::createFromFormat('H:i:s', $attendance->employee->policy->work_end_time);
-                    $gracePeriod = $attendance->employee->policy->early_grace_period ?? 0;
-                    $allowedEndTime = $workEndTime->subMinutes($gracePeriod);
-                    if (Carbon::parse($attendance->check_out)->lt($allowedEndTime)) {
-                        $action = 'Early Departure';
+                $policy = $employee->policy;
+
+                if ($policy && $policy->enable_early_tracking) {
+                    $isAfterEffectiveFrom = is_null($policy->effective_from) || $todayDate->gte(Carbon::parse($policy->effective_from));
+                    $isBeforeEffectiveTo = is_null($policy->effective_to) || $todayDate->lte(Carbon::parse($policy->effective_to));
+
+                    if ($isAfterEffectiveFrom && $isBeforeEffectiveTo) {
+                        $workEndTime = Carbon::createFromFormat('H:i:s', $policy->work_end_time);
+                        $gracePeriod = $policy->early_grace_period ?? 0;
+                        $allowedEndTime = $workEndTime->subMinutes($gracePeriod);
+
+                        if (Carbon::parse($attendance->check_out)->lt($allowedEndTime)) {
+                            $action = 'Early Departure';
+                        }
                     }
                 }
+
                 $activities[] = [
-                    'name' => $attendance->employee->name,
+                    'name' => $name,
                     'action' => $action,
                     'time' => Carbon::parse($attendance->check_out)->format('H:i'),
                     'date' => Carbon::parse($attendance->check_out)->format('M d'),
-                    'badge' => strtoupper(substr($attendance->employee->name, 0, 2)),
-                    'badgeColor' => 'bg-blue-500'
+                    'badge' => $badge,
+                    'badgeColor' => 'bg-blue-500',
+                    'timestamp' => Carbon::parse($attendance->check_out)->timestamp ?? $attendance->updated_at->timestamp
                 ];
             }
         }
 
-        // Sort activities by time ascending (chronological order)
+        // Explicit Sort: Higher timestamp (most recent) at the top.
+        // We use usort with a DESC comparison.
         usort($activities, function ($a, $b) {
-            $timeA = Carbon::createFromFormat('M d H:i', $a['date'] . ' ' . $a['time']);
-            $timeB = Carbon::createFromFormat('M d H:i', $b['date'] . ' ' . $b['time']);
-            return $timeA->timestamp - $timeB->timestamp;
+            if ($a['timestamp'] == $b['timestamp'])
+                return 0;
+            return ($a['timestamp'] > $b['timestamp']) ? -1 : 1;
         });
 
-        return response()->json($activities);
+        // Limit to 20 precisely
+        $latestActivities = array_slice($activities, 0, 20);
+
+        return response()->json($latestActivities)
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sun, 25 Dec 1977 00:00:00 GMT');
     }
 
     public function getDashboardData()
@@ -442,25 +470,25 @@ class AttendanceController extends Controller
                 ->count(),
             'absent_today' => DB::table('employees')
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
-                ->leftJoin('attendances', function($join) use ($today) {
+                ->leftJoin('attendances', function ($join) use ($today) {
                     $join->on('employees.id', '=', 'attendances.employee_id')
-                         ->where('attendances.date', $today);
+                        ->where('attendances.date', $today);
                 })
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_to', '>=', $today)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_from', '<=', $today)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_absence_tracking', true)
-                ->where(function($query) {
+                ->where(function ($query) {
                     $query->whereNull('attendances.id')
-                        ->orWhere(function($q) {
+                        ->orWhere(function ($q) {
                             $q->whereNull('attendances.check_in')
-                              ->whereNull('attendances.check_out')
-                              ->orWhere('attendances.status', 'absent');
+                                ->whereNull('attendances.check_out')
+                                ->orWhere('attendances.status', 'absent');
                         });
                 })
                 ->count(),
@@ -470,13 +498,13 @@ class AttendanceController extends Controller
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
                 ->where('attendances.date', $today)
                 ->whereNotNull('attendances.check_in')
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_to', '>=', $today)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_from', '<=', $today)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_late_tracking', true)
                 ->whereRaw("TIME(attendances.check_in) > DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE)")
@@ -486,13 +514,13 @@ class AttendanceController extends Controller
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
                 ->where('attendances.date', $today)
                 ->whereNotNull('attendances.check_out')
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_to', '>=', $today)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($today) {
+                ->where(function ($query) use ($today) {
                     $query->where('policies.effective_from', '<=', $today)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_early_tracking', true)
                 ->whereRaw("TIME(attendances.check_out) < DATE_SUB(policies.work_end_time, INTERVAL COALESCE(policies.early_grace_period, 0) MINUTE)")
@@ -508,24 +536,24 @@ class AttendanceController extends Controller
                 ->count(),
             'absent_yesterday' => DB::table('employees')
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
-                ->leftJoin('attendances', function($join) use ($yesterday) {
+                ->leftJoin('attendances', function ($join) use ($yesterday) {
                     $join->on('employees.id', '=', 'attendances.employee_id')
-                         ->where('attendances.date', $yesterday);
+                        ->where('attendances.date', $yesterday);
                 })
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_to', '>=', $yesterday)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_from', '<=', $yesterday)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_absence_tracking', true)
-                ->where(function($query) {
+                ->where(function ($query) {
                     $query->whereNull('attendances.id')
-                        ->orWhere(function($q) {
+                        ->orWhere(function ($q) {
                             $q->whereNull('attendances.check_in')
-                              ->whereNull('attendances.check_out');
+                                ->whereNull('attendances.check_out');
                         });
                 })
                 ->count(),
@@ -535,13 +563,13 @@ class AttendanceController extends Controller
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
                 ->where('attendances.date', $yesterday)
                 ->whereNotNull('attendances.check_in')
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_to', '>=', $yesterday)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_from', '<=', $yesterday)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_late_tracking', true)
                 ->whereRaw("DATE_FORMAT(check_in, '%H:%i:%s') > DATE_FORMAT(DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE), '%H:%i:%s')")
@@ -551,13 +579,13 @@ class AttendanceController extends Controller
                 ->join('policies', 'employees.policy_id', '=', 'policies.id')
                 ->where('attendances.date', $yesterday)
                 ->whereNotNull('attendances.check_out')
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_to', '>=', $yesterday)
-                          ->orWhereNull('policies.effective_to');
+                        ->orWhereNull('policies.effective_to');
                 })
-                ->where(function($query) use ($yesterday) {
+                ->where(function ($query) use ($yesterday) {
                     $query->where('policies.effective_from', '<=', $yesterday)
-                          ->orWhereNull('policies.effective_from');
+                        ->orWhereNull('policies.effective_from');
                 })
                 ->where('policies.enable_early_tracking', true)
                 ->whereRaw("TIME(attendances.check_out) < DATE_SUB(policies.work_end_time, INTERVAL COALESCE(policies.early_grace_period, 0) MINUTE)")
@@ -579,7 +607,7 @@ class AttendanceController extends Controller
                 DB::raw('COUNT(DISTINCT employees.id) as total_employees'),
                 DB::raw("COUNT(DISTINCT CASE WHEN attendances.status IN ('present', 'late', 'half_day', 'early_departure') THEN employees.id END) as present_employees")
             )
-            ->leftJoin('attendances', function($join) use ($today) {
+            ->leftJoin('attendances', function ($join) use ($today) {
                 $join->on('employees.id', '=', 'attendances.employee_id')
                     ->where('attendances.date', '=', $today);
             })
@@ -619,15 +647,15 @@ class AttendanceController extends Controller
             'punctuality_rate' => Attendance::whereBetween('date', [$lastWeek, $today])
                 ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
                 ->count() > 0
-                    ? round(
-                        (Attendance::whereBetween('date', [$lastWeek, $today])
-                            ->where('status', 'present')
-                            ->count() * 100.0) /
-                        Attendance::whereBetween('date', [$lastWeek, $today])
-                            ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
-                            ->count()
-                    )
-                    : 0
+                ? round(
+                    (Attendance::whereBetween('date', [$lastWeek, $today])
+                        ->where('status', 'present')
+                        ->count() * 100.0) /
+                    Attendance::whereBetween('date', [$lastWeek, $today])
+                        ->whereIn('status', ['present', 'late', 'half_day', 'early_departure'])
+                        ->count()
+                )
+                : 0
         ];
 
         // Get live activity (simplified version for dashboard)
@@ -635,7 +663,7 @@ class AttendanceController extends Controller
             ->where('date', $today)
             ->where(function ($query) {
                 $query->whereNotNull('check_in')
-                      ->orWhereNotNull('check_out');
+                    ->orWhereNotNull('check_out');
             })
             ->orderBy('check_in', 'desc')
             ->get();
@@ -684,10 +712,12 @@ class AttendanceController extends Controller
             // Add Check-Out activity if exists
             if ($attendance->check_out) {
                 $action = 'Check-Out';
-                if ($attendance->employee->policy
+                if (
+                    $attendance->employee->policy
                     && $attendance->employee->policy->enable_early_tracking
                     && (!$attendance->employee->policy->effective_to || Carbon::parse($attendance->employee->policy->effective_to)->gte(Carbon::today()))
-                    && (!$attendance->employee->policy->effective_from || Carbon::parse($attendance->employee->policy->effective_from)->lte(Carbon::today()))) {
+                    && (!$attendance->employee->policy->effective_from || Carbon::parse($attendance->employee->policy->effective_from)->lte(Carbon::today()))
+                ) {
                     $workEndTime = Carbon::createFromFormat('H:i:s', $attendance->employee->policy->work_end_time);
                     $gracePeriod = $attendance->employee->policy->early_grace_period ?? 0;
                     $allowedEndTime = $workEndTime->subMinutes($gracePeriod);
@@ -758,24 +788,24 @@ class AttendanceController extends Controller
 
         $absentEmployees = DB::table('employees')
             ->join('policies', 'employees.policy_id', '=', 'policies.id')
-            ->leftJoin('attendances', function($join) use ($today) {
+            ->leftJoin('attendances', function ($join) use ($today) {
                 $join->on('employees.id', '=', 'attendances.employee_id')
-                     ->where('attendances.date', $today);
+                    ->where('attendances.date', $today);
             })
-            ->where(function($query) use ($today) {
+            ->where(function ($query) use ($today) {
                 $query->where('policies.effective_to', '>=', $today)
-                      ->orWhereNull('policies.effective_to');
+                    ->orWhereNull('policies.effective_to');
             })
-            ->where(function($query) use ($today) {
+            ->where(function ($query) use ($today) {
                 $query->where('policies.effective_from', '<=', $today)
-                      ->orWhereNull('policies.effective_from');
+                    ->orWhereNull('policies.effective_from');
             })
             ->where('policies.enable_absence_tracking', true)
-            ->where(function($query) {
+            ->where(function ($query) {
                 $query->whereNull('attendances.id')
-                    ->orWhere(function($q) {
+                    ->orWhere(function ($q) {
                         $q->whereNull('attendances.check_in')
-                          ->whereNull('attendances.check_out');
+                            ->whereNull('attendances.check_out');
                     });
             })
             ->select(
@@ -809,13 +839,13 @@ class AttendanceController extends Controller
             ->join('policies', 'employees.policy_id', '=', 'policies.id')
             ->where('attendances.date', $today)
             ->whereNotNull('attendances.check_in')
-            ->where(function($query) use ($today) {
+            ->where(function ($query) use ($today) {
                 $query->where('policies.effective_to', '>=', $today)
-                      ->orWhereNull('policies.effective_to');
+                    ->orWhereNull('policies.effective_to');
             })
-            ->where(function($query) use ($today) {
+            ->where(function ($query) use ($today) {
                 $query->where('policies.effective_from', '<=', $today)
-                      ->orWhereNull('policies.effective_from');
+                    ->orWhereNull('policies.effective_from');
             })
             ->where('policies.enable_late_tracking', true)
             ->whereRaw("TIME(attendances.check_in) > DATE_ADD(policies.work_start_time, INTERVAL COALESCE(policies.late_grace_period, 0) MINUTE)")
@@ -845,13 +875,13 @@ class AttendanceController extends Controller
             ->join('policies', 'employees.policy_id', '=', 'policies.id')
             ->where('attendances.date', $today)
             ->whereNotNull('attendances.check_out')
-            ->where(function($query) use ($today) {
+            ->where(function ($query) use ($today) {
                 $query->where('policies.effective_to', '>=', $today)
-                      ->orWhereNull('policies.effective_to');
+                    ->orWhereNull('policies.effective_to');
             })
-            ->where(function($query) use ($today) {
+            ->where(function ($query) use ($today) {
                 $query->where('policies.effective_from', '<=', $today)
-                      ->orWhereNull('policies.effective_from');
+                    ->orWhereNull('policies.effective_from');
             })
             ->where('policies.enable_early_tracking', true)
             ->whereRaw("TIME(attendances.check_out) < DATE_SUB(policies.work_end_time, INTERVAL COALESCE(policies.early_grace_period, 0) MINUTE)")
@@ -886,108 +916,108 @@ class AttendanceController extends Controller
 
         $employee = Employee::with('policy')->where('employee_id', $request->employee_id)->first();
 
-    // Added check to disallow inactive employees to mark attendance
-    if ($employee->status !== 'active') {
-        return response()->json(['message' => 'Inactive employees are not allowed to mark attendance.'], 403);
-    }
+        // Added check to disallow inactive employees to mark attendance
+        if ($employee->status !== 'active') {
+            return response()->json(['message' => 'Inactive employees are not allowed to mark attendance.'], 403);
+        }
 
-    $today = Carbon::today()->toDateString();
-    $now = Carbon::now();
+        $today = Carbon::today()->toDateString();
+        $now = Carbon::now();
 
-    // Check if attendance already exists for today
-    $existingAttendance = Attendance::where('employee_id', $employee->id)
-        ->where('date', $today)
-        ->first();
+        // Check if attendance already exists for today
+        $existingAttendance = Attendance::where('employee_id', $employee->id)
+            ->where('date', $today)
+            ->first();
 
-    if ($existingAttendance) {
-        // Increment scan count
-        $scanCount = $existingAttendance->scan_count + 1;
-        $scanTimes = $existingAttendance->scan_times ?? [];
-        $scanTimes[] = $now->toDateTimeString();
-        $existingAttendance->update(['scan_count' => $scanCount, 'scan_times' => $scanTimes]);
+        if ($existingAttendance) {
+            // Increment scan count
+            $scanCount = $existingAttendance->scan_count + 1;
+            $scanTimes = $existingAttendance->scan_times ?? [];
+            $scanTimes[] = $now->toDateTimeString();
+            $existingAttendance->update(['scan_count' => $scanCount, 'scan_times' => $scanTimes]);
+
+            // Invalidate dashboard cache
+            \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
+            if ($scanCount == 2) {
+                // 2nd scan: Check-out
+                $existingAttendance->update(['check_out' => $now]);
+                // Calculate and update status using new logic
+                $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
+                $existingAttendance->update(['status' => $status]);
+
+                // Invalidate dashboard cache
+                \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
+                return response()->json([
+                    'message' => 'Check-out marked successfully',
+                    'attendance' => $existingAttendance->load('employee')
+                ]);
+            } elseif ($scanCount % 2 == 0) {
+                // Even scans >2: Check-out (initially)
+                $existingAttendance->update(['check_out' => $now]);
+                // Calculate and update status using new logic
+                $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
+                $existingAttendance->update(['status' => $status]);
+
+                // Invalidate dashboard cache
+                \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
+                return response()->json([
+                    'message' => 'Check-out marked successfully',
+                    'attendance' => $existingAttendance->load('employee')
+                ]);
+            } elseif ($scanCount % 2 == 1 && $scanCount > 2) {
+                // Odd scans >2: Break end, retroactively change previous even to break start
+                $existingAttendance->update(['check_out' => null]);
+                $breakStartIndex = $scanCount - 2;
+                $breakStartTime = Carbon::parse($scanTimes[$breakStartIndex]);
+                BreakRecord::create([
+                    'attendance_id' => $existingAttendance->id,
+                    'break_start' => $breakStartTime,
+                    'break_end' => $now,
+                ]);
+
+                // Invalidate dashboard cache
+                \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
+
+                return response()->json([
+                    'message' => 'Break end marked successfully',
+                    'attendance' => $existingAttendance->load('employee')
+                ]);
+            }
+        }
+
+        // Create new attendance record with check-in status
+        $attendance = Attendance::create([
+            'employee_id' => $employee->id,
+            'check_in' => $now,
+            'date' => $today,
+            'status' => 'present', // Default status at check-in
+            'scan_count' => 1,
+            'scan_times' => [$now->toDateTimeString()],
+        ]);
+
+        // Refresh and calculate proper status based on policy
+        $attendance->refresh();
+        $status = $this->attendanceLogic->calculateStatus($employee, $attendance);
+        $attendance->update(['status' => $status]);
 
         // Invalidate dashboard cache
         \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
 
-        if ($scanCount == 2) {
-            // 2nd scan: Check-out
-            $existingAttendance->update(['check_out' => $now]);
-            // Calculate and update status using new logic
-            $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
-            $existingAttendance->update(['status' => $status]);
+        Log::info('Check-in marked successfully', [
+            'employee_id' => $employee->employee_id,
+            'employee_name' => $employee->name,
+            'attendance_id' => $attendance->id,
+            'scan_count' => 1
+        ]);
 
-            // Invalidate dashboard cache
-            \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
-
-            return response()->json([
-                'message' => 'Check-out marked successfully',
-                'attendance' => $existingAttendance->load('employee')
-            ]);
-        } elseif ($scanCount % 2 == 0) {
-            // Even scans >2: Check-out (initially)
-            $existingAttendance->update(['check_out' => $now]);
-            // Calculate and update status using new logic
-            $status = $this->attendanceLogic->calculateStatus($employee, $existingAttendance);
-            $existingAttendance->update(['status' => $status]);
-
-            // Invalidate dashboard cache
-            \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
-
-            return response()->json([
-                'message' => 'Check-out marked successfully',
-                'attendance' => $existingAttendance->load('employee')
-            ]);
-        } elseif ($scanCount % 2 == 1 && $scanCount > 2) {
-            // Odd scans >2: Break end, retroactively change previous even to break start
-            $existingAttendance->update(['check_out' => null]);
-            $breakStartIndex = $scanCount - 2;
-            $breakStartTime = Carbon::parse($scanTimes[$breakStartIndex]);
-            BreakRecord::create([
-                'attendance_id' => $existingAttendance->id,
-                'break_start' => $breakStartTime,
-                'break_end' => $now,
-            ]);
-
-            // Invalidate dashboard cache
-            \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
-
-            return response()->json([
-                'message' => 'Break end marked successfully',
-                'attendance' => $existingAttendance->load('employee')
-            ]);
-        }
+        return response()->json([
+            'message' => 'Check-in marked successfully',
+            'attendance' => $attendance->load('employee')
+        ], 201);
     }
-
-    // Create new attendance record with check-in status
-    $attendance = Attendance::create([
-        'employee_id' => $employee->id,
-        'check_in' => $now,
-        'date' => $today,
-        'status' => 'present', // Default status at check-in
-        'scan_count' => 1,
-        'scan_times' => [$now->toDateTimeString()],
-    ]);
-
-    // Refresh and calculate proper status based on policy
-    $attendance->refresh();
-    $status = $this->attendanceLogic->calculateStatus($employee, $attendance);
-    $attendance->update(['status' => $status]);
-
-    // Invalidate dashboard cache
-    \Cache::forget('dashboard_data_' . Carbon::today()->toDateString());
-
-    Log::info('Check-in marked successfully', [
-        'employee_id' => $employee->employee_id,
-        'employee_name' => $employee->name,
-        'attendance_id' => $attendance->id,
-        'scan_count' => 1
-    ]);
-
-    return response()->json([
-        'message' => 'Check-in marked successfully',
-        'attendance' => $attendance->load('employee')
-    ], 201);
-}
 
     public function getEmployeeMonthlyAttendance($employeeId, $year, $month)
     {
@@ -1009,7 +1039,7 @@ class AttendanceController extends Controller
             ->whereBetween('date', [$startDate, $endDate])
             ->with('employee.policy', 'breaks')
             ->get()
-            ->keyBy(function($item) {
+            ->keyBy(function ($item) {
                 return Carbon::parse($item->date)->toDateString();
             });
 
@@ -1045,7 +1075,7 @@ class AttendanceController extends Controller
 
                 // Use AttendanceLogic to calculate the correct status
                 $status = $this->attendanceLogic->calculateStatus($employee, $attendance);
-                
+
                 // Update the database record if status changed
                 if ($status !== $attendance->status) {
                     $attendance->update(['status' => $status]);
@@ -1067,7 +1097,7 @@ class AttendanceController extends Controller
                     'check_in' => $checkIn,
                     'check_out' => $checkOut,
                     'total_hours' => $totalHours,
-                    'breaks' => $attendance->breaks->map(function($break) {
+                    'breaks' => $attendance->breaks->map(function ($break) {
                         return [
                             'break_start' => $break->break_start ? $break->break_start->toISOString() : null,
                             'break_end' => $break->break_end ? $break->break_end->toISOString() : null,
@@ -1140,7 +1170,7 @@ class AttendanceController extends Controller
 
         $columns = ['Date', 'Check In', 'Check Out', 'Total Hours', 'Breaks', 'Break Details', 'Status'];
 
-        $callback = function() use ($attendances, $columns) {
+        $callback = function () use ($attendances, $columns) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
@@ -1204,7 +1234,7 @@ class AttendanceController extends Controller
 
         $columns = ['Date', 'Check In', 'Check Out', 'Total Hours', 'Breaks', 'Break Details', 'Status'];
 
-        $callback = function() use ($attendance, $date, $columns) {
+        $callback = function () use ($attendance, $date, $columns) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
@@ -1271,7 +1301,7 @@ class AttendanceController extends Controller
             ->whereBetween('date', [$startDate, $endDate])
             ->with('employee.policy', 'breaks')
             ->get()
-            ->keyBy(function($item) {
+            ->keyBy(function ($item) {
                 return Carbon::parse($item->date)->toDateString();
             });
 
@@ -1287,7 +1317,7 @@ class AttendanceController extends Controller
 
         $columns = ['Date', 'Check In', 'Check Out', 'Total Hours', 'Breaks', 'Break Details', 'Status'];
 
-        $callback = function() use ($attendances, $startDate, $endDate, $columns) {
+        $callback = function () use ($attendances, $startDate, $endDate, $columns) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
@@ -1304,11 +1334,11 @@ class AttendanceController extends Controller
                     if (is_array($attendance->breaks) && count($attendance->breaks) > 0) {
                         $breaksText = count($attendance->breaks) . ' times';
                         $breakDetailsArray = [];
-                    foreach ($attendance->breaks as $index => $break) {
-                        $out = $break->break_start ? Carbon::parse($break->break_start)->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                        $in = $break->break_end ? Carbon::parse($break->break_end)->setTimezone(config('app.timezone'))->format('H:i') : '-';
-                        $breakDetailsArray[] = "Break " . ($index + 1) . ": {$out}-{$in}";
-                    }
+                        foreach ($attendance->breaks as $index => $break) {
+                            $out = $break->break_start ? Carbon::parse($break->break_start)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                            $in = $break->break_end ? Carbon::parse($break->break_end)->setTimezone(config('app.timezone'))->format('H:i') : '-';
+                            $breakDetailsArray[] = "Break " . ($index + 1) . ": {$out}-{$in}";
+                        }
                         $breakDetails = implode(', ', $breakDetailsArray);
                     } elseif (is_numeric($attendance->breaks)) {
                         $breaksText = $attendance->breaks . ' times';
@@ -1385,10 +1415,12 @@ class AttendanceController extends Controller
         // Generate the report data based on type
         if ($reportType === 'daily') {
             $date = date('Y-m-d');
-            $attendances = [Attendance::where('employee_id', $employee->id)
-                ->where('date', $date)
-                ->with('employee', 'breaks')
-                ->first()];
+            $attendances = [
+                Attendance::where('employee_id', $employee->id)
+                    ->where('date', $date)
+                    ->with('employee', 'breaks')
+                    ->first()
+            ];
         } elseif ($reportType === 'monthly') {
             $attendances = $this->getEmployeeMonthlyAttendance($request->employee_id, $year, $month);
         } elseif ($reportType === 'custom') {
@@ -1396,7 +1428,7 @@ class AttendanceController extends Controller
                 ->whereBetween('date', [$startDate, $endDate])
                 ->with('employee', 'breaks')
                 ->get()
-                ->keyBy(function($item) {
+                ->keyBy(function ($item) {
                     return Carbon::parse($item->date)->toDateString();
                 });
 
@@ -1413,7 +1445,7 @@ class AttendanceController extends Controller
                         'check_in' => $attendance->check_in ? $attendance->check_in->toISOString() : null,
                         'check_out' => $attendance->check_out ? $attendance->check_out->toISOString() : null,
                         'total_hours' => $attendance->total_hours,
-                        'breaks' => $attendance->breaks->map(function($break) {
+                        'breaks' => $attendance->breaks->map(function ($break) {
                             return [
                                 'break_start' => $break->break_start ? $break->break_start->toISOString() : null,
                                 'break_end' => $break->break_end ? $break->break_end->toISOString() : null,
@@ -1476,10 +1508,10 @@ class AttendanceController extends Controller
         try {
             Mail::raw('Please find attached the attendance report.', function ($message) use ($request, $employee, $csvContent) {
                 $message->to($request->email)
-                        ->subject('Attendance Report for ' . $employee->name)
-                        ->attachData($csvContent, 'attendance-report.csv', [
-                            'mime' => 'text/csv',
-                        ]);
+                    ->subject('Attendance Report for ' . $employee->name)
+                    ->attachData($csvContent, 'attendance-report.csv', [
+                        'mime' => 'text/csv',
+                    ]);
             });
 
             return response()->json(['message' => 'Attendance report sent successfully']);
