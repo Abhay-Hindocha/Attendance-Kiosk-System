@@ -1,3 +1,251 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 
+ * Gap Fallbacks for Legacy iOS (12-14.4)
+ * Flexbox gap is not supported until iOS 14.5
+ * Using negative margin approach with overflow containment for compatibility
+ * 
+ * @supports is supported on iOS 12+, so we wrap fallbacks
+ * to ensure modern browsers use native gap
+ */
+@layer utilities {
+
+    /* Only apply margin-based fallbacks for browsers without gap support */
+    @supports not (gap: 1rem) {
+
+        /* Prevent overflow from negative margins */
+        [class*="gap-"] {
+            overflow: hidden;
+        }
+
+        /* Gap-1 (0.25rem / 4px) */
+        .gap-1 {
+            margin: -0.125rem;
+            overflow: visible;
+        }
+
+        .gap-1>* {
+            margin: 0.125rem;
+        }
+
+        /* Gap-2 (0.5rem / 8px) */
+        .gap-2 {
+            margin: -0.25rem;
+            overflow: visible;
+        }
+
+        .gap-2>* {
+            margin: 0.25rem;
+        }
+
+        /* Gap-3 (0.75rem / 12px) */
+        .gap-3 {
+            margin: -0.375rem;
+            overflow: visible;
+        }
+
+        .gap-3>* {
+            margin: 0.375rem;
+        }
+
+        /* Gap-4 (1rem / 16px) */
+        .gap-4 {
+            margin: -0.5rem;
+            overflow: visible;
+        }
+
+        .gap-4>* {
+            margin: 0.5rem;
+        }
+
+        /* Gap-5 (1.25rem / 20px) */
+        .gap-5 {
+            margin: -0.625rem;
+            overflow: visible;
+        }
+
+        .gap-5>* {
+            margin: 0.625rem;
+        }
+
+        /* Gap-6 (1.5rem / 24px) */
+        .gap-6 {
+            margin: -0.75rem;
+            overflow: visible;
+        }
+
+        .gap-6>* {
+            margin: 0.75rem;
+        }
+
+        /* Gap-8 (2rem / 32px) */
+        .gap-8 {
+            margin: -1rem;
+            overflow: visible;
+        }
+
+        .gap-8>* {
+            margin: 1rem;
+        }
+
+        /* Gap-x (horizontal only) variants */
+        .gap-x-1 {
+            margin-left: -0.125rem;
+            margin-right: -0.125rem;
+        }
+
+        .gap-x-1>* {
+            margin-left: 0.125rem;
+            margin-right: 0.125rem;
+        }
+
+        .gap-x-2 {
+            margin-left: -0.25rem;
+            margin-right: -0.25rem;
+        }
+
+        .gap-x-2>* {
+            margin-left: 0.25rem;
+            margin-right: 0.25rem;
+        }
+
+        .gap-x-3 {
+            margin-left: -0.375rem;
+            margin-right: -0.375rem;
+        }
+
+        .gap-x-3>* {
+            margin-left: 0.375rem;
+            margin-right: 0.375rem;
+        }
+
+        .gap-x-4 {
+            margin-left: -0.5rem;
+            margin-right: -0.5rem;
+        }
+
+        .gap-x-4>* {
+            margin-left: 0.5rem;
+            margin-right: 0.5rem;
+        }
+
+        /* Gap-y (vertical only) variants */
+        .gap-y-1 {
+            margin-top: -0.125rem;
+            margin-bottom: -0.125rem;
+        }
+
+        .gap-y-1>* {
+            margin-top: 0.125rem;
+            margin-bottom: 0.125rem;
+        }
+
+        .gap-y-2 {
+            margin-top: -0.25rem;
+            margin-bottom: -0.25rem;
+        }
+
+        .gap-y-2>* {
+            margin-top: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .gap-y-3 {
+            margin-top: -0.375rem;
+            margin-bottom: -0.375rem;
+        }
+
+        .gap-y-3>* {
+            margin-top: 0.375rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .gap-y-4 {
+            margin-top: -0.5rem;
+            margin-bottom: -0.5rem;
+        }
+
+        .gap-y-4>* {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .gap-y-6 {
+            margin-top: -0.75rem;
+            margin-bottom: -0.75rem;
+        }
+
+        .gap-y-6>* {
+            margin-top: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Responsive variants for MD screens */
+        @media (min-width: 768px) {
+            .md\:gap-6 {
+                margin: -0.75rem;
+                overflow: visible;
+            }
+
+            .md\:gap-6>* {
+                margin: 0.75rem;
+            }
+        }
+
+        /* Space-y fallbacks for vertical spacing */
+        .space-y-1>:not([hidden])~:not([hidden]) {
+            margin-top: 0.25rem;
+        }
+
+        .space-y-2>:not([hidden])~:not([hidden]) {
+            margin-top: 0.5rem;
+        }
+
+        .space-y-3>:not([hidden])~:not([hidden]) {
+            margin-top: 0.75rem;
+        }
+
+        .space-y-4>:not([hidden])~:not([hidden]) {
+            margin-top: 1rem;
+        }
+
+        .space-y-6>:not([hidden])~:not([hidden]) {
+            margin-top: 1.5rem;
+        }
+
+        /* Space-x fallbacks for horizontal spacing */
+        .space-x-1>:not([hidden])~:not([hidden]) {
+            margin-left: 0.25rem;
+        }
+
+        .space-x-2>:not([hidden])~:not([hidden]) {
+            margin-left: 0.5rem;
+        }
+
+        .space-x-3>:not([hidden])~:not([hidden]) {
+            margin-left: 0.75rem;
+        }
+
+        .space-x-4>:not([hidden])~:not([hidden]) {
+            margin-left: 1rem;
+        }
+
+        /* Explicitly reset any conflicting margins on flex containers */
+        .flex.gap-2,
+        .flex.gap-3,
+        .flex.gap-4 {
+            display: flex;
+        }
+
+        /* Ensure items-center and justify-center don't break spacing */
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-center {
+            justify-content: center;
+        }
+    }
+}

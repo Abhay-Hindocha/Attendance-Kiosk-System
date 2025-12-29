@@ -11,12 +11,13 @@ import FaceModelService from "../services/FaceModelService";
 import Header from "./Header";
 import Footer from "./Footer";
 
-// Helper to format time with AM/PM
+// Helper to format time with AM/PM in IST timezone
 const formatTime = (date) =>
   date.toLocaleString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
+    timeZone: "Asia/Kolkata", // Force IST timezone
   });
 
 // Try to normalize any kind of time value coming from backend into AM/PM string
@@ -29,18 +30,32 @@ const normalizeActivityTime = (activity) => {
     activity.createdAt ||
     activity.date;
 
-  if (!possible) return activity;
+  if (!possible) {
+    // If no time field found, use current time as fallback
+    return {
+      ...activity,
+      time: formatTime(new Date()),
+    };
+  }
 
   let parsed;
-  // Check if it's just "hh:mm" format
+  // Check if it's just "hh:mm" format (e.g., "14:30")
   if (/^\d{1,2}:\d{2}$/.test(possible)) {
-    parsed = new Date(`2000-01-01T${possible}`);
+    // For time-only format, use today's date
+    const today = new Date();
+    const [hours, minutes] = possible.split(':');
+    parsed = new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(hours), parseInt(minutes));
+  } else if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(possible)) {
+    // Already in AM/PM format, return as-is
+    return activity;
   } else {
+    // Try parsing as a full date-time string
     parsed = new Date(possible);
   }
 
   if (isNaN(parsed.getTime())) {
-    // If it's not a valid Date, keep original
+    // If it's not a valid Date, return with original value
+    console.warn('Failed to parse time:', possible);
     return activity;
   }
 
@@ -477,7 +492,7 @@ const AttendancePage = ({ registerCleanup }) => {
       </style>
       <Header />
 
-      <main className="flex-1 flex flex-col lg:flex-row gap-4 md:gap-6 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-x-hidden">
+      <main className="flex-1 flex flex-col lg:flex-row space-y-4 md:space-y-6 lg:space-y-0 lg:space-x-6 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-x-hidden">
         <div className="flex-1 flex flex-col">
           <div className="bg-white/5 backdrop-blur-sm rounded-2xl border-2 border-white/20 overflow-hidden flex-1 flex flex-col">
             {/* Camera section wrapper */}
@@ -685,7 +700,7 @@ const AttendancePage = ({ registerCleanup }) => {
           </div>
         </div>
 
-        <div className="w-full lg:w-96 flex flex-col gap-4 md:gap-6">
+        <div className="w-full lg:w-96 flex flex-col space-y-4 md:space-y-6">
           <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
             <h2 className="text-white text-lg font-semibold mb-4 flex items-center gap-2">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
@@ -708,8 +723,8 @@ const AttendancePage = ({ registerCleanup }) => {
                     <p className="text-white text-sm font-medium truncate">{a.name}</p>
                     <p className="text-slate-400 text-xs">{a.action}</p>
                   </div>
-                  <div className="text-slate-300 text-xs">
-                    {a.time}
+                  <div className="text-slate-300 text-xs whitespace-nowrap flex-shrink-0">
+                    {a.time || formatTime(new Date())}
                   </div>
                 </div>
               ))}

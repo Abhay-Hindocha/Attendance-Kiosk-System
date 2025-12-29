@@ -290,29 +290,29 @@ export default function AttendanceReportsPage() {
             <p className="text-md text-gray-500">View attendance records</p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap items-center justify-end space-x-2 sm:space-x-3">
             <button
               onClick={() => setShowFilterModal(true)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm"
             >
-              <Filter className="w-5 h-5" />
-              Filter
+              <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Filter</span>
             </button>
             <button
               onClick={() => setShowEmailModal(true)}
               disabled={loading || !selectedEmployee}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md shadow hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md shadow hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-sm"
             >
               <Mail className="w-4 h-4" />
-              Email Report
+              <span className="hidden sm:inline">Email</span>
             </button>
             <button
               onClick={() => setShowExportModal(true)}
               disabled={loading || !selectedEmployee}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-sm"
             >
               <Download className="w-4 h-4" />
-              {loading ? 'Export' : 'Export'}
+              <span className="hidden sm:inline">Export</span>
             </button>
           </div>
         </div>
@@ -364,9 +364,9 @@ export default function AttendanceReportsPage() {
             <div className="text-center font-semibold text-gray-700 text-sm py-2">Sat</div>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 md:gap-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-2">
             {/* leading placeholders */}
-            {cells.slice(0, startingDay).map((_, i) => <div key={`lead-${i}`} className="aspect-square" />)}
+            {cells.slice(0, startingDay).map((_, i) => <div key={`lead-${i}`} className="aspect-square min-w-0" />)}
 
             {cells.slice(startingDay).map((c, idx) => {
               const status = c.rec?.status;
@@ -374,24 +374,24 @@ export default function AttendanceReportsPage() {
               const isWeekend = new Date(c.key).getDay() === 0 || new Date(c.key).getDay() === 6;
 
               return (
-                <div key={`${c.key}-${idx}`} className={`aspect-square border-2 rounded-lg p-2 cursor-pointer transition-all hover:shadow-md ${status ? colorClass : isWeekend ? 'bg-gray-100 border-gray-200' : 'bg-white border-gray-200'}`}>
+                <div key={`${c.key}-${idx}`} className={`aspect-square border-2 rounded-lg p-1 sm:p-2 cursor-pointer transition-all hover:shadow-md min-w-0 ${status ? colorClass : isWeekend ? 'bg-gray-100 border-gray-200' : 'bg-white border-gray-200'}`}>
                   <div className="h-full flex flex-col">
 
                     {/* Day */}
-                    <span className={`text-sm font-semibold mb-1 ${status ? 'text-white' : 'text-gray-700'}`}>{c.day}</span>
+                    <span className={`text-xs sm:text-sm font-semibold mb-1 ${status ? 'text-white' : 'text-gray-700'}`}>{c.day}</span>
 
                     {/* Status details */}
                     <div className="flex-1 flex flex-col justify-center text-xs">
                       {c.rec ? (
                         <>
                           {status === 'Holiday' ? (
-                            <span className={`font-medium ${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.holiday?.name || 'Holiday'}</span>
+                            <span className={`font-medium text-xs ${status ? 'text-white' : 'text-gray-700'} truncate`}>{c.rec.holiday?.name || 'Holiday'}</span>
                           ) : status === 'On Leave' ? (
-                            <span className={`font-medium ${status ? 'text-white' : 'text-gray-700'}`}>{c.rec.leaveReason || 'On Leave'}</span>
+                            <span className={`font-medium text-xs ${status ? 'text-white' : 'text-gray-700'} truncate`}>{c.rec.leaveReason || 'On Leave'}</span>
                           ) : status === 'Present' || status === 'Late Arrival' || status === 'Early Departure' || status === 'Half Day' ? (
                             <>
-                              <span className={`${status ? 'text-white' : 'text-gray-700'}`}>In: {c.rec.checkIn}</span>
-                              <span className={`${status ? 'text-white' : 'text-gray-700'}`}>Out: {c.rec.checkOut}</span>
+                              <span className={`text-xs ${status ? 'text-white' : 'text-gray-700'} truncate`}>In: {c.rec.checkIn}</span>
+                              <span className={`text-xs ${status ? 'text-white' : 'text-gray-700'} truncate`}>Out: {c.rec.checkOut}</span>
                             </>
                           ) : (
                             <span>&nbsp;</span>
@@ -409,14 +409,14 @@ export default function AttendanceReportsPage() {
           </div>
 
           {/* Legend */}
-          <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-200 grid grid-cols-2 sm:flex sm:flex-wrap gap-3 md:gap-4">
-            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-500 rounded"></div><span className="text-sm text-gray-700">Present</span></div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-yellow-500 rounded"></div><span className="text-sm text-gray-700">Half Day</span></div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-500 rounded"></div><span className="text-sm text-gray-700">Absent</span></div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-blue-500 rounded"></div><span className="text-sm text-gray-700">Holiday</span></div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-500 rounded"></div><span className="text-sm text-gray-700">On Leave</span></div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-purple-500 rounded"></div><span className="text-sm text-gray-700">Late Arrival</span></div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-pink-500 rounded"></div><span className="text-sm text-gray-700">Early Departure</span></div>
+          <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-200 grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap gap-3 md:gap-4">
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-500 rounded flex-shrink-0"></div><span className="text-xs sm:text-sm text-gray-700">Present</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-yellow-500 rounded flex-shrink-0"></div><span className="text-xs sm:text-sm text-gray-700">Half Day</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-500 rounded flex-shrink-0"></div><span className="text-xs sm:text-sm text-gray-700">Absent</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-blue-500 rounded flex-shrink-0"></div><span className="text-xs sm:text-sm text-gray-700">Holiday</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-500 rounded flex-shrink-0"></div><span className="text-xs sm:text-sm text-gray-700">On Leave</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-purple-500 rounded flex-shrink-0"></div><span className="text-xs sm:text-sm text-gray-700">Late Arrival</span></div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 bg-pink-500 rounded flex-shrink-0"></div><span className="text-xs sm:text-sm text-gray-700">Early Departure</span></div>
           </div>
         </div>
 
@@ -463,7 +463,7 @@ export default function AttendanceReportsPage() {
                             return 'No Policy';
                           })()}
                         </p>
-                          
+
                       </div>
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${log.status === 'Present' ? 'bg-green-100 text-green-700' :
                         log.status === 'Absent' ? 'bg-red-100 text-red-800' :

@@ -91,16 +91,15 @@ const Header = () => {
 
   return (
     <header
-      className={`${
-        isAttendancePage ? 'bg-white/10 backdrop-blur-sm border-b border-white/20 px-4 md:px-8 py-4 md:py-6' : 'bg-white border-b border-gray-200 px-4 py-3 shadow-sm sticky top-0 z-50'
-      }`}
+      className={`${isAttendancePage ? 'bg-white/10 backdrop-blur-sm border-b border-white/20 px-4 md:px-8 py-4 md:py-6' : 'bg-white border-b border-gray-200 px-4 py-3 shadow-sm sticky top-0 z-50'
+        }`}
     >
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center space-x-4">
             {/* Left: Brand */}
             {isAttendancePage ? (
-              <div className="flex items-center gap-3 md:gap-4">
+              <div className="flex items-center space-x-3 md:space-x-4">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-xl flex items-center justify-center">
                   <Camera className=" md:w-6 md:h-6 lg:w-6 lg:h-6 text-slate-900" />
                 </div>
@@ -111,33 +110,33 @@ const Header = () => {
               </div>
             ) : (
               <>
-                <h1 className="text-base md:text-lg font-semibold text-gray-900">Admin Panel</h1>
-                <span className="hidden md:inline-block text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Logged in as Admin</span>
+                <h1 className="text-base md:text-lg font-semibold text-gray-900 relative">Admin Panel</h1>
+                <span className="hidden md:inline-block text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded ml-2">Logged in as Admin</span>
               </>
             )}
           </div>
 
           {/* Right side */}
           {isAttendancePage ? (
-            <div className="flex items-center gap-3 md:gap-6">
+            <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-6">
               <div className="text-right">
-                <div className="text-xl md:text-3xl font-bold text-white">{formatTime(currentTime)}</div>
+                <div className="text-lg sm:text-xl md:text-3xl font-bold text-white">{formatTime(currentTime)}</div>
                 <div className="text-xs md:text-sm text-slate-300">{formatDate(currentTime)}</div>
               </div>
               <Link
                 to="/login"
-                className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/30 text-white px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2"
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/30 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-all flex items-center space-x-2 text-sm"
               >
                 <Lock className="w-4 h-4" />
-                <span className="hidden md:inline">Admin</span>
+                <span className="hidden sm:inline">Admin</span>
               </Link>
-              <div className="flex items-center gap-2">
-                {isOnline ? <Wifi className="w-5 h-5 text-green-400" /> : <WifiOff className="w-5 h-5 text-red-400" />}
+              <div className="flex items-center">
+                {isOnline ? <Wifi className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" /> : <WifiOff className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />}
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <div ref={dropdownRef} className="hidden lg:flex items-center gap-2">
+            <div className="flex items-center space-x-2">
+              <div ref={dropdownRef} className="hidden lg:flex items-center space-x-2">
                 {navigation.map((item) => {
                   const Icon = item.icon;
                   if (item.dropdown) {
@@ -148,9 +147,8 @@ const Header = () => {
                       <div key={item.name} className="relative">
                         <button
                           onClick={() => setIsOpen(!isOpen)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            isDropdownActive ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
+                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isDropdownActive ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
                         >
                           <Icon className="w-4 h-4" />
                           <span>{item.name}</span>
@@ -166,9 +164,8 @@ const Header = () => {
                                   key={subItem.name}
                                   to={subItem.href}
                                   onClick={() => setIsOpen(false)}
-                                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
-                                    subActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
-                                  }`}
+                                  className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium transition-colors ${subActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
                                 >
                                   <SubIcon className="w-4 h-4" />
                                   <span>{subItem.name}</span>
@@ -189,9 +186,8 @@ const Header = () => {
                           setIsPoliciesDropdownOpen(false);
                           setIsRequestsDropdownOpen(false);
                         }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
                       >
                         <Icon className="w-4 h-4" />
                         <span>{item.name}</span>
@@ -210,7 +206,7 @@ const Header = () => {
                       window.location.href = '/login';
                     }
                   }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Logout</span>
@@ -238,7 +234,7 @@ const Header = () => {
                   key={item.name}
                   to={item.href}
                   onClick={() => setIsMenuOpen(false)}
-                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors
+                  className={`flex items-center justify-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors
                     ${active
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -260,7 +256,7 @@ const Header = () => {
                 window.location.href = '/login';
               }
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+            className="w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
           >
             <LogOut className="w-4 h-4" />
             <span>Logout</span>
