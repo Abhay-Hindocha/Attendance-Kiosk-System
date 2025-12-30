@@ -55,7 +55,6 @@ const normalizeActivityTime = (activity) => {
 
   if (isNaN(parsed.getTime())) {
     // If it's not a valid Date, return with original value
-    console.warn('Failed to parse time:', possible);
     return activity;
   }
 
@@ -101,9 +100,12 @@ const AttendancePage = ({ registerCleanup }) => {
   const [countdown, setCountdown] = useState(15);
   const [recentActivities, setRecentActivities] = useState([]);
   const [currentAction, setCurrentAction] = useState(null);
+  const [videoReady, setVideoReady] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const scanCompletedRef = useRef(false);
+  const isProcessingRef = useRef(false);
 
   const hasInitializedRef = useRef(false);
 
@@ -117,18 +119,42 @@ const AttendancePage = ({ registerCleanup }) => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("isAuthenticated");
 
-    const loadModelsAndCamera = async () => {
+    const initializePage = async () => {
       try {
+        // Models are already loading in the background from app start
+        // Just wait for them to be ready
+        const startTime = performance.now();
         await FaceModelService.loadModels();
+        // Models generally warm up automatically now, but we can explicitly wait if we want strict guarantees
+        // For now, we trust the automatic warm-up trigger in loadModels, 
+        // effectively masking it behind the initial load time or camera setup.
+
+        const loadTime = performance.now() - startTime;
+        console.log(`AttendancePage: Models ready (including background warm-up start) in ${loadTime.toFixed(2)}ms`);
         setModelsLoaded(true);
 
-        // Pre-acquire camera stream after models are loaded
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          streamRef.current = stream;
-        } catch (cameraError) {
-          console.error("Failed to pre-acquire camera stream:", cameraError);
-        }
+        // Pre-acquire camera stream in parallel while models are loading/ready
+        // This provides better UX on first scan
+        console.log('AttendancePage: Attempting to pre-acquire camera stream...');
+        navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user'
+          }
+        })
+          .then(stream => {
+            console.log('AttendancePage: Camera stream pre-acquired successfully', {
+              tracks: stream.getTracks().length,
+              videoTracks: stream.getVideoTracks().length,
+              active: stream.active
+            });
+            streamRef.current = stream;
+          })
+          .catch(cameraError => {
+            console.warn("Failed to pre-acquire camera stream:", cameraError);
+            // This is not critical, camera will be requested on first scan
+          });
       } catch (error) {
         console.error("Failed to load face-api models:", error);
         notify("Failed to load face recognition models");
@@ -145,7 +171,8 @@ const AttendancePage = ({ registerCleanup }) => {
       }
     };
 
-    loadModelsAndCamera();
+    // Run initialization tasks in parallel
+    initializePage();
     fetchLiveActivity();
 
     // Register cleanup for route changes
@@ -167,19 +194,58 @@ const AttendancePage = ({ registerCleanup }) => {
     };
   }, [registerCleanup]);
 
+  // Start video when scanning begins
+  useEffect(() => {
+    if (isScanning) {
+      startVideo();
+    }
+  }, [isScanning]);
+
   const startVideo = async () => {
-    if (streamRef.current && videoRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-    } else {
-      // Fallback: request camera access if pre-acquired stream failed
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    if (!videoRef.current) {
+      console.log('AttendancePage: Video ref not available');
+      return;
+    }
+
+    try {
+      // If we already have a pre-acquired stream, use it
+      if (streamRef.current && streamRef.current.active) {
+        console.log('AttendancePage: Using pre-acquired stream', {
+          active: streamRef.current.active,
+          tracks: streamRef.current.getTracks().length
+        });
+        videoRef.current.srcObject = streamRef.current;
+        // Ensure video starts playing
+        try {
+          await videoRef.current.play();
+        } catch (playError) {
+          console.warn('AttendancePage: Initial play failed, will retry:', playError);
+        }
+
+      } else {
+        // Request camera access if no pre-acquired stream
+        console.log('AttendancePage: Pre-acquired stream not available, requesting new one...');
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user'
+          }
+        });
+
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-      } catch (error) {
-        console.error("Camera error:", error);
-        setStatus("Camera access denied");
+        // Ensure video starts playing
+        try {
+          await videoRef.current.play();
+        } catch (playError) {
+          console.warn('AttendancePage: Play failed:', playError);
+        }
+
       }
+    } catch (error) {
+      console.error("Camera error:", error);
+      setStatus("Camera access denied");
     }
   };
 
@@ -198,13 +264,17 @@ const AttendancePage = ({ registerCleanup }) => {
       return;
     }
 
+    if (isScanning) {
+      return;
+    }
+
     setIsScanning(true);
     setStatus("analyzing");
     setRecognizedEmployee(null);
     setCountdown(15);
+    setVideoReady(false); // Reset video ready state for smooth transition
+    scanCompletedRef.current = false; // Reset for new scan
     notify("Starting face scan...");
-
-    await startVideo();
 
     let recognitionAttempted = false;
     let scanCompleted = false;
@@ -213,32 +283,43 @@ const AttendancePage = ({ registerCleanup }) => {
     let timeoutId = null;
     let recognitionInterval = null;
     let countdownInterval = null;
+    let countdownValue = 15;
 
-    // Start countdown
+    // Start countdown - simpler version that doesn't depend on video readyState
     countdownInterval = setInterval(() => {
-      setCountdown((prev) => {
-        const newCountdown = Math.max(0, prev - 1);
-        if (newCountdown === 0) {
-          clearInterval(countdownInterval);
-          if (!scanCompleted) {
-            scanCompleted = true;
-            clearInterval(recognitionInterval);
-            setIsScanning(false);
-            setStatus("Face not recognized");
-            stopVideo();
-            setTimeout(() => {
-              setStatus("ready");
-            }, 2000);
-          }
+      countdownValue = Math.max(0, countdownValue - 1);
+      setCountdown(countdownValue);
+
+      if (countdownValue === 0) {
+        clearInterval(countdownInterval);
+        if (!scanCompleted) {
+          scanCompleted = true;
+          clearInterval(recognitionInterval);
+          setIsScanning(false);
+          setStatus("Face not recognized");
+          stopVideo();
+          setTimeout(() => {
+            setStatus("ready");
+          }, 2000);
         }
-        return newCountdown;
-      });
+      }
     }, 1000);
 
-    let isProcessing = false;
-
     const attemptRecognition = async () => {
-      if (recognitionAttempted || scanCompleted || isProcessing) return;
+      if (recognitionAttempted || scanCompletedRef.current || isProcessingRef.current) return;
+
+      // Validate video element is ready before attempting face detection
+      if (!videoRef.current || !videoRef.current.srcObject || videoRef.current.readyState < 2) {
+        console.log('AttendancePage: Video not ready for detection', {
+          hasRef: !!videoRef.current,
+          hasSrcObject: videoRef.current ? !!videoRef.current.srcObject : false,
+          readyState: videoRef.current?.readyState || 'N/A'
+        });
+        return;
+      }
+
+      // Set processing flag immediately to prevent overlapping attempts
+      isProcessingRef.current = true;
 
       try {
         // Use SSD MobileNet directly for better accuracy and privacy (client-side only)
@@ -252,17 +333,19 @@ const AttendancePage = ({ registerCleanup }) => {
           .withFaceDescriptor();
 
         if (detection) {
+
           notify("Face detected, extracting features...");
           const descriptor = Array.from(detection.descriptor);
-          notify("Recognizing face...");
 
-          isProcessing = true;
+          notify("Recognizing face...");
           // Lower threshold to 0.4 for stricter matching, aligned with backend default
           const result = await ApiService.recognizeFace(descriptor, 0.4);
+          console.log('AttendancePage: Recognition result:', result);
 
           if (result.match && !attendanceMarked && !isMarkingAttendance) {
             recognitionAttempted = true;
             scanCompleted = true;
+            scanCompletedRef.current = true;
             attendanceMarked = true;
             isMarkingAttendance = true;
 
@@ -329,6 +412,9 @@ const AttendancePage = ({ registerCleanup }) => {
                 setRecognizedEmployee(null);
                 setMarkedTime(null);
               }, 2000);
+
+              // Exit the handleScan function after successful recognition
+              return;
             } catch (attendanceError) {
               console.log("Attendance marking error response:", attendanceError.response);
               const response = attendanceError.response;
@@ -345,6 +431,14 @@ const AttendancePage = ({ registerCleanup }) => {
                   msg.includes("inactive employees") ||
                   (msg.includes("inactive") && msg.includes("not allowed"))
                 ) {
+                  scanCompletedRef.current = true;
+                  clearInterval(countdownInterval);
+                  if (recognitionInterval) clearInterval(recognitionInterval);
+                  if (timeoutId) clearTimeout(timeoutId);
+                  setIsScanning(false);
+                  setCountdown(0);
+                  stopVideo();
+
                   const now = new Date();
                   setMarkedTime(now);
                   setStatus("Inactive employees cannot mark attendance");
@@ -360,6 +454,14 @@ const AttendancePage = ({ registerCleanup }) => {
                   attendanceError.message &&
                   attendanceError.message.includes("already marked")
                 ) {
+                  scanCompletedRef.current = true;
+                  clearInterval(countdownInterval);
+                  if (recognitionInterval) clearInterval(recognitionInterval);
+                  if (timeoutId) clearTimeout(timeoutId);
+                  setIsScanning(false);
+                  setCountdown(0);
+                  stopVideo();
+
                   const now = new Date();
                   setMarkedTime(now);
                   setStatus("Attendance marked successfully!");
@@ -382,6 +484,14 @@ const AttendancePage = ({ registerCleanup }) => {
                     setMarkedTime(null);
                   }, 2000);
                 } else {
+                  scanCompletedRef.current = true;
+                  clearInterval(countdownInterval);
+                  if (recognitionInterval) clearInterval(recognitionInterval);
+                  if (timeoutId) clearTimeout(timeoutId);
+                  setIsScanning(false);
+                  setCountdown(0);
+                  stopVideo();
+
                   console.error("Attendance marking error:", attendanceError);
                   setStatus("Face recognized but attendance marking failed");
                   notify("Face recognized but attendance marking failed");
@@ -443,15 +553,25 @@ const AttendancePage = ({ registerCleanup }) => {
         console.error("Recognition error:", error);
         notify("Recognition attempt failed: " + error.message);
       } finally {
-        isProcessing = false;
+        isProcessingRef.current = false;
       }
     };
 
-    // Attempt recognition every 2 seconds during the scan period
-    recognitionInterval = setInterval(attemptRecognition, 2000);
+    // Attempt recognition with proper timing
+    let isFirstAttempt = true;
 
-    // Initial attempt
-    await attemptRecognition();
+    // Start recognition interval (every 1.5 seconds)
+    // First attempt will happen at 1.5s to ensure video is ready
+    recognitionInterval = setInterval(() => {
+      if (!isProcessingRef.current && !scanCompletedRef.current) {
+        console.log('AttendancePage: Recognition interval fired');
+        attemptRecognition();
+      } else {
+        if (isProcessingRef.current) {
+          console.log('AttendancePage: Skipping recognition - already processing');
+        }
+      }
+    }, 1500);
 
     // Timeout after 15 seconds if not recognized
     timeoutId = setTimeout(() => {
@@ -602,7 +722,7 @@ const AttendancePage = ({ registerCleanup }) => {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center space-y-6 mb-2 w-full">
-                    {/* CAMERA + CANVAS BLOCK WITH FIXED HEIGHT */}
+                    {/* CAMERA + CANVAS BLOCK WITH FIXED HEIGHT - ALWAYS RENDERED WHEN SCANNING */}
                     <div className="w-full flex justify-center px-2">
                       <div
                         className="
@@ -617,9 +737,12 @@ const AttendancePage = ({ registerCleanup }) => {
                           rounded-xl
                           border-4 border-blue-400/40
                           overflow-hidden
-                          bg-black
                           mx-auto
                         "
+                        style={{
+                          backgroundColor: '#000',
+                          backgroundImage: streamRef.current ? 'none' : 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
+                        }}
                       >
                         {/* CAMERA FEED */}
                         <video
@@ -627,6 +750,9 @@ const AttendancePage = ({ registerCleanup }) => {
                           autoPlay
                           muted
                           playsInline
+                          onLoadedData={() => setVideoReady(true)}
+                          onSeeking={() => setVideoReady(false)}
+                          onPlay={() => setVideoReady(true)}
                           className="
                             absolute
                             inset-0
@@ -634,7 +760,10 @@ const AttendancePage = ({ registerCleanup }) => {
                             h-full
                             object-cover
                           "
-                          style={{ transform: "scaleX(1)" }}
+                          style={{
+                            transform: "scaleX(1)",
+                            backgroundColor: '#000'
+                          }}
                         />
 
                         {/* CANVAS OVERLAY */}
@@ -649,6 +778,20 @@ const AttendancePage = ({ registerCleanup }) => {
                           "
                           style={{ transform: "scaleX(1)" }}
                         />
+
+                        {/* LOADING INDICATOR - SHOWN WHILE VIDEO IS NOT READY */}
+                        {!videoReady && (
+                          <div
+                            className="absolute inset-0 flex items-center justify-center bg-black/50 z-10"
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            <div className="flex items-center justify-center space-x-2">
+                              <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse" />
+                              <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+                              <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -656,10 +799,10 @@ const AttendancePage = ({ registerCleanup }) => {
                     <div className="flex flex-col items-center space-y-1 mt-4">
                       <div className="text-center px-4">
                         <p className="text-lg text-white font-medium">
-                          Analyzing face... ({countdown}s)
+                          {videoReady ? `Analyzing face... (${countdown}s)` : `Initializing camera... (${countdown}s)`}
                         </p>
                         <p className="text-sm text-gray-400">
-                          Please keep your face in the frame
+                          {videoReady ? 'Please keep your face in the frame' : 'Please wait while camera is loading'}
                         </p>
                       </div>
                     </div>
@@ -686,11 +829,11 @@ const AttendancePage = ({ registerCleanup }) => {
             <div className="p-4 md:p-6 text-center">
               <button
                 onClick={handleScan}
-                className={`bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-2 md:py-3 rounded-lg font-semibold transition-colors text-sm md:text-base ${!modelsLoaded ? "opacity-50 cursor-not-allowed" : ""
+                className={`bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-2 md:py-3 rounded-lg font-semibold transition-colors text-sm md:text-base ${(isScanning || !modelsLoaded) ? "opacity-50 cursor-not-allowed" : ""
                   }`}
-                disabled={!modelsLoaded}
+                disabled={isScanning || !modelsLoaded}
               >
-                Simulate Face Recognition
+                {isScanning ? "Scanning..." : "Simulate Face Recognition"}
               </button>
             </div>
           </div>

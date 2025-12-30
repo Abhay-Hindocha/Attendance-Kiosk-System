@@ -36,12 +36,8 @@ function RouteChangeHandler({ cleanupRef }) {
 function App() {
   const cleanupRef = useRef(null);
 
-  useEffect(() => {
-    // Start pre-loading models globally as soon as the app starts
-    FaceModelService.loadModels().catch(err => {
-      console.warn('App: Initial model pre-load failed (will retry on usage):', err);
-    });
-  }, []);
+  // Models are already loading from FaceModelService module import
+  // No need to explicitly load them again here
 
   return (
     <Router>
