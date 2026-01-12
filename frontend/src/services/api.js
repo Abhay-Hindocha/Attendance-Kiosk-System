@@ -112,16 +112,18 @@ class ApiService {
   }
 
   async createEmployee(employeeData) {
+    const isFormData = employeeData instanceof FormData;
     return this.request('/employees', {
       method: 'POST',
-      body: JSON.stringify(employeeData),
+      body: isFormData ? employeeData : JSON.stringify(employeeData),
     });
   }
 
   async updateEmployee(id, employeeData) {
+    const isFormData = employeeData instanceof FormData;
     return this.request(`/employees/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(employeeData),
+      body: isFormData ? employeeData : JSON.stringify(employeeData),
     });
   }
 

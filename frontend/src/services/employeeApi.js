@@ -95,9 +95,10 @@ class EmployeeApiService {
   }
 
   async updateProfile(profileData) {
+    const isFormData = profileData instanceof FormData;
     return this.request('/employee/portal/profile', {
       method: 'PUT',
-      body: JSON.stringify(profileData),
+      body: isFormData ? profileData : JSON.stringify(profileData),
     });
   }
 

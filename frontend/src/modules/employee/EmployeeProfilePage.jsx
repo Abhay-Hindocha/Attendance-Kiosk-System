@@ -4,7 +4,7 @@ import { User, Phone, Mail, Building, Calendar, Shield, Edit, Key, FileText, Ref
 import employeeApi from '../../services/employeeApi';
 
 const EmployeeProfilePage = () => {
-  const { profile, refreshProfile } = useEmployeePortal();
+  const { profile, setProfile, refreshProfile } = useEmployeePortal();
   const [activeTab, setActiveTab] = useState('view');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -20,7 +20,8 @@ const EmployeeProfilePage = () => {
   // Profile form state
   const [profileForm, setProfileForm] = useState({
     phone: '',
-    emergency_contact: ''
+    emergency_contact_number: '',
+    profile_photo: null
   });
 
   // Password form state
@@ -64,7 +65,8 @@ const EmployeeProfilePage = () => {
     if (profile) {
       setProfileForm({
         phone: profile.phone || '',
-        emergency_contact: profile.emergency_contact || ''
+        emergency_contact_number: profile.emergency_contact_number || '',
+        profile_photo: null
       });
     }
   }, [profile]);
@@ -74,10 +76,42 @@ const EmployeeProfilePage = () => {
     setIsLoading(true);
     setMessage('');
 
+    console.log('Profile form data:', profileForm);
+    console.log('Profile photo file:', profileForm.profile_photo);
+
     try {
-      await employeeApi.updateProfile(profileForm);
-      setMessage('Profile updated successfully');
-      refreshProfile();
+      let formData;
+      if (profileForm.profile_photo) {
+        console.log('File detected, creating FormData');
+        formData = new FormData();
+        formData.append('phone', profileForm.phone);
+        formData.append('emergency_contact_number', profileForm.emergency_contact_number);
+        formData.append('profile_photo', profileForm.profile_photo);
+        
+        console.log('FormData created with file');
+      } else {
+        console.log('No file, sending as JSON');
+        formData = {
+          phone: profileForm.phone,
+          emergency_contact_number: profileForm.emergency_contact_number
+        };
+      }
+      const response = await employeeApi.updateProfile(formData);
+      setMessage(response.message);
+      setProfile(response.employee);
+      localStorage.setItem('employeeProfile', JSON.stringify(response.employee));
+      
+      // Reset profile form
+      setProfileForm({
+        phone: response.employee.phone || '',
+        emergency_contact_number: response.employee.emergency_contact_number || '',
+        profile_photo: null
+      });
+      
+      // Clear file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (error) {
       if (error.errors) {
         setMessage(Object.values(error.errors).flat().join(', '));
@@ -290,9 +324,13 @@ const EmployeeProfilePage = () => {
             <p className="text-sm md:text-base text-gray-600 mt-1">Manage your personal information and account settings</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-              {profile?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
-            </div>
+            {profile?.profile_photo ? (
+              <img src={`/storage/${profile.profile_photo}`} alt={profile.name} className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                {profile?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+              </div>
+            )}
             <div className="hidden md:block">
               <p className="text-sm font-medium text-gray-900">{profile.name}</p>
               <p className="text-xs text-gray-500">{profile.employee_id}</p>
@@ -364,8 +402,8 @@ const EmployeeProfilePage = () => {
                       <Shield className="w-5 h-5 text-orange-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Emergency Contact</p>
-                      <p className="font-medium text-gray-900">{profile.emergency_contact || 'Not provided'}</p>
+                      <p className="text-sm text-gray-500">Emergency Contact Number</p>
+                      <p className="font-medium text-gray-900">{profile.emergency_contact_number || 'Not provided'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -504,15 +542,35 @@ const EmployeeProfilePage = () => {
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                         <Shield className="w-4 h-4 text-gray-500" />
-                        Emergency Contact
+                        Emergency Contact Number
                       </label>
                       <input
                         type="text"
-                        value={profileForm.emergency_contact}
-                        onChange={(e) => setProfileForm({...profileForm, emergency_contact: e.target.value})}
+                        value={profileForm.emergency_contact_number}
+                        onChange={(e) => setProfileForm({...profileForm, emergency_contact_number: e.target.value})}
                         className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                        placeholder="Enter emergency contact"
+                        placeholder="Enter emergency contact number"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <User className="w-4 h-4 text-gray-500" />
+                        Profile Photo
+                      </label>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          console.log('File selected:', file);
+                          setProfileForm({...profileForm, profile_photo: file});
+                        }}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                      />
+                      {profile?.profile_photo && (
+                        <p className="text-xs text-gray-500">Current photo will be replaced if you select a new one.</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex justify-end pt-4 border-t border-gray-200">

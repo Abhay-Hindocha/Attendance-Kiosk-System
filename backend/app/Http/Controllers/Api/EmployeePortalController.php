@@ -738,7 +738,8 @@ class EmployeePortalController extends Controller
             'name' => $employee->name,
             'email' => $employee->email,
             'phone' => $employee->phone,
-            'emergency_contact' => $employee->emergency_contact,
+            'emergency_contact_number' => $employee->emergency_contact_number,
+            'profile_photo' => $employee->profile_photo,
             'department' => $employee->department,
             'designation' => $employee->designation,
             'join_date' => $employee->join_date,
@@ -762,13 +763,75 @@ class EmployeePortalController extends Controller
 
         $data = $request->validate([
             'phone' => 'nullable|string|max:20',
+            'emergency_contact_number' => 'nullable|string|max:20',
         ]);
 
+        // Handle profile photo separately
+        if ($request->hasFile('profile_photo')) {
+            \Log::info('Profile photo file detected', [
+                'has_file' => $request->hasFile('profile_photo'),
+                'file_size' => $request->file('profile_photo')->getSize(),
+                'file_name' => $request->file('profile_photo')->getClientOriginalName(),
+            ]);
+            
+            $validated = $request->validate([
+                'profile_photo' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            ]);
+            
+            \Log::info('File validation passed');
+            
+            // Delete old photo if exists
+            if ($employee->profile_photo) {
+                \Log::info('Deleting old photo: ' . $employee->profile_photo);
+                \Storage::disk('public')->delete($employee->profile_photo);
+            }
+            
+            $path = $request->file('profile_photo')->store('profile_photos', 'public');
+            \Log::info('File stored at: ' . $path);
+            $data['profile_photo'] = $path;
+        } else {
+            \Log::info('No profile photo file in request');
+        }
+
+        \Log::info('Updating employee with data:', $data);
         $employee->update($data);
+        $employee->refresh();
+
+        // Get leave policies
+        $leavePolicies = $employee->leavePolicies->map(function ($policy) {
+            return [
+                'id' => $policy->id,
+                'name' => $policy->name,
+                'yearly_quota' => $policy->yearly_quota,
+            ];
+        });
+
+        $attendancePolicy = $employee->policy;
 
         return response()->json([
             'message' => 'Profile updated successfully',
-            'employee' => $this->getProfile($request)->getData(),
+            'employee' => [
+                'employee_id' => $employee->employee_id,
+                'name' => $employee->name,
+                'email' => $employee->email,
+                'phone' => $employee->phone,
+                'emergency_contact_number' => $employee->emergency_contact_number,
+                'profile_photo' => $employee->profile_photo,
+                'department' => $employee->department,
+                'designation' => $employee->designation,
+                'join_date' => $employee->join_date,
+                'status' => $employee->status,
+                'leave_policies' => $leavePolicies,
+                'attendance_policy' => $attendancePolicy ? [
+                    'id' => $attendancePolicy->id,
+                    'name' => $attendancePolicy->name,
+                    'work_start_time' => $attendancePolicy->work_start_time,
+                    'work_end_time' => $attendancePolicy->work_end_time,
+                    'break_duration' => ($attendancePolicy->break_hours * 60) + $attendancePolicy->break_minutes,
+                    'grace_period' => $attendancePolicy->late_grace_period,
+                ] : null,
+                'avatar' => $employee->avatar ?: $this->generateAvatar($employee->name),
+            ],
         ]);
     }
 

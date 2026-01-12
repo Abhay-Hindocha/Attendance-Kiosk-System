@@ -21,6 +21,8 @@ class EmployeeController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:employees',
             'phone' => 'nullable|string|max:20',
+            'emergency_contact_number' => 'nullable|string|max:20',
+            'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'department' => 'nullable|string|max:255',
             'designation' => 'nullable|string|max:255',
             'join_date' => 'nullable|date',
@@ -35,6 +37,10 @@ class EmployeeController extends Controller
 
         if (!empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
+        }
+
+        if ($request->hasFile('profile_photo')) {
+            $data['profile_photo'] = $request->file('profile_photo')->store('profile_photos', 'public');
         }
 
         $leavePolicyIds = collect($request->input('leave_policy_ids', []))
@@ -63,6 +69,8 @@ class EmployeeController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:employees,email,' . $employee->id,
             'phone' => 'nullable|string|max:20',
+            'emergency_contact_number' => 'nullable|string|max:20',
+            'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'department' => 'nullable|string|max:255',
             'designation' => 'nullable|string|max:255',
             'join_date' => 'nullable|date',
@@ -79,6 +87,14 @@ class EmployeeController extends Controller
             $data['password'] = Hash::make($data['password']);
         } else {
             unset($data['password']);
+        }
+
+        if ($request->hasFile('profile_photo')) {
+            // Delete old photo if exists
+            if ($employee->profile_photo) {
+                \Storage::disk('public')->delete($employee->profile_photo);
+            }
+            $data['profile_photo'] = $request->file('profile_photo')->store('profile_photos', 'public');
         }
 
         $leavePolicyIds = collect($request->input('leave_policy_ids', []))

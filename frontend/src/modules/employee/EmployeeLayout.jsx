@@ -61,6 +61,7 @@ const EmployeeLayout = () => {
   const value = useMemo(
     () => ({
       profile,
+      setProfile,
       refreshProfile: fetchProfile,
     }),
     [profile, fetchProfile]
