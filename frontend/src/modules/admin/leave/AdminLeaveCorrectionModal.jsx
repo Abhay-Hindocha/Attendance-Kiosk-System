@@ -105,13 +105,12 @@ const AdminLeaveCorrectionModal = ({ onClose, onSuccess }) => {
     if (!value) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
     const s = String(value);
-    const t = s.indexOf('T');
-    if (t > -1) return s.slice(0, t);
+    // For ISO datetimes, parse into a Date and extract local date parts.
     const d = new Date(s);
     if (!isNaN(d.getTime())) {
-      const yyyy = d.getUTCFullYear();
-      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
       return `${yyyy}-${mm}-${dd}`;
     }
     return '';
@@ -120,13 +119,21 @@ const AdminLeaveCorrectionModal = ({ onClose, onSuccess }) => {
   // inclusive day count between two yyyy-mm-dd strings (counts both from & to)
   const inclusiveDaysBetween = (from, to, halfDayFlag = false) => {
     if (!from || !to) return 0;
-    const a = new Date(`${from}T00:00:00Z`);
-    const b = new Date(`${to}T00:00:00Z`);
-    if (isNaN(a.getTime()) || isNaN(b.getTime())) return 0;
+    const parseYMD = (s) => {
+      if (!s) return null;
+      const parts = String(s).split('-').map(Number);
+      if (parts.length !== 3) return null;
+      const [y, m, d] = parts;
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d);
+    };
+
+    const a = parseYMD(from);
+    const b = parseYMD(to);
+    if (!a || !b) return 0;
     const diffMs = b.getTime() - a.getTime();
     const days = Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1;
     if (days <= 0) return 0;
-    // If halfDayFlag provided, treat as 0.5 (but this is a simplistic approach).
     return halfDayFlag ? days - 0.5 : days;
   };
 

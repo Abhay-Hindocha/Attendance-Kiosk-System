@@ -90,9 +90,16 @@ const EmployeeLeaveApplyPage = () => {
 
   const estimatedDays = useMemo(() => {
     if (!form.from_date || !form.to_date) return 0;
-    const from = new Date(form.from_date);
-    const to = new Date(form.to_date);
-    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) return 0;
+    const parseYMD = (s) => {
+      if (!s) return null;
+      const [y, m, d] = s.split('-').map(Number);
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d);
+    };
+
+    const from = parseYMD(form.from_date);
+    const to = parseYMD(form.to_date);
+    if (!from || !to || from > to) return 0;
 
     if (form.partial_day === 'half_day') return 0.5;
 
@@ -101,18 +108,18 @@ const EmployeeLeaveApplyPage = () => {
 
     if (isSandwichRuleEnabled) {
       // Sandwich rule logic: count all days in the range (including weekends)
-      // when the leave spans across weekends (has working days on both sides)
       const totalDays = Math.floor((to - from) / (1000 * 60 * 60 * 24)) + 1;
       return totalDays;
     } else {
       // If sandwich rule is disabled, only count working days (exclude weekends and holidays)
       let workingDays = 0;
       const currentDate = new Date(from);
-      const holidayDates = holidays.map(h => h.date);
+      const holidayDates = holidays.map((h) => h.date);
+
+      const toYMD = (d) => `${d.getFullYear().toString().padStart(4, '0')}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
 
       while (currentDate <= to) {
-        // Check if it's not a weekend (0 = Sunday, 6 = Saturday) and not a holiday
-        const dateString = currentDate.toISOString().split('T')[0];
+        const dateString = toYMD(currentDate);
         if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6 && !holidayDates.includes(dateString)) {
           workingDays++;
         }

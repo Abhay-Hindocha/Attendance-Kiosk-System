@@ -58,13 +58,13 @@ const LeaveApprovalsPage = () => {
     if (!value) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
     const s = String(value);
-    const t = s.indexOf('T');
-    if (t > -1) return s.slice(0, t);
+    // For ISO datetimes (with time or timezone) parse into a Date and extract local date parts.
+    // Avoid parsing plain YYYY-MM-DD because that can shift dates due to timezone.
     const d = new Date(s);
     if (!isNaN(d.getTime())) {
-      const yyyy = d.getUTCFullYear();
-      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
       return `${yyyy}-${mm}-${dd}`;
     }
     return '';

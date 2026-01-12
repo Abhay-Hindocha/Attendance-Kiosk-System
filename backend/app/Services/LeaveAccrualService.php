@@ -76,7 +76,7 @@ class LeaveAccrualService
                 if (!$existingResetLog) {
                     $balance = LeaveBalance::firstOrCreate(
                         ['employee_id' => $employee->id, 'leave_policy_id' => $policy->id, 'year' => $runDate->year],
-                        ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'accrued' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
+                        ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
                     );
                     $resetAmount = $balance->accrued_this_year;
                     if ($resetAmount > 0) {
@@ -163,7 +163,7 @@ class LeaveAccrualService
                 if ($runDate->month == 1) {
                     $balance = LeaveBalance::firstOrCreate(
                         ['employee_id' => $employee->id, 'leave_policy_id' => $policy->id, 'year' => $runDate->year],
-                        ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'accrued' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
+                        ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
                     );
 
                     // Determine maximum entitlement (year quota with proration if applicable)
@@ -172,7 +172,7 @@ class LeaveAccrualService
                     // Set opening balance to the year quota if not already set
                     if ($balance->opening_balance == 0) {
                         $balance->opening_balance = $maxEntitlement;
-                        $balance->accrued = $maxEntitlement;
+                        $balance->accrued_this_year = $maxEntitlement;
                         $balance->updateBalance();
                         \Log::info("LeaveAccrualService: Set opening balance to {$maxEntitlement} for employee {$employee->id} under policy {$policy->id} on {$runDate->toDateString()}");
                     }
@@ -291,7 +291,7 @@ class LeaveAccrualService
             // Update balance - reset to zero
             $balance = LeaveBalance::firstOrCreate(
                 ['employee_id' => $employee->id, 'leave_policy_id' => $policy->id, 'year' => $year],
-                ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'accrued' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
+                ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
             );
             $balance->carry_forward_balance = 0;
             $balance->accrued_this_year = 0;
@@ -387,7 +387,7 @@ class LeaveAccrualService
             // Update balance
             $balance = LeaveBalance::firstOrCreate(
                 ['employee_id' => $employee->id, 'leave_policy_id' => $policy->id, 'year' => $year],
-                ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'accrued' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
+                ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
             );
             $balance->carry_forward_balance += $carryForward;
             $balance->accrued_this_year -= $reset;
@@ -398,7 +398,7 @@ class LeaveAccrualService
                 $nextYear = $year + 1;
                 $nextYearBalance = LeaveBalance::firstOrCreate(
                     ['employee_id' => $employee->id, 'leave_policy_id' => $policy->id, 'year' => $nextYear],
-                    ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'accrued' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
+                    ['accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0, 'opening_balance' => 0, 'used' => 0, 'carried_forward' => 0, 'sandwich_days_charged' => 0]
                 );
 
                 // Determine maximum entitlement (year quota with proration if applicable)
@@ -406,7 +406,7 @@ class LeaveAccrualService
 
                 if ($nextYearBalance->opening_balance == 0) {
                     $nextYearBalance->opening_balance = $maxEntitlement;
-                    $nextYearBalance->accrued = $maxEntitlement;
+                    $nextYearBalance->accrued_this_year = $maxEntitlement;
                     $nextYearBalance->updateBalance();
                     \Log::info("LeaveAccrualService: Reset next year balance to {$maxEntitlement} for employee {$employee->id} under policy {$policy->id} at year end {$yearEndDate->toDateString()}");
                 }

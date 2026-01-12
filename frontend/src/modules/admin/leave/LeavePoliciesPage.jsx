@@ -102,7 +102,9 @@ const LeavePoliciesPage = () => {
       const frontendKey = fieldMappings.fromBackend[backendKey];
       if (transformed[backendKey] !== undefined) {
         transformed[frontendKey] = transformed[backendKey];
-        delete transformed[backendKey];
+        if (backendKey !== frontendKey) {
+          delete transformed[backendKey];
+        }
       }
     });
 
