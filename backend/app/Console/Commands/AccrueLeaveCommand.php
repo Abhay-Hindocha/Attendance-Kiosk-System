@@ -14,7 +14,7 @@ class AccrueLeaveCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'leave:accrue';
+    protected $signature = 'leave:accrue {--date= : The date to run accrual for (YYYY-MM-DD)}';
 
     /**
      * The console command description.
@@ -31,16 +31,16 @@ class AccrueLeaveCommand extends Command
         $accrualService = app(LeaveAccrualService::class);
         $today = now();
 
+        // Check if it's quarter start (months 1,4,7,10) - process quarterly reset first
+        $currentMonth = $today->month;
+        if (in_array($currentMonth, [1, 4, 7, 10])) {
+            $this->info('Processing quarterly reset at quarter start...');
+            $accrualService->runQuarterEndProcess($today);
+        }
+
         // Always accrue monthly leaves
         $this->info('Accruing monthly leaves...');
         $accrualService->runMonthlyAccrual($today);
-
-        // Check if it's quarter end (months 3,6,9,12)
-        $currentMonth = $today->month;
-        if (in_array($currentMonth, [3, 6, 9, 12])) {
-            $this->info('Processing carry forward at quarter end...');
-            $accrualService->runQuarterEndProcess($today);
-        }
 
         // Check for notifications before quarter end
         $accrualService->sendPreResetNotifications($today);

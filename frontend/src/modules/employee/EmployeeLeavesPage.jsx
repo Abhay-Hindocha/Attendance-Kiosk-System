@@ -116,7 +116,7 @@ const EmployeeDashboardPage = () => {
                       <p className={`text-3xl font-bold ${color.text}`}>
                         {balance.available}
                       </p>
-                      <p className="text-xs text-gray-500 mt-0.5">of {balance.total || 0}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">out of {balance.total || 0}</p>
                     </div>
                   </div>
                   <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">

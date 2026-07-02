@@ -87,7 +87,7 @@ class SandwichRuleService
     {
         return Holiday::whereYear('date', $year)
             ->pluck('date')
-            ->map(fn($date) => $date->toDateString())
+            ->map(fn($date) => Carbon::parse($date)->toDateString())
             ->toArray();
     }
 }

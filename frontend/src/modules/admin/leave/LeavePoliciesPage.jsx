@@ -18,7 +18,6 @@ const fieldMappings = {
   // Frontend -> Backend
   toBackend: {
     monthly_accrual: 'monthly_accrual_value',
-    accrual_day: 'accrual_day_of_month',
     carry_forward_quarter_cap: 'carry_forward_max_per_quarter',
     carry_forward_reset_mode: 'carry_forward_reset_frequency',
     max_balance: 'annual_maximum',
@@ -30,7 +29,6 @@ const fieldMappings = {
   // Backend -> Frontend
   fromBackend: {
     monthly_accrual_value: 'monthly_accrual',
-    accrual_day_of_month: 'accrual_day',
     carry_forward_max_per_quarter: 'carry_forward_quarter_cap',
     carry_forward_reset_frequency: 'carry_forward_reset_mode',
     annual_maximum: 'max_balance',
@@ -47,7 +45,7 @@ const defaultForm = {
   description: '',
   yearly_quota: 12,
   monthly_accrual: 1,
-  accrual_day: 1,
+  accrual_day_of_month: 1,
   join_date_proration: true,
   carry_forward_enabled: true,
   carry_forward_quarter_cap: 3,
@@ -145,7 +143,6 @@ const LeavePoliciesPage = () => {
           const modeMapping = {
             quarterly: 'QUARTERLY',
             annual: 'ANNUAL',
-            custom: 'CUSTOM',
           };
           value = modeMapping[value] || 'QUARTERLY';
         }
@@ -156,6 +153,14 @@ const LeavePoliciesPage = () => {
         }
       }
     });
+
+    // If carry forward is disabled, set carry-forward related fields to default values
+    if (!transformed.carry_forward_allowed) {
+      transformed.carry_forward_max_per_quarter = 3;
+      transformed.carry_forward_reset_frequency = 'QUARTERLY';
+      transformed.carry_forward_auto_reset_enabled = true;
+      transformed.reset_notice_days = 3;
+    }
 
     // Required backend field default
     transformed.join_date_proration_rule = 'ACCRUE_FROM_NEXT_MONTH';
@@ -230,7 +235,6 @@ const LeavePoliciesPage = () => {
       description: policy.description ?? '',
       yearly_quota: policy.yearly_quota,
       monthly_accrual: policy.monthly_accrual,
-      accrual_day: policy.accrual_day,
       carry_forward_enabled: policy.carry_forward_enabled,
       sandwich_rule_enabled: policy.sandwich_rule_enabled,
       eligibility_departments: policy.eligibility_departments || [],
@@ -310,18 +314,20 @@ const LeavePoliciesPage = () => {
                 onChange={(e) => handleInput('monthly_accrual', Number(e.target.value))}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2"
               />
-              <p className="text-xs text-gray-500 mt-1">1 leave added on 1st</p>
+              <p className="text-xs text-gray-500 mt-1">1 leave added monthly</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Accrual Day</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Accrual Day of Month *</label>
               <input
                 type="number"
-                min={1}
-                max={28}
-                value={formState.accrual_day}
-                onChange={(e) => handleInput('accrual_day', Number(e.target.value))}
+                value={formState.accrual_day_of_month}
+                onChange={(e) => handleInput('accrual_day_of_month', Number(e.target.value))}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                min={1}
+                max={31}
+                required
               />
+              <p className="text-xs text-gray-500 mt-1">Day of month for accruals</p>
             </div>
           </div>
         ),
@@ -371,7 +377,6 @@ const LeavePoliciesPage = () => {
                   >
                     <option value="quarterly">Quarterly</option>
                     <option value="annual">Annual</option>
-                    <option value="custom">Custom</option>
                   </select>
                 </div>
                 <div>
@@ -635,13 +640,7 @@ const LeavePoliciesPage = () => {
                       Quota: {policy.yearly_quota} / year · +{policy.monthly_accrual} monthly
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-purple-500" />
-                    <span>
-                      Accrual on {policy.accrual_day}
-                      {policy.accrual_day === 1 ? 'st' : 'th'} · Max {policy.max_balance}
-                    </span>
-                  </div>
+
                   <div className="flex items-center gap-2">
                     <RefreshCw className="w-4 h-4 text-orange-500" />
                     <span>

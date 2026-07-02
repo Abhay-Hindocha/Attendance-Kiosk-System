@@ -58,26 +58,45 @@ class LeaveService
         $balances = LeaveBalance::where('leave_policy_id', $policy->id)->get();
 
         foreach ($balances as $balance) {
-            // Skip if already accrued this month
-            if ($balance->last_accrual_date && $balance->last_accrual_date->format('Y-m') === $date->format('Y-m')) {
-                continue;
-            }
-
-            $accrualAmount = $policy->monthly_accrual;
-
-            // Check max balance
-            $newBalance = $balance->balance + $accrualAmount;
-            if ($newBalance > $policy->max_balance) {
-                $accrualAmount = $policy->max_balance - $balance->balance;
-                if ($accrualAmount <= 0) {
-                    continue; // Already at max
+            if ($policy->monthly_accrual_value > 0) {
+                // Monthly accrual policies
+                // Skip if already accrued this month
+                if ($balance->last_accrual_date && $balance->last_accrual_date->format('Y-m') === $date->format('Y-m')) {
+                    continue;
                 }
-            }
 
-            $balance->increment('balance', $accrualAmount);
-            $balance->increment('accrued_this_year', $accrualAmount);
-            $balance->last_accrual_date = $date;
-            $balance->save();
+                $accrualAmount = $policy->monthly_accrual_value;
+
+                // Check max balance
+                $newBalance = $balance->balance + $accrualAmount;
+                if ($newBalance > $policy->annual_maximum) {
+                    $accrualAmount = $policy->annual_maximum - $balance->balance;
+                    if ($accrualAmount <= 0) {
+                        continue; // Already at max
+                    }
+                }
+
+                $balance->increment('balance', $accrualAmount);
+                $balance->increment('accrued_this_year', $accrualAmount);
+                $balance->last_accrual_date = $date;
+                $balance->save();
+            } else {
+                // Yearly quota policies: reset balance to yearly_quota in January
+                if ($date->month === 1) {
+                    // Reset only if not already reset this year
+                    if (!$balance->last_accrual_date || $balance->last_accrual_date->year !== $date->year) {
+                        $balance->balance = $policy->yearly_quota;
+                        $balance->accrued_this_year = 0;
+                        $balance->used = 0;
+                        $balance->carried_forward = 0;
+                        $balance->carry_forward_balance = 0;
+                        $balance->pending_deduction = 0;
+                        $balance->last_accrual_date = $date;
+                        $balance->save();
+                    }
+                }
+                // No accrual for other months
+            }
         }
     }
 
@@ -142,7 +161,7 @@ class LeaveService
         $balances = LeaveBalance::where('leave_policy_id', $policy->id)->get();
 
         foreach ($balances as $balance) {
-            $carryAmount = min($balance->balance, $policy->carry_forward_quarter_cap);
+            $carryAmount = min($balance->balance, $policy->carry_forward_max_per_quarter);
 
             $balance->carry_forward_balance = $carryAmount;
             $balance->balance = 0; // Reset current balance for quarterly carry forward
@@ -164,6 +183,11 @@ class LeaveService
             return 0;
         }
 
-        return $balance->balance + $balance->carry_forward_balance + $balance->accrued_this_year - $balance->pending_deduction;
+        $policy = LeavePolicy::find($policyId);
+        if ($policy && $policy->monthly_accrual_value > 0) {
+            return $balance->accrued_this_year + $balance->carry_forward_balance - $balance->pending_deduction;
+        } else {
+            return $balance->balance - $balance->pending_deduction;
+        }
     }
 }

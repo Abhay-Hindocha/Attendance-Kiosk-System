@@ -13,6 +13,7 @@ class LeaveBalanceService
     {
         $balance = LeaveBalance::where('employee_id', $employeeId)
             ->where('leave_policy_id', $policyId)
+            ->where('year', date('Y'))
             ->first();
 
         if (!$balance) {
@@ -25,8 +26,8 @@ class LeaveBalanceService
     public function updateBalance(int $employeeId, int $policyId, float $amount, string $type, ?string $notes = null): void
     {
         $balance = LeaveBalance::firstOrCreate(
-            ['employee_id' => $employeeId, 'leave_policy_id' => $policyId],
-            ['year' => date('Y'), 'balance' => 0, 'accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0]
+            ['employee_id' => $employeeId, 'leave_policy_id' => $policyId, 'year' => date('Y')],
+            ['balance' => 0, 'accrued_this_year' => 0, 'carry_forward_balance' => 0, 'pending_deduction' => 0]
         );
 
         $balance->balance += $amount;
@@ -46,6 +47,7 @@ class LeaveBalanceService
     {
         $balance = LeaveBalance::where('employee_id', $employeeId)
             ->where('leave_policy_id', $policyId)
+            ->where('year', date('Y'))
             ->first();
 
         if (!$balance || $balance->balance < $days) {
@@ -71,6 +73,7 @@ class LeaveBalanceService
     {
         $balance = LeaveBalance::where('employee_id', $employeeId)
             ->where('leave_policy_id', $policyId)
+            ->where('year', date('Y'))
             ->first();
 
         if ($balance) {

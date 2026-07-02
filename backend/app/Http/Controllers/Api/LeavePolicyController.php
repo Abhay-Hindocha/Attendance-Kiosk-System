@@ -117,7 +117,7 @@ class LeavePolicyController extends Controller
             $uniqueNameRule .= ',' . $policyId;
         }
 
-        return $request->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:255', $uniqueNameRule],
             'code' => ['nullable', 'string', 'max:50', $uniqueCodeRule],
             'description' => ['nullable', 'string'],
@@ -128,10 +128,6 @@ class LeavePolicyController extends Controller
             'accrual_day_of_month' => ['required', 'integer', 'min:1', 'max:28'],
             'join_date_proration_rule' => ['required', 'in:ACCRUE_FROM_NEXT_MONTH,FULL_MONTH'],
             'carry_forward_allowed' => ['boolean'],
-            'carry_forward_max_per_quarter' => ['required', 'integer', 'min:0', 'max:31'],
-            'carry_forward_reset_frequency' => ['required', 'in:QUARTERLY,ANNUAL,CUSTOM'],
-            'carry_forward_auto_reset_enabled' => ['boolean'],
-            'reset_notice_days' => ['required', 'integer', 'min:0', 'max:30'],
             'sandwich_rule_enabled' => ['boolean'],
             'is_active' => ['boolean'],
             'archived' => ['boolean'],
@@ -139,7 +135,23 @@ class LeavePolicyController extends Controller
             'eligibility_departments.*' => ['string'],
             'eligibility_designations' => ['nullable', 'array'],
             'eligibility_designations.*' => ['string'],
-        ]);
+        ];
+
+        // If carry forward is allowed, make related fields required
+        if ($request->boolean('carry_forward_allowed')) {
+            $rules['carry_forward_max_per_quarter'] = ['required', 'integer', 'min:0', 'max:31'];
+            $rules['carry_forward_reset_frequency'] = ['required', 'in:QUARTERLY,ANNUAL'];
+            $rules['carry_forward_auto_reset_enabled'] = ['boolean'];
+            $rules['reset_notice_days'] = ['required', 'integer', 'min:0', 'max:30'];
+        } else {
+            // If carry forward is not allowed, make them optional
+            $rules['carry_forward_max_per_quarter'] = ['nullable', 'integer', 'min:0', 'max:31'];
+            $rules['carry_forward_reset_frequency'] = ['nullable', 'in:QUARTERLY,ANNUAL'];
+            $rules['carry_forward_auto_reset_enabled'] = ['nullable', 'boolean'];
+            $rules['reset_notice_days'] = ['nullable', 'integer', 'min:0', 'max:30'];
+        }
+
+        return $request->validate($rules);
     }
 
     protected function normalizeExamples(?array $examples): ?array

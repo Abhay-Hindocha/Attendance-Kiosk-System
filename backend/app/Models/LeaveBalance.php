@@ -18,13 +18,8 @@ class LeaveBalance extends Model
         'accrued_this_year',
         'last_accrual_date',
         'year',
-        'quarter',
         'opening_balance',
-        'accrued',
         'used',
-        'carried_forward',
-        'reset',
-        'closing_balance',
     ];
 
     protected $casts = [
@@ -34,17 +29,19 @@ class LeaveBalance extends Model
         'accrued_this_year' => 'float',
         'last_accrual_date' => 'date',
         'opening_balance' => 'float',
-        'accrued' => 'float',
         'used' => 'float',
-        'carried_forward' => 'float',
         'sandwich_days_charged' => 'float',
-        'reset' => 'float',
-        'closing_balance' => 'float',
     ];
 
     public function getBalanceAttribute(): float
     {
-        return $this->opening_balance + $this->accrued - $this->used - $this->carried_forward - $this->sandwich_days_charged;
+        return $this->opening_balance + $this->accrued_this_year + $this->carry_forward_balance - $this->used - $this->sandwich_days_charged;
+    }
+
+    public function updateBalance(): void
+    {
+        $this->balance = $this->getBalanceAttribute();
+        $this->save();
     }
 
     public function employee()

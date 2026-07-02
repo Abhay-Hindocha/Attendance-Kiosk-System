@@ -63,12 +63,7 @@ const EmployeeLeaveApplyPage = () => {
   const availableBalance = useMemo(() => {
     const record = balances.find((b) => Number(b.policy?.id) === Number(form.leave_policy_id));
     if (!record) return 0;
-    return (
-      record.balance +
-      record.carry_forward_balance +
-      record.accrued_this_year -
-      record.pending_deduction
-    );
+    return record.available;
   }, [balances, form.leave_policy_id]);
 
   const estimatedDays = useMemo(() => {
@@ -127,8 +122,8 @@ const EmployeeLeaveApplyPage = () => {
       setError('Please provide a reason for the leave request.');
       return;
     }
-    if (selectedPolicy?.code === 'SL' && estimatedDays >= 1 && !form.attachment) {
-      setError('Supporting document is required for medical leave of 1+ days.');
+    if (selectedPolicy?.code === 'SL' && estimatedDays >= 2 && !form.attachment) {
+      setError('Supporting document is required for medical leave of 2+ days.');
       return;
     }
     setSubmitting(true);
@@ -315,7 +310,7 @@ const EmployeeLeaveApplyPage = () => {
                   <p>Sandwich rule is enabled for this policy.</p>
                 )}
                 {selectedPolicy.code === 'SL' && (
-                  <p>Medical leave requires supporting document for 1+ days.</p>
+                  <p>Medical leave requires supporting document for 2+ days.</p>
                 )}
               </div>
             )}

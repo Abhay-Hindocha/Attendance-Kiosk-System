@@ -89,6 +89,7 @@ class EmployeePortalController extends Controller
         foreach ($policies as $policy) {
             $balanceRecord = LeaveBalance::where('employee_id', $employee->id)
                 ->where('leave_policy_id', $policy->id)
+                ->where('year', date('Y'))
                 ->first();
 
             // Create balance record if it doesn't exist
@@ -103,9 +104,10 @@ class EmployeePortalController extends Controller
                     $balanceValue = 0;
                     $accruedThisYear = 0;
                 } else {
-                    $openingBalance = $initialBalance;
+                    // For non-monthly policies, set balance to full yearly quota
+                    $openingBalance = $policy->yearly_quota;
                     $accrued = 0;
-                    $balanceValue = $initialBalance;
+                    $balanceValue = $policy->yearly_quota;
                     $accruedThisYear = 0;
                 }
 
@@ -125,13 +127,14 @@ class EmployeePortalController extends Controller
                 ]);
             }
 
-            $available = $balanceRecord->balance - $balanceRecord->pending_deduction;
-            // For monthly accrual policies, total is the accrued this year, not the balance
+            // For monthly accrual policies, total is accrued this year plus carry forward
+            // For non-monthly policies, total is yearly quota plus carry forward
             if ($policy->monthly_accrual_value > 0) {
                 $total = $balanceRecord->accrued_this_year + $balanceRecord->carry_forward_balance;
             } else {
-                $total = $balanceRecord->balance + $balanceRecord->carry_forward_balance;
+                $total = $policy->yearly_quota + $balanceRecord->carry_forward_balance;
             }
+            $available = $total - $balanceRecord->used - $balanceRecord->pending_deduction - $balanceRecord->sandwich_days_charged;
 
             $leaveBalancesArray[] = [
                 'id' => $policy->id,
@@ -144,6 +147,7 @@ class EmployeePortalController extends Controller
                 'carry_forward_balance' => $balanceRecord->carry_forward_balance,
                 'pending_deduction' => $balanceRecord->pending_deduction,
                 'accrued_this_year' => $balanceRecord->accrued_this_year,
+                'is_monthly_accrual' => $policy->monthly_accrual_value > 0,
             ];
         }
 
@@ -156,10 +160,11 @@ class EmployeePortalController extends Controller
             if ($bal['id']) {
                 $updated = LeaveBalance::where('employee_id', $employee->id)
                     ->where('leave_policy_id', $bal['id'])
+                    ->where('year', date('Y'))
                     ->first();
                 if ($updated) {
                     $bal['pending_deduction'] = $updated->pending_deduction;
-                    $bal['available'] = max(0, $updated->balance - $updated->pending_deduction);
+                    $bal['available'] = max(0, $bal['total'] - $updated->used - $updated->pending_deduction - $updated->sandwich_days_charged);
                 }
             }
         }
@@ -213,6 +218,7 @@ class EmployeePortalController extends Controller
 
         $totalLeavesTaken = LeaveRequest::where('employee_id', $employee->id)
             ->where('status', 'approved')
+            ->whereYear('approved_at', $currentYear)
             ->sum('total_days');
 
         return response()->json([
@@ -248,6 +254,7 @@ class EmployeePortalController extends Controller
         foreach ($policies as $policy) {
             $balanceRecord = LeaveBalance::where('employee_id', $employee->id)
                 ->where('leave_policy_id', $policy->id)
+                ->where('year', date('Y'))
                 ->first();
 
             // Create balance record if it doesn't exist
@@ -259,7 +266,8 @@ class EmployeePortalController extends Controller
                 if ($policy->monthly_accrual_value > 0) {
                     $balanceValue = 0;
                 } else {
-                    $balanceValue = $initialBalance;
+                    // For non-monthly policies, set balance to full yearly quota
+                    $balanceValue = $policy->yearly_quota;
                 }
 
                 $balanceRecord = LeaveBalance::create([
@@ -278,13 +286,24 @@ class EmployeePortalController extends Controller
                 ]);
             }
 
+            // Calculate total and available balance consistently with dashboard
+            if ($policy->monthly_accrual_value > 0) {
+                $total = $balanceRecord->accrued_this_year + $balanceRecord->carry_forward_balance;
+            } else {
+                $total = $policy->yearly_quota + $balanceRecord->carry_forward_balance;
+            }
+            $available = max(0, $total - $balanceRecord->used - $balanceRecord->pending_deduction - $balanceRecord->sandwich_days_charged);
+
             $balances[] = [
                 'id' => $balanceRecord->id,
                 'policy' => $policy,
-                'balance' => $balanceRecord->balance,
+                'balance' => $available, // Use calculated available balance for consistency with dashboard
+                'total' => $total,
+                'available' => $available,
                 'carry_forward_balance' => $balanceRecord->carry_forward_balance,
                 'pending_deduction' => $balanceRecord->pending_deduction,
                 'accrued_this_year' => $balanceRecord->accrued_this_year,
+                'is_monthly_accrual' => $policy->monthly_accrual_value > 0,
             ];
         }
 
@@ -297,6 +316,8 @@ class EmployeePortalController extends Controller
             if ($bal['id']) {
                 $updated = LeaveBalance::find($bal['id']);
                 $bal['pending_deduction'] = $updated->pending_deduction;
+                $bal['available'] = max(0, $bal['total'] - $updated->used - $updated->pending_deduction - $updated->sandwich_days_charged);
+                $bal['balance'] = $bal['available']; // Use the calculated available balance for consistency
             }
         }
 
@@ -661,4 +682,3 @@ class EmployeePortalController extends Controller
         ]);
     }
 }
-

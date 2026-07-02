@@ -66,12 +66,15 @@ class LeaveApprovalController extends Controller
 
             $balance = LeaveBalance::where('employee_id', $leaveRequest->employee_id)
                 ->where('leave_policy_id', $leaveRequest->leave_policy_id)
+                ->where('year', date('Y'))
                 ->lockForUpdate()
                 ->first();
 
             if (!$balance) {
                 abort(response()->json(['error' => 'Leave balance not initialized.'], 422));
             }
+
+            $policy = $leaveRequest->policy;
 
             $balance->pending_deduction = max(0, $balance->pending_deduction - $totalDays);
 
@@ -81,7 +84,14 @@ class LeaveApprovalController extends Controller
             $remaining -= $carryUsage;
 
             if ($remaining > 0) {
-                $balance->balance = max(0, $balance->balance - $remaining);
+                if ($policy->monthly_accrual_value > 0) {
+                    // For monthly accrual policies, deduct from accrued_this_year
+                    $balance->accrued_this_year = max(0, $balance->accrued_this_year - $remaining);
+                } else {
+                    // For yearly quota policies, deduct from balance
+                    $balance->balance = max(0, $balance->balance - $remaining);
+                }
+                $balance->used += $remaining;
             }
 
             $balance->save();
